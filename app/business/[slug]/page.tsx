@@ -28,27 +28,106 @@ import {
   AppWindow,
   Smartphone,
   ArrowUp,
+  LayoutDashboard,
   MessageSquare
 } from "lucide-react";
 import Navbar from "@/components/navbar";
+import { useAuth } from "@/lib/auth-context";
 
 export default function BusinessProfilePage() {
   const params = useParams();
   const slug = (params.slug as string) || "sunny-cafe";
   const business = getBusinessBySlug(slug);
+  const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<"profil" | "review" | "foto" | "info">("profil");
   const [isFollowing, setIsFollowing] = useState(false);
-  const [likes, setLikes] = useState<Record<number, number>>({ 1: 12, 2: 8 });
+  const [likes, setLikes] = useState<Record<number, number>>({ 1: 12, 2: 8, 3: 15, 4: 9, 5: 6, 6: 11 });
   const [likedState, setLikedState] = useState<Record<number, boolean>>({});
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [showAllReviews, setShowAllReviews] = useState(false);
+
+  const mockReviews = [
+    {
+      id: 1,
+      author: "Dinda Putri",
+      initials: "DP",
+      color: "bg-emerald-100 border-emerald-200 text-emerald-800",
+      time: "2 hari yang lalu",
+      count: "1 ulasan",
+      rating: 5,
+      title: "Tempat yang nyaman dengan kopi yang enak",
+      content: "Suasananya di sini benar-benar nyaman, cocok untuk kerja maupun sekadar nongkrong. Kopinya juga enak banget, terutama latte-nya. Pelayanannya ramah dan cepat.",
+      hasImages: true,
+    },
+    {
+      id: 2,
+      author: "Rizky Maulana",
+      initials: "RM",
+      color: "bg-blue-100 border-blue-200 text-blue-800",
+      time: "1 minggu yang lalu",
+      count: "3 ulasan",
+      rating: 4,
+      title: "Tempatnya bagus, makanan juga enak",
+      content: "Overall oke, cuma pas saya datang agak ramai jadi sedikit lama nunggu pesanan. Tapi tetap worth it, makanannya enak dan tempatnya cozy.",
+      hasImages: false,
+    },
+    {
+      id: 3,
+      author: "Budi Santoso",
+      initials: "BS",
+      color: "bg-amber-100 border-amber-200 text-amber-800",
+      time: "2 minggu yang lalu",
+      count: "5 ulasan",
+      rating: 5,
+      title: "Pelayanan sangat profesional dan tepat waktu!",
+      content: "Sangat terkesan dengan keramahan staf dan kebersihan lokasi ini. Semua kebutuhan saya fulfilled dengan cepat. Pasti kembali lagi.",
+      hasImages: false,
+    },
+    {
+      id: 4,
+      author: "Maya Indah",
+      initials: "MI",
+      color: "bg-purple-100 border-purple-200 text-purple-800",
+      time: "3 minggu yang lalu",
+      count: "2 ulasan",
+      rating: 5,
+      title: "Sangat memuaskan, rekomendasi terbaik!",
+      content: "Pengalaman terbaik sejauh ini. Fasilitas sangat lengkap, pencahayaan dan dekorasi ruangan bikin betah berlama-lama. Recommended!",
+      hasImages: true,
+    },
+    {
+      id: 5,
+      author: "Hendra Wijaya",
+      initials: "HW",
+      color: "bg-rose-100 border-rose-200 text-rose-800",
+      time: "1 bulan yang lalu",
+      count: "8 ulasan",
+      rating: 4,
+      title: "Harga terjangkau dan kualitas mantap",
+      content: "Sesuai dengan ekspektasi. Kualitas rasa dan pelayanan sebanding dengan harga yang ditawarkan. Tempat parkir juga cukup luas.",
+      hasImages: false,
+    },
+    {
+      id: 6,
+      author: "Siti Rahma",
+      initials: "SR",
+      color: "bg-teal-100 border-teal-200 text-teal-800",
+      time: "1 bulan yang lalu",
+      count: "4 ulasan",
+      rating: 5,
+      title: "Lokasi strategis & staf sangat ramah",
+      content: "Penjelasannya sangat detail saat ditanya rekomendasi terbaik. Tempatnya harum dan sangat terawat. Pengalaman bintang 5!",
+      hasImages: false,
+    },
+  ];
 
   const toggleLike = (id: number) => {
     setLikedState((prev) => {
       const isAlreadyLiked = prev[id];
       setLikes((likesPrev) => ({
         ...likesPrev,
-        [id]: isAlreadyLiked ? likesPrev[id] - 1 : likesPrev[id] + 1,
+        [id]: isAlreadyLiked ? (likesPrev[id] || 0) - 1 : (likesPrev[id] || 0) + 1,
       }));
       return { ...prev, [id]: !isAlreadyLiked };
     });
@@ -157,7 +236,7 @@ export default function BusinessProfilePage() {
             </div>
 
             {/* Sub-Navigation Tabs Bar */}
-            <div className="flex items-center gap-8 border-b border-slate-100 mt-8 text-sm font-semibold">
+            <div className="flex items-center gap-8 border-b border-slate-100 mt-8 text-sm font-semibold sticky top-20 z-20 bg-white/95 backdrop-blur-md pt-2">
               {[
                 { id: "profil", label: "Profil" },
                 { id: "review", label: `Review (${business.reviewCountFormatted})` },
@@ -186,7 +265,7 @@ export default function BusinessProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* ================= LEFT COLUMN ================= */}
-          <div className="lg:col-span-8 space-y-6">
+          <div className="lg:col-span-8 space-y-6 lg:sticky lg:top-24">
             
             {/* CARD 1: Tentang Business */}
             <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6">
@@ -238,9 +317,14 @@ export default function BusinessProfilePage() {
             <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6">
               {/* Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <h3 className="font-bold text-slate-900 text-lg sm:text-xl">
-                  Ulasan Pelanggan
-                </h3>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-lg sm:text-xl">
+                    Ulasan Pelanggan
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Menampilkan {showAllReviews ? mockReviews.length : Math.min(3, mockReviews.length)} dari {mockReviews.length} ulasan
+                  </p>
+                </div>
                 <div className="flex items-center gap-2 text-xs text-slate-600">
                   <select className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 font-semibold text-slate-800 outline-none focus:border-[#008767]">
                     <option value="Terbaru">Terbaru</option>
@@ -250,130 +334,113 @@ export default function BusinessProfilePage() {
                 </div>
               </div>
 
-              {/* Review Item 1 */}
-              <div className="space-y-4 pb-6 border-b border-slate-100">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 flex items-center justify-center font-bold text-sm">
-                      DP
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-sm">Dinda Putri</h4>
-                      <p className="text-xs text-slate-400">1 ulasan • 2 hari yang lalu</p>
-                    </div>
-                  </div>
-                  <button className="text-slate-400 hover:text-slate-600">
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-amber-500 text-xs font-bold">
-                    <div className="flex text-amber-400">
-                      {"★".repeat(5)}
-                    </div>
-                    <span>5.0</span>
-                  </div>
-
-                  <h5 className="font-bold text-slate-900 text-sm">
-                    Tempat yang nyaman dengan kopi yang enak
-                  </h5>
-
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    Suasananya di sini benar-benar nyaman, cocok untuk kerja maupun sekadar nongkrong. Kopinya juga enak banget, terutama latte-nya. Pelayanannya ramah dan cepat.
-                  </p>
-                </div>
-
-                {/* Attached Images (Styled image placeholder cards without photo dependencies) */}
-                <div className="flex items-center gap-3 pt-1">
-                  {[1, 2, 3].map((imgIdx) => (
-                    <div
-                      key={imgIdx}
-                      className="w-20 h-20 rounded-xl bg-gradient-to-br from-slate-100 via-slate-50 to-emerald-50 border border-slate-200/80 flex items-center justify-center text-slate-400 hover:border-[#008767] transition-colors cursor-pointer"
-                    >
-                      <ImageIcon className="w-5 h-5 text-slate-400" />
-                    </div>
-                  ))}
-                </div>
-
-                {/* Action Bar */}
-                <div className="flex items-center gap-6 pt-2 text-xs font-medium text-slate-500">
-                  <button
-                    onClick={() => toggleLike(1)}
-                    className={`flex items-center gap-1.5 hover:text-[#008767] transition-colors ${
-                      likedState[1] ? "text-[#008767] font-bold" : ""
+              {/* Review Items Container (Scrollable without visible scrollbars when expanded) */}
+              <div
+                className={`space-y-6 transition-all ${
+                  showAllReviews
+                    ? "max-h-[580px] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pr-1"
+                    : ""
+                }`}
+              >
+                {(showAllReviews ? mockReviews : mockReviews.slice(0, 3)).map((rev, index) => (
+                  <div
+                    key={rev.id}
+                    className={`space-y-4 ${
+                      index < (showAllReviews ? mockReviews.length - 1 : 2) ? "pb-6 border-b border-slate-100" : ""
                     }`}
                   >
-                    <ThumbsUp className={`w-3.5 h-3.5 ${likedState[1] ? "fill-[#008767]" : ""}`} />
-                    <span>{likes[1]}</span>
-                  </button>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border ${rev.color}`}>
+                          {rev.initials}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 text-sm">{rev.author}</h4>
+                          <p className="text-xs text-slate-400">{rev.count} • {rev.time}</p>
+                        </div>
+                      </div>
+                      <button className="text-slate-400 hover:text-slate-600">
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                    </div>
 
-                  <button className="flex items-center gap-1.5 hover:text-[#008767] transition-colors">
-                    <MessageCircle className="w-3.5 h-3.5" />
-                    <span>Balas</span>
-                  </button>
-                </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-amber-500 text-xs font-bold">
+                        <div className="flex text-amber-400">
+                          {"★".repeat(rev.rating)}
+                          {"★".repeat(5 - rev.rating).split("").map((_, i) => (
+                            <span key={i} className="text-slate-200">★</span>
+                          ))}
+                        </div>
+                        <span>{rev.rating}.0</span>
+                      </div>
+
+                      <h5 className="font-bold text-slate-900 text-sm">
+                        {rev.title}
+                      </h5>
+
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        {rev.content}
+                      </p>
+                    </div>
+
+                    {/* Attached Images */}
+                    {rev.hasImages && (
+                      <div className="flex items-center gap-3 pt-1">
+                        {[1, 2, 3].map((imgIdx) => (
+                          <div
+                            key={imgIdx}
+                            className="w-20 h-20 rounded-xl bg-gradient-to-br from-slate-100 via-slate-50 to-emerald-50 border border-slate-200/80 flex items-center justify-center text-slate-400 hover:border-[#008767] transition-colors cursor-pointer"
+                          >
+                            <ImageIcon className="w-5 h-5 text-slate-400" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Action Bar */}
+                    <div className="flex items-center gap-6 pt-2 text-xs font-medium text-slate-500">
+                      <button
+                        onClick={() => toggleLike(rev.id)}
+                        className={`flex items-center gap-1.5 hover:text-[#008767] transition-colors ${
+                          likedState[rev.id] ? "text-[#008767] font-bold" : ""
+                        }`}
+                      >
+                        <ThumbsUp className={`w-3.5 h-3.5 ${likedState[rev.id] ? "fill-[#008767]" : ""}`} />
+                        <span>{likes[rev.id] || 0}</span>
+                      </button>
+
+                      <button className="flex items-center gap-1.5 hover:text-[#008767] transition-colors">
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>Balas</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              {/* Review Item 2 */}
-              <div className="space-y-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 border border-blue-200 text-blue-800 flex items-center justify-center font-bold text-sm">
-                      RM
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-sm">Rizky Maulana</h4>
-                      <p className="text-xs text-slate-400">3 ulasan • 1 minggu yang lalu</p>
-                    </div>
-                  </div>
-                  <button className="text-slate-400 hover:text-slate-600">
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-amber-500 text-xs font-bold">
-                    <div className="flex text-amber-400">
-                      {"★".repeat(4)}
-                      <span className="text-slate-200">★</span>
-                    </div>
-                    <span>4.0</span>
-                  </div>
-
-                  <h5 className="font-bold text-slate-900 text-sm">
-                    Tempatnya bagus, makanan juga enak
-                  </h5>
-
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    Overall oke, cuma pas saya datang agak ramai jadi sedikit lama nunggu pesanan. Tapi tetap worth it, makanannya enak dan tempatnya cozy.
-                  </p>
-                </div>
-
-                {/* Action Bar */}
-                <div className="flex items-center gap-6 pt-2 text-xs font-medium text-slate-500">
+              {/* SEE MORE / SEE LESS BUTTON */}
+              {mockReviews.length > 3 && (
+                <div className="pt-2 border-t border-slate-100">
                   <button
-                    onClick={() => toggleLike(2)}
-                    className={`flex items-center gap-1.5 hover:text-[#008767] transition-colors ${
-                      likedState[2] ? "text-[#008767] font-bold" : ""
-                    }`}
+                    onClick={() => setShowAllReviews(!showAllReviews)}
+                    className="w-full py-3 rounded-2xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-[#008767] font-semibold text-xs sm:text-sm border border-slate-200/80 transition-all flex items-center justify-center gap-2 active:scale-98"
                   >
-                    <ThumbsUp className={`w-3.5 h-3.5 ${likedState[2] ? "fill-[#008767]" : ""}`} />
-                    <span>{likes[2]}</span>
-                  </button>
-
-                  <button className="flex items-center gap-1.5 hover:text-[#008767] transition-colors">
-                    <MessageCircle className="w-3.5 h-3.5" />
-                    <span>Balas</span>
+                    <span>
+                      {showAllReviews
+                        ? "Sembunyikan Sebagian Ulasan"
+                        : `Lihat Lebih Banyak Ulasan (${mockReviews.length - 3} ulasan lainnya)`}
+                    </span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${showAllReviews ? "rotate-180" : ""}`} />
                   </button>
                 </div>
-              </div>
+              )}
 
             </div>
           </div>
 
           {/* ================= RIGHT SIDEBAR ================= */}
-          <div className="lg:col-span-4 space-y-6">
+          <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-24">
             
             {/* CARD 1: Rating Breakdown */}
             <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-4">
@@ -518,19 +585,42 @@ export default function BusinessProfilePage() {
               </div>
             </div>
 
-            {/* CARD 5: Klaim Profil Bisnis CTA */}
-            <div className="bg-gradient-to-r from-emerald-50 via-[#ebf7f3] to-teal-50 rounded-3xl border border-emerald-200 p-6 shadow-xs space-y-3">
-              <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
-                <ShieldCheck className="w-5 h-5 text-[#008767]" />
-                <span>Apakah Anda pemilik bisnis ini?</span>
+            {/* CARD 5: Klaim / Kelola Profil Bisnis CTA */}
+            {user?.role === "bisnis" ? (
+              <div className="bg-gradient-to-r from-amber-50 via-amber-50/80 to-emerald-50 rounded-3xl border border-amber-300 p-6 shadow-xs space-y-3">
+                <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                  <LayoutDashboard className="w-5 h-5 text-amber-700" />
+                  <span>Dashboard Admin Bisnis Anda</span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Kelola profil toko, balas review pelanggan, dan lihat statistik analitik usaha Anda.
+                </p>
+                <a
+                  href="http://localhost:3000/admin"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full text-center py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition-all active:scale-95"
+                >
+                  Buka Dashboard Admin Bisnis
+                </a>
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Kelola profil bisnis Anda, balas review, dan jangkau lebih banyak pelanggan.
-              </p>
-              <button className="w-full py-2.5 rounded-xl bg-[#008767] hover:bg-[#007458] text-white text-xs font-semibold shadow-xs transition-all active:scale-95">
-                Klaim Profil Bisnis
-              </button>
-            </div>
+            ) : !user || user.role !== "customer" ? (
+              <div className="bg-gradient-to-r from-emerald-50 via-[#ebf7f3] to-teal-50 rounded-3xl border border-emerald-200 p-6 shadow-xs space-y-3">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
+                  <ShieldCheck className="w-5 h-5 text-[#008767]" />
+                  <span>Apakah Anda pemilik bisnis ini?</span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Kelola profil bisnis Anda, balas review, dan jangkau lebih banyak pelanggan.
+                </p>
+                <Link
+                  href="/signup?role=bisnis"
+                  className="block w-full text-center py-2.5 rounded-xl bg-[#008767] hover:bg-[#007458] text-white text-xs font-semibold shadow-xs transition-all active:scale-95"
+                >
+                  Klaim / Daftar Akun Bisnis
+                </Link>
+              </div>
+            ) : null}
 
           </div>
 

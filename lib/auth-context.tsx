@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 
+export type UserRole = "customer" | "bisnis";
+
 export interface UserProfile {
   name: string;
   username: string;
@@ -9,6 +11,7 @@ export interface UserProfile {
   initials: string;
   joinedDate: string;
   verified: boolean;
+  role: UserRole;
   reviewCount: number;
   helpfulCount: number;
   businessCount: number;
@@ -18,7 +21,7 @@ interface AuthContextType {
   user: UserProfile | null;
   isLoggedIn: boolean;
   login: (email: string, pass: string) => boolean;
-  signup: (username: string, email: string, pass: string) => boolean;
+  signup: (username: string, email: string, pass: string, role?: UserRole) => boolean;
   logout: () => void;
 }
 
@@ -29,6 +32,7 @@ const defaultUser: UserProfile = {
   initials: "DL",
   joinedDate: "Jan 2024",
   verified: true,
+  role: "customer",
   reviewCount: 28,
   helpfulCount: 146,
   businessCount: 21,
@@ -51,7 +55,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const stored = localStorage.getItem("katamereka_active_user");
       if (stored) {
         const parsed = JSON.parse(stored);
-        setUser(parsed);
+        setUser({
+          ...parsed,
+          role: parsed.role || "customer",
+        });
         setIsLoggedIn(true);
       }
     } catch (e) {
@@ -98,6 +105,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         initials: initials || "U",
         joinedDate: "Sep 2026",
         verified: true,
+        role: "customer",
         reviewCount: 0,
         helpfulCount: 0,
         businessCount: 0,
@@ -110,7 +118,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return true;
   };
 
-  const signup = (username: string, email: string, pass: string): boolean => {
+  const signup = (
+    username: string,
+    email: string,
+    pass: string,
+    role: UserRole = "customer"
+  ): boolean => {
     if (!username || !email || !pass || pass.length < 6) return false;
 
     const formattedName = username
@@ -129,9 +142,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       initials: initials || "U",
       joinedDate: "Sep 2026",
       verified: true,
+      role: role,
       reviewCount: 0,
       helpfulCount: 0,
-      businessCount: 0,
+      businessCount: role === "bisnis" ? 1 : 0,
     };
 
     // Save registered user WITHOUT auto-login so user must log in via /login first

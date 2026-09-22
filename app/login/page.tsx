@@ -5,6 +5,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { MessageSquare, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function LoginFormContent() {
   const router = useRouter();
@@ -189,13 +190,6 @@ function LoginFormContent() {
             </Link>
           </div>
         </div>
-
-        {/* Back Link */}
-        <div className="text-center">
-          <Link href="/" className="text-xs font-semibold text-slate-500 hover:text-[#008767] transition-colors">
-            ← Kembali ke Landing Page
-          </Link>
-        </div>
       </div>
     </div>
   );
@@ -203,7 +197,19 @@ function LoginFormContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#f4faf7] flex items-center justify-center">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-slate-200 space-y-6">
+            <Skeleton className="w-12 h-12 rounded-2xl mx-auto" />
+            <Skeleton className="w-48 h-8 rounded-xl mx-auto" />
+            <Skeleton className="w-full h-12 rounded-xl" />
+            <Skeleton className="w-full h-12 rounded-xl" />
+            <Skeleton className="w-full h-12 rounded-xl" />
+          </div>
+        </div>
+      }
+    >
       <LoginFormContent />
     </Suspense>
   );
