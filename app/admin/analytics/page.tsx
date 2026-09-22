@@ -1,8 +1,10 @@
 "use client"
 
+import Link from "next/link"
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import {
   BuildingIcon,
+  HomeIcon,
   MessageSquareTextIcon,
   StarIcon,
   UsersIcon,
@@ -13,6 +15,14 @@ import { PageHeader } from "@/components/page-header"
 import { RatingDistributionBars } from "@/components/rating-distribution-bars"
 import { StatCard } from "@/components/stat-card"
 import { StatusDonutChart } from "@/components/status-donut-chart"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ChartContainer,
@@ -55,13 +65,29 @@ function PlatformTab() {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 @5xl/main:grid-cols-4">
-        <StatCard label="Total Users" value={formatNumber(platformUsers.length)} icon={UsersIcon} />
-        <StatCard label="Total Businesses" value={businesses.length} icon={BuildingIcon} />
-        <StatCard label="Verified Businesses" value={verifiedBusinesses} icon={BuildingIcon} />
+        <StatCard
+          label="Total Users"
+          value={formatNumber(platformUsers.length)}
+          icon={UsersIcon}
+          href="/admin/users"
+        />
+        <StatCard
+          label="Total Businesses"
+          value={businesses.length}
+          icon={BuildingIcon}
+          href="/admin/businesses"
+        />
+        <StatCard
+          label="Verified Businesses"
+          value={verifiedBusinesses}
+          icon={BuildingIcon}
+          href="/admin/businesses"
+        />
         <StatCard
           label="Total Reviews"
           value={formatNumber(businesses.reduce((sum, b) => sum + b.totalReviews, 0))}
           icon={StarIcon}
+          href="/admin/reviews"
         />
       </div>
 
@@ -258,6 +284,20 @@ function UsersTab() {
 export default function AdminAnalyticsPage() {
   return (
     <div className="flex flex-col gap-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink render={<Link href="/admin" />}>
+              <HomeIcon className="size-3.5" />
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Analytics</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <PageHeader
         title="Platform Analytics"
         description="Insight pertumbuhan dan performa platform KataMereka."

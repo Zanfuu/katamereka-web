@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckIcon, ChevronsUpDownIcon } from "lucide-react"
+import { BuildingIcon, CheckIcon, ChevronRightIcon } from "lucide-react"
 
 import { useBusinessContext } from "@/components/business-provider"
 import {
@@ -13,12 +13,33 @@ import {
 export function BusinessSwitcher() {
   const { businesses, selectedBusiness, setSelectedBusinessId } = useBusinessContext()
 
-  if (businesses.length <= 1) {
-    return selectedBusiness ? (
-      <span className="text-sm font-medium text-foreground">
-        {selectedBusiness.name}
+  if (!selectedBusiness) return null
+
+  const card = (
+    <>
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <BuildingIcon className="size-4" />
       </span>
-    ) : null
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-foreground">
+          {selectedBusiness.name}
+        </span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {selectedBusiness.city}, Indonesia
+        </span>
+      </span>
+      {businesses.length > 1 && (
+        <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+      )}
+    </>
+  )
+
+  if (businesses.length <= 1) {
+    return (
+      <div className="flex w-full items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
+        {card}
+      </div>
+    )
   }
 
   return (
@@ -27,21 +48,20 @@ export function BusinessSwitcher() {
         render={
           <button
             type="button"
-            className="flex items-center gap-2 rounded-lg border border-input px-2.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            className="flex w-full items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-left transition-colors hover:bg-muted"
           />
         }
       >
-        {selectedBusiness?.name ?? "Pilih Bisnis"}
-        <ChevronsUpDownIcon className="size-3.5 text-muted-foreground" />
+        {card}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
+      <DropdownMenuContent align="start" className="w-60">
         {businesses.map((business) => (
           <DropdownMenuItem
             key={business.id}
             onClick={() => setSelectedBusinessId(business.id)}
           >
             <span className="flex-1">{business.name}</span>
-            {business.id === selectedBusiness?.id && (
+            {business.id === selectedBusiness.id && (
               <CheckIcon className="size-4 text-primary" />
             )}
           </DropdownMenuItem>

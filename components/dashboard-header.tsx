@@ -1,36 +1,111 @@
 "use client"
 
-import { usePathname } from "next/navigation"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { BellIcon, LogOutIcon, SettingsIcon, UserIcon } from "lucide-react"
 
-import { Separator } from "@/components/ui/separator"
+import { useBusinessContext } from "@/components/business-provider"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-
-const titles: Record<string, string> = {
-  "/dashboard": "Overview",
-  "/dashboard/reviews": "Semua Review",
-  "/dashboard/reviews/create": "Tulis Review",
-  "/dashboard/businesses/saved": "Bisnis Tersimpan",
-  "/dashboard/businesses/history": "Riwayat Dilihat",
-  "/dashboard/activity": "Aktivitas",
-  "/dashboard/notifications": "Notifikasi",
-  "/dashboard/settings/profile": "Profil",
-  "/dashboard/settings/security": "Keamanan",
-  "/dashboard/settings/delete-account": "Hapus Akun",
-}
+import { useAuth } from "@/lib/auth-context"
+import { timeAgo } from "@/lib/format"
+import { businessActivity } from "@/lib/mock/activity"
 
 export function DashboardHeader() {
-  const pathname = usePathname()
-  const title = titles[pathname] ?? "Dashboard"
+  const { user, logout } = useAuth()
+  const { selectedBusiness } = useBusinessContext()
+  const router = useRouter()
+
+  const notifications = (selectedBusiness && businessActivity[selectedBusiness.id]) ?? []
+  const hasUnread = notifications.length > 0
 
   return (
-    <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
-      <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
-        <SidebarTrigger className="-ml-1" />
-        <Separator
-          orientation="vertical"
-          className="mx-2 h-4 data-vertical:self-auto"
-        />
-        <h1 className="text-base font-medium">{title}</h1>
+    <header className="flex h-(--header-height) shrink-0 items-center gap-3 border-b px-4 lg:px-6">
+      <SidebarTrigger className="-ml-1" />
+
+      <div className="ml-auto flex items-center gap-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                className="relative flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              />
+            }
+          >
+            <BellIcon className="size-4.5" />
+            {hasUnread && (
+              <span className="absolute top-2 right-2 size-1.5 rounded-full bg-destructive" />
+            )}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-72">
+            <DropdownMenuLabel>Notifikasi</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {notifications.length === 0 && (
+              <p className="px-1.5 py-3 text-center text-xs text-muted-foreground">
+                Belum ada notifikasi baru.
+              </p>
+            )}
+            {notifications.slice(0, 5).map((item) => (
+              <DropdownMenuItem key={item.id} className="flex-col items-start gap-0.5">
+                <span className="text-xs text-foreground/90">{item.text}</span>
+                <span className="text-[11px] text-muted-foreground">{timeAgo(item.at)}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                className="flex items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-muted"
+              />
+            }
+          >
+            <Avatar size="sm" className="bg-primary text-primary-foreground">
+              <AvatarFallback className="bg-primary text-primary-foreground">
+                {user?.initials ?? "U"}
+              </AvatarFallback>
+            </Avatar>
+            <span className="hidden flex-col items-start leading-none sm:flex">
+              <span className="text-sm font-medium text-foreground">{user?.name}</span>
+              <span className="text-[11px] text-muted-foreground">Business Admin</span>
+            </span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem render={<Link href="/dashboard/settings" />}>
+              <UserIcon />
+              Profil Saya
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/dashboard/settings" />}>
+              <SettingsIcon />
+              Pengaturan
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => {
+                logout()
+                router.push("/login")
+              }}
+            >
+              <LogOutIcon />
+              Keluar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   )

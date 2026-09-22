@@ -3,7 +3,7 @@ import type { AuditLogEntry } from "@/lib/types"
 export const auditLog: AuditLogEntry[] = [
   {
     id: "al1",
-    actorName: "Sarah Wijaya",
+    actorName: "Billyaz",
     actorRole: "SUPER_ADMIN",
     action: "Removed Review",
     target: "Review #r15 — PropertyHub Indonesia",
@@ -21,7 +21,7 @@ export const auditLog: AuditLogEntry[] = [
   },
   {
     id: "al3",
-    actorName: "Sarah Wijaya",
+    actorName: "Billyaz",
     actorRole: "SUPER_ADMIN",
     action: "Approved Verification",
     target: "TransGO Rental",
@@ -30,7 +30,7 @@ export const auditLog: AuditLogEntry[] = [
   },
   {
     id: "al4",
-    actorName: "Sarah Wijaya",
+    actorName: "Billyaz",
     actorRole: "SUPER_ADMIN",
     action: "Hidden Review",
     target: "Review #r14 — BandungMotor Rental",
@@ -39,7 +39,7 @@ export const auditLog: AuditLogEntry[] = [
   },
   {
     id: "al5",
-    actorName: "Sarah Wijaya",
+    actorName: "Billyaz",
     actorRole: "SUPER_ADMIN",
     action: "Rejected Verification",
     target: "BandungMotor Rental",
@@ -48,7 +48,7 @@ export const auditLog: AuditLogEntry[] = [
   },
   {
     id: "al6",
-    actorName: "Sarah Wijaya",
+    actorName: "Billyaz",
     actorRole: "SUPER_ADMIN",
     action: "Suspended Business",
     target: "PropertyHub Indonesia",
@@ -57,7 +57,7 @@ export const auditLog: AuditLogEntry[] = [
   },
   {
     id: "al7",
-    actorName: "Sarah Wijaya",
+    actorName: "Billyaz",
     actorRole: "SUPER_ADMIN",
     action: "Banned User",
     target: "Akun Tidak Dikenal",
@@ -66,7 +66,7 @@ export const auditLog: AuditLogEntry[] = [
   },
   {
     id: "al8",
-    actorName: "Sarah Wijaya",
+    actorName: "Billyaz",
     actorRole: "SUPER_ADMIN",
     action: "Changed Permission",
     target: "Fajar Ramadhan — BandungMotor Rental",

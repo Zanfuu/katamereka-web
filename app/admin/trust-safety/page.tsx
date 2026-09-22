@@ -1,214 +1,194 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { toast } from "sonner"
 import {
-  AlertTriangleIcon,
-  FileIcon,
-  FileWarningIcon,
-  ScaleIcon,
-  ShieldAlertIcon,
-  ShieldCheckIcon,
+  CheckIcon,
+  ExternalLinkIcon,
+  FlagIcon,
+  HomeIcon,
+  ImageIcon,
+  MessageSquareIcon,
+  XIcon,
 } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { EmptyState } from "@/components/empty-state"
+import { DateRangeSelector } from "@/components/date-range-selector"
+import { FilterDropdown } from "@/components/filter-dropdown"
 import { PageHeader } from "@/components/page-header"
 import { RatingStars } from "@/components/rating-stars"
 import { ResourceTable, type ResourceTableColumn } from "@/components/resource-table"
+import { SearchInput } from "@/components/search-input"
 import { StatCard } from "@/components/stat-card"
 import { StatusBadge } from "@/components/status-badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { formatDate } from "@/lib/format"
-import { evidenceSubmissions } from "@/lib/mock/evidence"
-import { fraudFlags } from "@/lib/mock/fraud"
-import { reports } from "@/lib/mock/reports"
-import { verificationRequests } from "@/lib/mock/verifications"
-import type { Evidence, FraudFlag, Report, VerificationRequest } from "@/lib/types"
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Textarea } from "@/components/ui/textarea"
+import { formatDateTime } from "@/lib/format"
+import { getBusinessById } from "@/lib/mock/businesses"
+import { reports as initialReports } from "@/lib/mock/reports"
+import type { Report, ReportTargetType } from "@/lib/types"
 
-function riskIndicators(report: Report) {
-  const indicators: string[] = []
-  if (report.reviewRating === 1) indicators.push("Rating ekstrem (1 bintang)")
-  if (report.evidence && report.evidence.length > 0) indicators.push("Evidence tersedia")
-  if (report.reason.toLowerCase().includes("palsu")) indicators.push("Diduga review palsu")
-  if (indicators.length === 0) indicators.push("Dilaporkan oleh pihak bisnis")
-  return indicators
+const REPORT_STATUS_OPTIONS = [
+  { value: "all", label: "Semua Status" },
+  { value: "OPEN", label: "Menunggu" },
+  { value: "UNDER_INVESTIGATION", label: "Dalam Proses" },
+  { value: "RESOLVED", label: "Selesai" },
+  { value: "REJECTED", label: "Ditolak" },
+]
+
+const REPORT_TARGET_OPTIONS = [
+  { value: "all", label: "Semua Target" },
+  { value: "REVIEW", label: "Review" },
+  { value: "PHOTO", label: "Foto" },
+  { value: "BUSINESS_PROFILE", label: "Profil Bisnis" },
+]
+
+const REPORT_STATUS_DISPLAY: Record<Report["status"], string> = {
+  OPEN: "MENUNGGU",
+  UNDER_INVESTIGATION: "DALAM_PROSES",
+  RESOLVED: "SELESAI",
+  REJECTED: "DITOLAK",
 }
 
-function ModerationTab() {
-  const [action, setAction] = React.useState<{
-    report: Report
-    type: "KEEP" | "HIDE" | "REMOVE" | "INVESTIGATE"
-  } | null>(null)
-
-  const queue = reports.filter(
-    (report) => report.status === "OPEN" || report.status === "UNDER_INVESTIGATION"
-  )
-
-  return (
-    <div className="flex flex-col gap-4">
-      {queue.length === 0 && (
-        <EmptyState
-          icon={ShieldAlertIcon}
-          title="Tidak ada item yang membutuhkan moderasi."
-          description="Semua laporan sudah ditindaklanjuti."
-        />
-      )}
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {queue.map((report) => (
-          <Card key={report.id}>
-            <CardContent className="flex flex-col gap-3 pt-1">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{report.reviewerName}</p>
-                  <p className="text-xs text-muted-foreground">{report.businessName}</p>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <RatingStars rating={report.reviewRating} size="sm" />
-                  <StatusBadge status={report.status} />
-                </div>
-              </div>
-
-              <p className="rounded-lg bg-secondary p-3 text-sm text-foreground/90">
-                {report.reviewExcerpt}
-              </p>
-
-              <div>
-                <p className="mb-1 text-xs font-medium text-muted-foreground">Reason</p>
-                <p className="text-sm text-foreground/90">{report.reason}</p>
-              </div>
-
-              <div>
-                <p className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                  <AlertTriangleIcon className="size-3.5" />
-                  Risk Indicators
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {riskIndicators(report).map((indicator) => (
-                    <StatusBadge key={indicator} status="MEDIUM" label={indicator} />
-                  ))}
-                </div>
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                Dilaporkan {formatDate(report.createdAt)} oleh {report.reporterName}
-              </p>
-
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAction({ report, type: "INVESTIGATE" })}
-                >
-                  Investigate
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setAction({ report, type: "KEEP" })}>
-                  Keep
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setAction({ report, type: "HIDE" })}>
-                  Hide
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setAction({ report, type: "REMOVE" })}
-                >
-                  Remove
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <ConfirmDialog
-        open={!!action}
-        onOpenChange={(open) => !open && setAction(null)}
-        title={`${
-          action?.type === "KEEP"
-            ? "Pertahankan"
-            : action?.type === "HIDE"
-              ? "Sembunyikan"
-              : action?.type === "REMOVE"
-                ? "Hapus"
-                : "Investigasi"
-        } review dari ${action?.report.reviewerName}?`}
-        description={
-          action?.type === "INVESTIGATE"
-            ? "Review akan ditandai untuk investigasi lebih lanjut, tidak dihapus otomatis."
-            : undefined
-        }
-        confirmLabel={
-          action?.type === "KEEP"
-            ? "Keep"
-            : action?.type === "HIDE"
-              ? "Hide"
-              : action?.type === "REMOVE"
-                ? "Remove"
-                : "Investigate"
-        }
-        variant={action?.type === "KEEP" || action?.type === "INVESTIGATE" ? "default" : "destructive"}
-        requireReason={action?.type === "HIDE" || action?.type === "REMOVE"}
-        reasonLabel="Alasan moderasi"
-        onConfirm={() => toast.success("Tindakan moderasi berhasil dicatat di audit log.")}
-      />
-    </div>
-  )
+const TARGET_META: Record<ReportTargetType, { label: string; icon: typeof FlagIcon; summary: string }> = {
+  REVIEW: { label: "Review", icon: MessageSquareIcon, summary: "Ulasan tidak pantas" },
+  PHOTO: { label: "Foto", icon: ImageIcon, summary: "Foto tidak sesuai" },
+  BUSINESS_PROFILE: { label: "Profil Bisnis", icon: FlagIcon, summary: "Informasi tidak akurat" },
 }
 
-function ReportsTab() {
+function reportDisplayId(id: string) {
+  return `#R-${id.replace(/\D/g, "").padStart(6, "0")}`
+}
+
+const AVATAR_TONES = [
+  "bg-emerald-100 text-emerald-700",
+  "bg-blue-100 text-blue-700",
+  "bg-amber-100 text-amber-700",
+  "bg-pink-100 text-pink-700",
+  "bg-purple-100 text-purple-700",
+  "bg-cyan-100 text-cyan-700",
+]
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/)
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase()
+}
+
+function avatarTone(id: string) {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) hash = (hash + id.charCodeAt(i)) % AVATAR_TONES.length
+  return AVATAR_TONES[hash]
+}
+
+export default function TrustSafetyPage() {
+  const [reportList, setReportList] = React.useState<Report[]>(initialReports)
+  const [search, setSearch] = React.useState("")
+  const [statusFilter, setStatusFilter] = React.useState("all")
+  const [targetFilter, setTargetFilter] = React.useState("all")
   const [detail, setDetail] = React.useState<Report | null>(null)
-  const [action, setAction] = React.useState<"KEEP" | "HIDE" | "REMOVE" | null>(null)
+  const [noteDraft, setNoteDraft] = React.useState("")
+  const [confirmAction, setConfirmAction] = React.useState<"RESOLVE" | "REJECT" | null>(null)
 
   const counts = {
-    open: reports.filter((r) => r.status === "OPEN").length,
-    investigating: reports.filter((r) => r.status === "UNDER_INVESTIGATION").length,
-    resolved: reports.filter((r) => r.status === "RESOLVED").length,
+    total: reportList.length,
+    resolved: reportList.filter((r) => r.status === "RESOLVED").length,
+  }
+
+  const filtered = reportList.filter((report) => {
+    if (statusFilter !== "all" && report.status !== statusFilter) return false
+    if (targetFilter !== "all" && report.targetType !== targetFilter) return false
+    if (
+      search &&
+      !reportDisplayId(report.id).toLowerCase().includes(search.toLowerCase()) &&
+      !report.businessName.toLowerCase().includes(search.toLowerCase())
+    )
+      return false
+    return true
+  })
+
+  function openDetail(report: Report) {
+    setDetail(report)
+    setNoteDraft(report.internalNote ?? "")
+  }
+
+  function applyDecision(status: "RESOLVED" | "REJECTED") {
+    if (!detail) return
+    setReportList((prev) =>
+      prev.map((r) => (r.id === detail.id ? { ...r, status, internalNote: noteDraft } : r))
+    )
+    toast.success(
+      status === "RESOLVED"
+        ? `Laporan ${reportDisplayId(detail.id)} ditandai selesai.`
+        : `Laporan ${reportDisplayId(detail.id)} ditolak.`
+    )
+    setDetail(null)
   }
 
   const columns: ResourceTableColumn<Report>[] = [
     {
-      key: "review",
-      header: "Content",
+      key: "id",
+      header: "ID Laporan",
       render: (report) => (
-        <div className="max-w-xs">
-          <div className="flex items-center gap-1.5">
-            <RatingStars rating={report.reviewRating} size="sm" />
-          </div>
-          <p className="line-clamp-1 text-xs text-muted-foreground">{report.reviewExcerpt}</p>
+        <span className="font-medium text-foreground">{reportDisplayId(report.id)}</span>
+      ),
+    },
+    {
+      key: "reporterName",
+      header: "Dilaporkan oleh (Business Admin)",
+      render: (report) => (
+        <div className="flex items-center gap-2.5">
+          <Avatar size="sm">
+            <AvatarFallback className={avatarTone(report.businessId)}>
+              {initials(report.businessName)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-foreground">{report.businessName}</span>
         </div>
       ),
     },
-    { key: "reporterName", header: "Reporter", render: (r) => r.reporterName },
-    { key: "businessName", header: "Business", render: (r) => r.businessName },
     {
-      key: "reason",
-      header: "Reason",
-      render: (report) => (
-        <span className="line-clamp-1 max-w-xs text-muted-foreground">{report.reason}</span>
-      ),
+      key: "targetType",
+      header: "Target",
+      render: (report) => {
+        const meta = TARGET_META[report.targetType]
+        const Icon = meta.icon
+        return (
+          <span className="flex items-center gap-1.5 text-foreground">
+            <Icon className="size-3.5 text-muted-foreground" />
+            {meta.label}
+          </span>
+        )
+      },
     },
     {
       key: "status",
       header: "Status",
-      render: (report) => <StatusBadge status={report.status} />,
+      render: (report) => (
+        <StatusBadge status={REPORT_STATUS_DISPLAY[report.status]} />
+      ),
     },
     {
       key: "createdAt",
-      header: "Date",
+      header: "Tanggal",
       sortValue: (r) => r.createdAt,
       render: (report) => (
-        <span className="text-muted-foreground">{formatDate(report.createdAt)}</span>
+        <span className="text-muted-foreground">{formatDateTime(report.createdAt)}</span>
       ),
     },
     {
@@ -216,540 +196,251 @@ function ReportsTab() {
       header: "",
       className: "text-right",
       render: (report) => (
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={() => setDetail(report)}>
-            View
-          </Button>
+        <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+              <FlagIcon className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => openDetail(report)}>Lihat</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },
   ]
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Open Reports" value={counts.open} deltaTone="negative" icon={ScaleIcon} />
-        <StatCard label="Under Investigation" value={counts.investigating} deltaTone="neutral" />
-        <StatCard label="Resolved" value={counts.resolved} />
-      </div>
+  const detailBusiness = detail ? getBusinessById(detail.businessId) : undefined
+  const detailMeta = detail ? TARGET_META[detail.targetType] : undefined
 
-      <ResourceTable
-        data={reports}
-        columns={columns}
-        getRowId={(report) => report.id}
-        emptyTitle="Tidak ada laporan review."
+  return (
+    <div className="flex flex-col gap-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink render={<Link href="/admin" />}>
+              <HomeIcon className="size-3.5" />
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Trust & Safety</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
+      <PageHeader
+        title="Trust & Safety"
+        description="Pantau dan kelola laporan yang masuk untuk menjaga keamanan, kenyamanan, dan kepercayaan di platform KataMereka."
       />
 
-      <Sheet open={!!detail} onOpenChange={(open) => !open && setDetail(null)}>
-        <SheetContent className="sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle>Laporan Review</SheetTitle>
-            <SheetDescription>{detail?.businessName}</SheetDescription>
-          </SheetHeader>
-          {detail && (
-            <div className="flex flex-col gap-5 overflow-y-auto px-4 pb-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <StatCard
+          label="Total Laporan"
+          value={counts.total}
+          delta="-12%"
+          hint="dari bulan lalu"
+          icon={FlagIcon}
+          iconTone="destructive"
+          onClick={() => setStatusFilter("all")}
+        />
+        <StatCard
+          label="Selesai Ditindaklanjuti"
+          value={counts.resolved}
+          delta="+20%"
+          hint="dari bulan lalu"
+          icon={CheckIcon}
+          onClick={() => setStatusFilter("RESOLVED")}
+        />
+      </div>
+
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <SearchInput value={search} onChange={setSearch} placeholder="Cari ID laporan atau nama bisnis..." />
+            <div className="flex flex-wrap items-center gap-2">
+              <FilterDropdown label="Status" options={REPORT_STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} />
+              <FilterDropdown label="Target" options={REPORT_TARGET_OPTIONS} value={targetFilter} onChange={setTargetFilter} />
+              <DateRangeSelector />
+            </div>
+          </div>
+
+          <ResourceTable
+            data={filtered}
+            columns={columns}
+            getRowId={(report) => report.id}
+            itemLabel="laporan"
+            pageSize={10}
+            emptyTitle="Tidak ada laporan ditemukan."
+          />
+        </div>
+
+        {detail && detailMeta && (
+          <div className="w-full shrink-0 rounded-xl border border-border bg-card lg:sticky lg:top-4 lg:w-[380px]">
+            <div className="flex items-center justify-between border-b border-border p-4">
+              <p className="font-semibold text-foreground">Detail Laporan</p>
+              <Button variant="ghost" size="icon-sm" onClick={() => setDetail(null)}>
+                <XIcon className="size-4" />
+              </Button>
+            </div>
+
+            <div className="flex flex-col gap-5 overflow-y-auto p-4">
+              <div className="flex items-center justify-between">
+                <StatusBadge status={REPORT_STATUS_DISPLAY[detail.status]} />
+                <span className="text-sm text-muted-foreground">{reportDisplayId(detail.id)}</span>
+              </div>
+
               <section>
                 <h3 className="mb-2 text-xs font-medium text-muted-foreground uppercase">
-                  Original Review
+                  Informasi Pelapor
                 </h3>
-                <div className="rounded-lg border border-border p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">
-                      {detail.reviewerName}
-                    </span>
-                    <RatingStars rating={detail.reviewRating} size="sm" />
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-border p-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar size="sm">
+                      <AvatarFallback className={avatarTone(detail.businessId)}>
+                        {initials(detail.businessName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{detail.businessName}</p>
+                      <p className="text-xs text-muted-foreground">{detail.reporterEmail ?? "-"}</p>
+                    </div>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">{detail.reviewExcerpt}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    render={<Link href={`/admin/businesses/${detail.businessId}`} />}
+                  >
+                    Lihat Bisnis
+                    <ExternalLinkIcon className="size-3.5" />
+                  </Button>
                 </div>
               </section>
 
               <section>
                 <h3 className="mb-2 text-xs font-medium text-muted-foreground uppercase">
-                  Report Reason
+                  Target Laporan
                 </h3>
-                <p className="text-sm text-foreground/90">{detail.reason}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Dilaporkan oleh {detail.reporterName} · {formatDate(detail.createdAt)}
+                <div className="flex items-center gap-2.5">
+                  <span className="flex size-8 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                    <detailMeta.icon className="size-4" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{detailMeta.label}</p>
+                    <p className="text-xs text-muted-foreground">{detailMeta.summary}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <h3 className="mb-2 text-xs font-medium text-muted-foreground uppercase">
+                  Konten Dilaporkan
+                </h3>
+                <div className="rounded-lg border border-border p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground">{detail.reviewerName}</span>
+                    {detail.targetType === "REVIEW" && (
+                      <RatingStars rating={detail.reviewRating} size="sm" />
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(detail.createdAt)}</p>
+                  <p className="mt-2 text-sm text-foreground/90">{detail.reviewExcerpt}</p>
+                  {detailBusiness && (
+                    <Link
+                      href={`/business/${detailBusiness.slug}`}
+                      target="_blank"
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      Lihat di Platform
+                      <ExternalLinkIcon className="size-3" />
+                    </Link>
+                  )}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="mb-2 text-xs font-medium text-muted-foreground uppercase">
+                  Alasan Laporan
+                </h3>
+                <p className="rounded-lg bg-secondary p-3 text-sm text-foreground/90 italic">
+                  &ldquo;{detail.reason}&rdquo;
                 </p>
               </section>
 
               {detail.evidence && detail.evidence.length > 0 && (
                 <section>
                   <h3 className="mb-2 text-xs font-medium text-muted-foreground uppercase">
-                    Evidence
+                    Lampiran (jika ada)
                   </h3>
-                  <div className="flex flex-col gap-1.5">
-                    {detail.evidence.map((file) => (
-                      <div
-                        key={file}
-                        className="rounded-lg border border-border p-2 text-xs text-muted-foreground"
-                      >
-                        {file}
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-4 gap-2">
+                    {detail.evidence.slice(0, 4).map((file, index) => {
+                      const isLast = index === 3 && detail.evidence!.length > 4
+                      return (
+                        <div
+                          key={file}
+                          className="relative flex aspect-square items-center justify-center rounded-lg bg-muted text-muted-foreground"
+                        >
+                          <ImageIcon className="size-5" />
+                          {isLast && (
+                            <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-foreground/60 text-sm font-semibold text-background">
+                              +{detail.evidence!.length - 4}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </section>
               )}
 
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setAction("KEEP")}>
-                  Keep
+              <section>
+                <h3 className="mb-2 text-xs font-medium text-muted-foreground uppercase">
+                  Catatan Internal
+                </h3>
+                <Textarea
+                  value={noteDraft}
+                  onChange={(e) => setNoteDraft(e.target.value)}
+                  rows={3}
+                  placeholder="Tulis catatan internal..."
+                />
+              </section>
+
+              <div className="flex items-center gap-2 pt-1">
+                <Button variant="outline" className="flex-1" onClick={() => setDetail(null)}>
+                  Tutup
                 </Button>
-                <Button variant="outline" onClick={() => setAction("HIDE")}>
-                  Hide
+                <Button
+                  variant="outline"
+                  className="flex-1 border-destructive/40 text-destructive hover:bg-destructive/10"
+                  onClick={() => setConfirmAction("REJECT")}
+                >
+                  <XIcon />
+                  Tolak
                 </Button>
-                <Button variant="destructive" onClick={() => setAction("REMOVE")}>
-                  Remove
+                <Button className="flex-1" onClick={() => setConfirmAction("RESOLVE")}>
+                  <CheckIcon />
+                  Tandai Selesai
                 </Button>
               </div>
             </div>
-          )}
-        </SheetContent>
-      </Sheet>
+          </div>
+        )}
+      </div>
 
       <ConfirmDialog
-        open={!!action}
-        onOpenChange={(open) => !open && setAction(null)}
-        title={`${
-          action === "KEEP" ? "Pertahankan" : action === "HIDE" ? "Sembunyikan" : "Hapus"
-        } review ini?`}
-        confirmLabel={action === "KEEP" ? "Keep" : action === "HIDE" ? "Hide" : "Remove"}
-        variant={action === "KEEP" ? "default" : "destructive"}
-        requireReason
-        reasonLabel="Alasan moderasi"
-        onConfirm={() => {
-          toast.success("Keputusan moderasi berhasil disimpan.")
-          setDetail(null)
-        }}
-      />
-    </div>
-  )
-}
-
-function VerificationTab() {
-  const [tab, setTab] = React.useState<string>("PENDING")
-  const [detail, setDetail] = React.useState<VerificationRequest | null>(null)
-  const [dialog, setDialog] = React.useState<"APPROVE" | "REJECT" | null>(null)
-
-  const statusTabs = [
-    { value: "PENDING", label: "Pending" },
-    { value: "VERIFIED", label: "Approved" },
-    { value: "REJECTED", label: "Rejected" },
-  ] as const
-
-  const filtered = verificationRequests.filter((request) => request.status === tab)
-
-  const columns: ResourceTableColumn<VerificationRequest>[] = [
-    {
-      key: "businessName",
-      header: "Business",
-      sortValue: (r) => r.businessName,
-      render: (request) => (
-        <span className="font-medium text-foreground">{request.businessName}</span>
-      ),
-    },
-    { key: "submittedBy", header: "Submitted By", render: (r) => r.submittedBy },
-    {
-      key: "documents",
-      header: "Documents",
-      render: (request) => `${request.documents.length} dokumen`,
-    },
-    {
-      key: "submittedAt",
-      header: "Submitted At",
-      sortValue: (r) => r.submittedAt,
-      render: (request) => (
-        <span className="text-muted-foreground">{formatDate(request.submittedAt)}</span>
-      ),
-    },
-    {
-      key: "status",
-      header: "Status",
-      render: (request) => <StatusBadge status={request.status} />,
-    },
-    {
-      key: "actions",
-      header: "",
-      className: "text-right",
-      render: (request) => (
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={() => setDetail(request)}>
-            Review
-          </Button>
-        </div>
-      ),
-    },
-  ]
-
-  return (
-    <div className="flex flex-col gap-4">
-      <Tabs value={tab} onValueChange={(v) => typeof v === "string" && setTab(v)}>
-        <TabsList>
-          {statusTabs.map((t) => (
-            <TabsTrigger key={t.value} value={t.value}>
-              {t.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
-      <ResourceTable
-        data={filtered}
-        columns={columns}
-        getRowId={(request) => request.id}
-        emptyTitle="Tidak ada pengajuan pada kategori ini."
-      />
-
-      <Sheet open={!!detail} onOpenChange={(open) => !open && setDetail(null)}>
-        <SheetContent className="sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle>{detail?.businessName}</SheetTitle>
-            <SheetDescription>Diajukan oleh {detail?.submittedBy}</SheetDescription>
-          </SheetHeader>
-          {detail && (
-            <div className="flex flex-col gap-5 overflow-y-auto px-4 pb-4">
-              <section>
-                <h3 className="mb-2 text-xs font-medium text-muted-foreground uppercase">
-                  Submitted Documents
-                </h3>
-                <div className="flex flex-col gap-2">
-                  {detail.documents.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between rounded-lg border border-border p-2.5 text-sm"
-                    >
-                      <span className="flex items-center gap-2">
-                        <FileIcon className="size-4 text-muted-foreground" />
-                        {doc.name}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{doc.type}</span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <h3 className="mb-2 text-xs font-medium text-muted-foreground uppercase">
-                  Verification History
-                </h3>
-                <div className="flex flex-col gap-2">
-                  {detail.history.map((entry, index) => (
-                    <div key={index} className="flex items-center justify-between text-sm">
-                      <span className="text-foreground/90">{entry.note}</span>
-                      <span className="text-xs text-muted-foreground">{formatDate(entry.at)}</span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              {detail.status === "PENDING" && (
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => toast.info("Permintaan dokumen tambahan telah dikirim ke admin.")}
-                  >
-                    Request Information
-                  </Button>
-                  <Button variant="destructive" onClick={() => setDialog("REJECT")}>
-                    Reject
-                  </Button>
-                  <Button onClick={() => setDialog("APPROVE")}>
-                    <ShieldCheckIcon />
-                    Approve
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      <ConfirmDialog
-        open={!!dialog}
-        onOpenChange={(open) => !open && setDialog(null)}
+        open={!!confirmAction}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
         title={
-          dialog === "APPROVE"
-            ? `Setujui verifikasi ${detail?.businessName}?`
-            : `Tolak verifikasi ${detail?.businessName}?`
+          confirmAction === "RESOLVE"
+            ? `Tandai laporan ${detail ? reportDisplayId(detail.id) : ""} selesai?`
+            : `Tolak laporan ${detail ? reportDisplayId(detail.id) : ""}?`
         }
-        confirmLabel={dialog === "APPROVE" ? "Approve" : "Reject"}
-        variant={dialog === "APPROVE" ? "default" : "destructive"}
-        requireReason={dialog === "REJECT"}
+        confirmLabel={confirmAction === "RESOLVE" ? "Tandai Selesai" : "Tolak"}
+        variant={confirmAction === "RESOLVE" ? "default" : "destructive"}
+        requireReason={confirmAction === "REJECT"}
         reasonLabel="Alasan penolakan"
-        onConfirm={() => {
-          toast.success(
-            dialog === "APPROVE"
-              ? `${detail?.businessName} berhasil diverifikasi.`
-              : `Verifikasi ${detail?.businessName} ditolak.`
-          )
-          setDetail(null)
-        }}
+        onConfirm={() => applyDecision(confirmAction === "RESOLVE" ? "RESOLVED" : "REJECTED")}
       />
-    </div>
-  )
-}
-
-function FraudTab() {
-  const [action, setAction] = React.useState<{
-    flag: FraudFlag
-    type: "INVESTIGATE" | "DISMISS"
-  } | null>(null)
-
-  const columns: ResourceTableColumn<FraudFlag>[] = [
-    {
-      key: "entityLabel",
-      header: "Entity",
-      render: (flag) => (
-        <div>
-          <p className="font-medium text-foreground">{flag.entityLabel}</p>
-          <p className="text-xs text-muted-foreground">{flag.entityType}</p>
-        </div>
-      ),
-    },
-    {
-      key: "riskLevel",
-      header: "Risk",
-      render: (flag) => <StatusBadge status={flag.riskLevel} />,
-    },
-    {
-      key: "indicators",
-      header: "Indicators",
-      render: (flag) => (
-        <div className="flex flex-wrap gap-1">
-          {flag.indicators.map((indicator) => (
-            <StatusBadge key={indicator} status="gray" label={indicator} />
-          ))}
-        </div>
-      ),
-    },
-    {
-      key: "detectedAt",
-      header: "Detected At",
-      sortValue: (f) => f.detectedAt,
-      render: (flag) => <span className="text-muted-foreground">{formatDate(flag.detectedAt)}</span>,
-    },
-    {
-      key: "status",
-      header: "Status",
-      render: (flag) => <StatusBadge status={flag.status} />,
-    },
-    {
-      key: "actions",
-      header: "",
-      className: "text-right",
-      render: (flag) => (
-        <div className="flex justify-end gap-2">
-          {flag.status === "OPEN" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAction({ flag, type: "INVESTIGATE" })}
-            >
-              Investigate
-            </Button>
-          )}
-          {flag.status !== "DISMISSED" && (
-            <Button variant="outline" size="sm" onClick={() => setAction({ flag, type: "DISMISS" })}>
-              Dismiss
-            </Button>
-          )}
-        </div>
-      ),
-    },
-  ]
-
-  return (
-    <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">
-        Risk score hanya indikator awal — tidak ada ban atau penghapusan otomatis. Setiap flag
-        wajib diinvestigasi manual sebelum tindakan diambil.
-      </p>
-
-      <ResourceTable
-        data={fraudFlags}
-        columns={columns}
-        getRowId={(flag) => flag.id}
-        emptyTitle="Tidak ada aktivitas mencurigakan terdeteksi."
-      />
-
-      <ConfirmDialog
-        open={!!action}
-        onOpenChange={(open) => !open && setAction(null)}
-        title={
-          action?.type === "INVESTIGATE"
-            ? `Tandai ${action?.flag.entityLabel} untuk investigasi?`
-            : `Abaikan flag pada ${action?.flag.entityLabel}?`
-        }
-        confirmLabel={action?.type === "INVESTIGATE" ? "Investigate" : "Dismiss"}
-        requireReason={action?.type === "DISMISS"}
-        reasonLabel="Alasan"
-        onConfirm={() => toast.success("Status fraud flag berhasil diperbarui.")}
-      />
-    </div>
-  )
-}
-
-function EvidenceTab() {
-  const [detail, setDetail] = React.useState<Evidence | null>(null)
-  const [action, setAction] = React.useState<"VERIFIED" | "REJECTED" | null>(null)
-
-  const columns: ResourceTableColumn<Evidence>[] = [
-    {
-      key: "review",
-      header: "Review",
-      render: (item) => (
-        <p className="line-clamp-1 max-w-xs text-muted-foreground">{item.reviewExcerpt}</p>
-      ),
-    },
-    { key: "userName", header: "User", render: (item) => item.userName },
-    { key: "businessName", header: "Business", render: (item) => item.businessName },
-    {
-      key: "type",
-      header: "Evidence Type",
-      render: (item) => <StatusBadge status="gray" label={item.type.replace("_", " ")} />,
-    },
-    {
-      key: "submittedAt",
-      header: "Submitted At",
-      sortValue: (item) => item.submittedAt,
-      render: (item) => <span className="text-muted-foreground">{formatDate(item.submittedAt)}</span>,
-    },
-    {
-      key: "status",
-      header: "Status",
-      render: (item) => <StatusBadge status={item.status} />,
-    },
-    {
-      key: "actions",
-      header: "",
-      className: "text-right",
-      render: (item) => (
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={() => setDetail(item)}>
-            View
-          </Button>
-        </div>
-      ),
-    },
-  ]
-
-  return (
-    <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">
-        Evidence bersifat privat — hanya dapat dilihat oleh Super Admin untuk keperluan investigasi
-        sengketa review.
-      </p>
-
-      <ResourceTable
-        data={evidenceSubmissions}
-        columns={columns}
-        getRowId={(item) => item.id}
-        emptyTitle="Belum ada evidence yang diajukan."
-      />
-
-      <Sheet open={!!detail} onOpenChange={(open) => !open && setDetail(null)}>
-        <SheetContent className="sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle>Evidence — {detail?.userName}</SheetTitle>
-            <SheetDescription>{detail?.businessName}</SheetDescription>
-          </SheetHeader>
-          {detail && (
-            <div className="flex flex-col gap-5 overflow-y-auto px-4 pb-4">
-              <section>
-                <h3 className="mb-2 text-xs font-medium text-muted-foreground uppercase">
-                  Related Review
-                </h3>
-                <p className="rounded-lg border border-border p-3 text-sm text-foreground/90">
-                  {detail.reviewExcerpt}
-                </p>
-              </section>
-              <section>
-                <h3 className="mb-2 text-xs font-medium text-muted-foreground uppercase">
-                  Evidence File
-                </h3>
-                <div className="flex items-center gap-2 rounded-lg border border-border p-2.5 text-sm">
-                  <FileWarningIcon className="size-4 text-muted-foreground" />
-                  {detail.type.replace("_", " ")}.file
-                </div>
-              </section>
-              {detail.status === "PENDING" && (
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => toast.info("Permintaan evidence tambahan dikirim.")}>
-                    Request More Evidence
-                  </Button>
-                  <Button variant="destructive" onClick={() => setAction("REJECTED")}>
-                    Reject
-                  </Button>
-                  <Button onClick={() => setAction("VERIFIED")}>Verify</Button>
-                </div>
-              )}
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      <ConfirmDialog
-        open={!!action}
-        onOpenChange={(open) => !open && setAction(null)}
-        title={action === "VERIFIED" ? "Verifikasi evidence ini?" : "Tolak evidence ini?"}
-        confirmLabel={action === "VERIFIED" ? "Verify" : "Reject"}
-        variant={action === "VERIFIED" ? "default" : "destructive"}
-        requireReason={action === "REJECTED"}
-        reasonLabel="Alasan penolakan"
-        onConfirm={() => {
-          toast.success("Status evidence berhasil diperbarui.")
-          setDetail(null)
-        }}
-      />
-    </div>
-  )
-}
-
-export default function TrustSafetyPage() {
-  const openModeration = reports.filter(
-    (r) => r.status === "OPEN" || r.status === "UNDER_INVESTIGATION"
-  ).length
-  const pendingVerification = verificationRequests.filter((v) => v.status === "PENDING").length
-  const openFraud = fraudFlags.filter((f) => f.status === "OPEN").length
-  const pendingEvidence = evidenceSubmissions.filter((e) => e.status === "PENDING").length
-
-  return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Trust & Safety"
-        description="Pusat moderasi, laporan, verifikasi, deteksi fraud, dan evidence platform KataMereka."
-      />
-
-      <Tabs defaultValue="moderation">
-        <TabsList>
-          <TabsTrigger value="moderation">
-            Moderation{openModeration > 0 && ` (${openModeration})`}
-          </TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
-          <TabsTrigger value="verification">
-            Verification{pendingVerification > 0 && ` (${pendingVerification})`}
-          </TabsTrigger>
-          <TabsTrigger value="fraud">Fraud{openFraud > 0 && ` (${openFraud})`}</TabsTrigger>
-          <TabsTrigger value="evidence">
-            Evidence{pendingEvidence > 0 && ` (${pendingEvidence})`}
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="moderation" className="mt-4">
-          <ModerationTab />
-        </TabsContent>
-        <TabsContent value="reports" className="mt-4">
-          <ReportsTab />
-        </TabsContent>
-        <TabsContent value="verification" className="mt-4">
-          <VerificationTab />
-        </TabsContent>
-        <TabsContent value="fraud" className="mt-4">
-          <FraudTab />
-        </TabsContent>
-        <TabsContent value="evidence" className="mt-4">
-          <EvidenceTab />
-        </TabsContent>
-      </Tabs>
     </div>
   )
 }

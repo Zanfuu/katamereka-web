@@ -1,22 +1,84 @@
-import { businesses } from "@/lib/mock/businesses"
 import type { Category } from "@/lib/types"
 
-function businessCount(name: string) {
-  return businesses.filter((b) => b.category === name).length
-}
-
 export const categories: Category[] = [
-  { id: "cat-1", name: "Rental Mobil", businessCount: businessCount("Rental Mobil"), status: "ACTIVE" },
-  { id: "cat-2", name: "Rental Motor", businessCount: businessCount("Rental Motor"), status: "ACTIVE" },
-  { id: "cat-3", name: "Properti", businessCount: businessCount("Properti"), status: "ACTIVE" },
-  { id: "cat-4", name: "Travel", businessCount: businessCount("Travel"), status: "ACTIVE" },
-  { id: "cat-5", name: "Hotel", businessCount: businessCount("Hotel"), status: "ACTIVE" },
-  { id: "cat-6", name: "Elektronik", businessCount: businessCount("Elektronik"), status: "ACTIVE" },
+  {
+    id: "cat-1",
+    name: "Restoran",
+    description: "Restoran, rumah makan, kafe, dan sejenisnya.",
+    businessCount: 1243,
+    status: "ACTIVE",
+    createdAt: "2024-01-12",
+  },
+  {
+    id: "cat-2",
+    name: "Retail",
+    description: "Toko retail, minimarket, supermarket, dll.",
+    businessCount: 892,
+    status: "ACTIVE",
+    createdAt: "2024-01-12",
+  },
+  {
+    id: "cat-3",
+    name: "Akomodasi",
+    description: "Hotel, villa, guest house, dan sejenisnya.",
+    businessCount: 421,
+    status: "ACTIVE",
+    createdAt: "2024-01-14",
+  },
+  {
+    id: "cat-4",
+    name: "Transportasi",
+    description: "Rental kendaraan, transportasi online/offline.",
+    businessCount: 678,
+    status: "ACTIVE",
+    createdAt: "2024-01-15",
+  },
+  {
+    id: "cat-5",
+    name: "Kesehatan",
+    description: "Rumah sakit, klinik, apotek, dan layanan kesehatan.",
+    businessCount: 356,
+    status: "ACTIVE",
+    createdAt: "2024-01-16",
+  },
+  {
+    id: "cat-6",
+    name: "Olahraga",
+    description: "Gym, studio olahraga, lapangan, dan sejenisnya.",
+    businessCount: 298,
+    status: "ACTIVE",
+    createdAt: "2024-01-18",
+  },
   {
     id: "cat-7",
-    name: "Makanan & Minuman",
-    businessCount: businessCount("Makanan & Minuman"),
+    name: "Kecantikan",
+    description: "Salon, barbershop, klinik kecantikan, dan sejenisnya.",
+    businessCount: 512,
     status: "ACTIVE",
+    createdAt: "2024-01-19",
   },
-  { id: "cat-8", name: "Kecantikan & Spa", businessCount: 0, status: "INACTIVE" },
+  {
+    id: "cat-8",
+    name: "Pendidikan",
+    description: "Sekolah, kursus, bimbingan belajar, dan sejenisnya.",
+    businessCount: 274,
+    status: "ACTIVE",
+    createdAt: "2024-01-20",
+  },
+  {
+    id: "cat-9",
+    name: "Properti",
+    description: "Agen properti, perumahan, sewa properti, dll.",
+    businessCount: 198,
+    status: "ACTIVE",
+    createdAt: "2024-01-21",
+  },
+  {
+    id: "cat-10",
+    name: "Lainnya",
+    description: "Kategori lainnya yang tidak termasuk di atas.",
+    businessCount: 87,
+    status: "INACTIVE",
+    createdAt: "2024-01-25",
+  },
 ]

@@ -1,13 +1,17 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { toast } from "sonner"
 import {
   BellIcon,
+  CopyIcon,
+  HomeIcon,
   KeyRoundIcon,
   MailIcon,
   MessageCircleIcon,
   PlugIcon,
+  RefreshCcwIcon,
   SettingsIcon,
   ShieldCheckIcon,
   WebhookIcon,
@@ -16,9 +20,24 @@ import {
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { PageHeader } from "@/components/page-header"
 import { StatusBadge } from "@/components/status-badge"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -118,6 +137,26 @@ const NOTIFICATION_GROUPS = [
 ]
 
 function NotificationsTab() {
+  const [enabled, setEnabled] = React.useState<Record<string, boolean>>(
+    Object.fromEntries(NOTIFICATION_GROUPS.map((g) => [g.label, true]))
+  )
+  const [editing, setEditing] = React.useState<(typeof NOTIFICATION_GROUPS)[number] | null>(null)
+  const [draftMessage, setDraftMessage] = React.useState("")
+  const [draftEnabled, setDraftEnabled] = React.useState(true)
+
+  function openEditor(group: (typeof NOTIFICATION_GROUPS)[number]) {
+    setEditing(group)
+    setDraftEnabled(enabled[group.label])
+    setDraftMessage(`Halo {{nama}}, ada pembaruan terkait ${group.label.toLowerCase()} di KataMereka.`)
+  }
+
+  function save() {
+    if (!editing) return
+    setEnabled((prev) => ({ ...prev, [editing.label]: draftEnabled }))
+    toast.success(`${editing.label} berhasil disimpan.`)
+    setEditing(null)
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -139,12 +178,51 @@ function NotificationsTab() {
                 <p className="text-xs text-muted-foreground">{group.description}</p>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => toast.info(`Membuka ${group.label}.`)}>
-              Kelola
-            </Button>
+            <div className="flex items-center gap-2">
+              <StatusBadge status={enabled[group.label] ? "ACTIVE" : "gray"} label={enabled[group.label] ? "Aktif" : "Nonaktif"} />
+              <Button variant="outline" size="sm" onClick={() => openEditor(group)}>
+                Kelola
+              </Button>
+            </div>
           </div>
         ))}
       </CardContent>
+
+      <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editing?.label}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                id="notif-enabled"
+                checked={draftEnabled}
+                onCheckedChange={(checked) => setDraftEnabled(!!checked)}
+              />
+              <Label htmlFor="notif-enabled" className="text-sm font-normal">
+                Aktifkan channel notifikasi ini
+              </Label>
+            </div>
+            <Field>
+              <FieldLabel htmlFor="notif-template">Template Pesan</FieldLabel>
+              <textarea
+                id="notif-template"
+                rows={4}
+                value={draftMessage}
+                onChange={(e) => setDraftMessage(e.target.value)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              />
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>
+              Batal
+            </Button>
+            <Button onClick={save}>Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
@@ -158,7 +236,32 @@ const INTEGRATIONS = [
   { icon: PlugIcon, label: "External Integrations", available: false },
 ]
 
+function maskKey(key: string) {
+  return `${key.slice(0, 8)}${"•".repeat(16)}${key.slice(-4)}`
+}
+
 function IntegrationsTab() {
+  const [editing, setEditing] = React.useState<(typeof INTEGRATIONS)[number] | null>(null)
+  const [apiKey, setApiKey] = React.useState("")
+  const [webhookUrl, setWebhookUrl] = React.useState("")
+  const [emailFrom, setEmailFrom] = React.useState("no-reply@katamereka.com")
+
+  function regenerateKey() {
+    const key = `sk_live_${Math.random().toString(36).slice(2, 26)}`
+    setApiKey(key)
+    toast.success("API key baru berhasil dibuat.")
+  }
+
+  function copyKey() {
+    navigator.clipboard?.writeText(apiKey)
+    toast.success("API key disalin ke clipboard.")
+  }
+
+  function saveIntegration() {
+    toast.success(`${editing?.label} berhasil disimpan.`)
+    setEditing(null)
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -178,7 +281,7 @@ function IntegrationsTab() {
               <p className="text-sm font-medium text-foreground">{item.label}</p>
             </div>
             {item.available ? (
-              <Button variant="outline" size="sm" onClick={() => toast.info(`Membuka ${item.label}.`)}>
+              <Button variant="outline" size="sm" onClick={() => setEditing(item)}>
                 Kelola
               </Button>
             ) : (
@@ -187,6 +290,60 @@ function IntegrationsTab() {
           </div>
         ))}
       </CardContent>
+
+      <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editing?.label}</DialogTitle>
+          </DialogHeader>
+
+          {editing?.label === "API Keys" && (
+            <div className="flex flex-col gap-3">
+              <Field>
+                <FieldLabel>Secret Key</FieldLabel>
+                <div className="flex items-center gap-2">
+                  <Input value={maskKey(apiKey)} readOnly className="font-mono text-xs" />
+                  <Button variant="outline" size="icon" onClick={copyKey}>
+                    <CopyIcon className="size-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" onClick={regenerateKey}>
+                    <RefreshCcwIcon className="size-4" />
+                  </Button>
+                </div>
+              </Field>
+              <p className="text-xs text-muted-foreground">
+                Key ini memberi akses penuh ke API KataMereka. Jangan bagikan ke pihak lain.
+              </p>
+            </div>
+          )}
+
+          {editing?.label === "Webhooks" && (
+            <Field>
+              <FieldLabel htmlFor="webhook-url">Webhook URL</FieldLabel>
+              <Input
+                id="webhook-url"
+                placeholder="https://example.com/webhooks/katamereka"
+                value={webhookUrl}
+                onChange={(e) => setWebhookUrl(e.target.value)}
+              />
+            </Field>
+          )}
+
+          {editing?.label === "Email" && (
+            <Field>
+              <FieldLabel htmlFor="email-from">Email Pengirim</FieldLabel>
+              <Input id="email-from" value={emailFrom} onChange={(e) => setEmailFrom(e.target.value)} />
+            </Field>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>
+              Tutup
+            </Button>
+            {editing?.label !== "API Keys" && <Button onClick={saveIntegration}>Simpan</Button>}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
@@ -266,6 +423,20 @@ function SecurityTab() {
 export default function SystemPage() {
   return (
     <div className="flex flex-col gap-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink render={<Link href="/admin" />}>
+              <HomeIcon className="size-3.5" />
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>System</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <PageHeader
         title="System"
         description="Konfigurasi internal platform: role, notifikasi, integrasi, dan keamanan."

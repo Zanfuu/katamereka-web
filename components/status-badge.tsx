@@ -36,32 +36,55 @@ const STATUS_TONE: Record<string, VariantProps<typeof statusBadgeVariants>["tone
   PENDING_REVIEW: "amber",
   UNDER_INVESTIGATION: "amber",
   OPEN: "amber",
-  SENT: "amber",
-  OPENED: "amber",
   // red
   BANNED: "red",
   SUSPENDED: "red",
   REJECTED: "red",
   REMOVED: "red",
   HIGH: "red",
+  EXPIRED: "red",
   // gray
   INACTIVE: "gray",
   UNVERIFIED: "gray",
   HIDDEN: "gray",
-  EXPIRED: "gray",
   MEMBER: "gray",
+  SENT: "gray",
   // blue
   IN_PROGRESS: "blue",
   INFORMATIONAL: "blue",
   MEDIUM: "blue",
   ADMIN: "blue",
   OWNER: "blue",
+  OPENED: "blue",
+  // Indonesian labels used by the Business Admin "needs attention" list —
+  // reuses the same tone system instead of ad hoc colors.
+  Dibalas: "green",
+  "Belum Dibalas": "amber",
+  Dilaporkan: "red",
+  "Rating Rendah": "red",
+  "Komplain Layanan": "amber",
+  Pertanyaan: "blue",
+  // Trust & Safety report queue statuses (/admin/trust-safety).
+  MENUNGGU: "red",
+  DALAM_PROSES: "amber",
+  SELESAI: "green",
+  DITOLAK: "red",
 }
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING_REVIEW: "Pending Review",
   UNDER_INVESTIGATION: "Under Investigation",
   IN_PROGRESS: "In Progress",
+  Dibalas: "Dibalas",
+  "Belum Dibalas": "Belum Dibalas",
+  Dilaporkan: "Dilaporkan",
+  "Rating Rendah": "Rating Rendah",
+  "Komplain Layanan": "Komplain Layanan",
+  Pertanyaan: "Pertanyaan",
+  MENUNGGU: "Menunggu",
+  DALAM_PROSES: "Dalam Proses",
+  SELESAI: "Selesai",
+  DITOLAK: "Ditolak",
 }
 
 export function StatusBadge({

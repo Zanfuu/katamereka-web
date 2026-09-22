@@ -24,7 +24,9 @@ export type ModerationStatus =
   | "HIDDEN"
   | "REMOVED"
 
-export type ReportStatus = "OPEN" | "UNDER_INVESTIGATION" | "RESOLVED"
+export type ReportStatus = "OPEN" | "UNDER_INVESTIGATION" | "RESOLVED" | "REJECTED"
+
+export type ReportTargetType = "REVIEW" | "PHOTO" | "BUSINESS_PROFILE"
 
 export type InvitationStatus = "SENT" | "OPENED" | "COMPLETED" | "EXPIRED"
 
@@ -60,8 +62,14 @@ export interface Business {
   address: string
   city: string
   province: string
+  postalCode?: string
   socialLinks?: { platform: string; url: string }[]
   operatingHours?: { day: string; hours: string }[]
+  additionalCategories?: string[]
+  foundedYear?: number
+  employeeRange?: string
+  taxId?: string
+  about?: string
   ownerId: string
   ownerName: string
   averageRating: number
@@ -112,6 +120,9 @@ export interface Review {
   reportCount: number
   /** Short triage label shown on the Business Admin "needs attention" list, e.g. "Rating Rendah". */
   issue?: string
+  /** Where the review came from, shown as "melalui Google" etc. on the Reviews table. */
+  source?: "Google" | "Website" | "KataMereka"
+  photos?: string[]
   reply?: { content: string; repliedAt: string; repliedBy: string }
   createdAt: string
 }
@@ -139,6 +150,7 @@ export interface VerificationRequest {
 
 export interface Report {
   id: string
+  targetType: ReportTargetType
   reviewId: string
   reviewExcerpt: string
   reviewRating: 1 | 2 | 3 | 4 | 5
@@ -146,10 +158,12 @@ export interface Report {
   businessName: string
   reviewerName: string
   reporterName: string
+  reporterEmail?: string
   reason: string
   evidence?: string[]
   status: ReportStatus
   moderationStatus: ModerationStatus
+  internalNote?: string
   createdAt: string
 }
 
@@ -190,15 +204,37 @@ export interface FraudFlag {
 export interface Category {
   id: string
   name: string
+  description: string
   businessCount: number
   status: "ACTIVE" | "INACTIVE"
+  createdAt: string
 }
 
-export interface PlatformLocation {
+export interface City {
   id: string
+  name: string
   province: string
-  city: string
+  businessCount: number
   status: "ACTIVE" | "INACTIVE"
+  createdAt: string
+}
+
+export interface Industry {
+  id: string
+  name: string
+  description: string
+  businessCount: number
+  status: "ACTIVE" | "INACTIVE"
+  createdAt: string
+}
+
+export interface ContentTag {
+  id: string
+  name: string
+  description: string
+  reviewCount: number
+  status: "ACTIVE" | "INACTIVE"
+  createdAt: string
 }
 
 export type EvidenceType = "RECEIPT" | "PHOTO" | "CHAT_LOG" | "OTHER"
@@ -218,7 +254,7 @@ export interface Evidence {
 
 export interface ActivityItem {
   id: string
-  icon: "reply" | "review" | "verification" | "team" | "report" | "invitation"
+  icon: "reply" | "review" | "verification" | "team" | "report" | "invitation" | "evidence" | "business"
   text: string
   at: string
 }

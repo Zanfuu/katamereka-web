@@ -5,19 +5,21 @@ import Link from "next/link"
 import {
   BarChart3Icon,
   BuildingIcon,
+  CircleHelpIcon,
   DatabaseIcon,
+  ExternalLinkIcon,
+  FlagIcon,
   LayoutDashboardIcon,
   ScrollTextIcon,
+  SearchIcon,
   SettingsIcon,
   ShieldIcon,
-  ShieldAlertIcon,
   StarIcon,
   UserCogIcon,
   UsersIcon,
 } from "lucide-react"
 
 import { NavGroup } from "@/components/nav-group"
-import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
   SidebarContent,
@@ -27,7 +29,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { currentSuperAdmin } from "@/lib/mock/session"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 const navGroups = [
   {
@@ -36,15 +39,15 @@ const navGroups = [
   {
     label: "Platform",
     items: [
-      { title: "Customers", url: "/admin/customers", icon: UserCogIcon },
+      { title: "Admin Management", url: "/admin/customers", icon: UserCogIcon },
+      { title: "User Management", url: "/admin/users", icon: UsersIcon },
       { title: "Businesses", url: "/admin/businesses", icon: BuildingIcon },
-      { title: "Users", url: "/admin/users", icon: UsersIcon },
       { title: "Reviews", url: "/admin/reviews", icon: StarIcon },
     ],
   },
   {
     label: "Trust & Safety",
-    items: [{ title: "Trust & Safety", url: "/admin/trust-safety", icon: ShieldAlertIcon }],
+    items: [{ title: "Trust & Safety", url: "/admin/trust-safety", icon: FlagIcon }],
   },
   {
     label: "Management",
@@ -63,15 +66,20 @@ const navGroups = [
 ]
 
 export function AdminSidebar(props: React.ComponentProps<typeof Sidebar>) {
-  const user = {
-    name: currentSuperAdmin.name,
-    email: currentSuperAdmin.email,
-    avatar: "",
-  }
+  const [query, setQuery] = React.useState("")
+
+  const filteredGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) =>
+        item.title.toLowerCase().includes(query.trim().toLowerCase())
+      ),
+    }))
+    .filter((group) => group.items.length > 0)
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader>
+      <SidebarHeader className="gap-3 px-3 pt-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -88,14 +96,39 @@ export function AdminSidebar(props: React.ComponentProps<typeof Sidebar>) {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+        <div className="relative">
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Cari menu..."
+            className="h-9 w-full rounded-lg bg-secondary pl-8 text-sm"
+          />
+        </div>
       </SidebarHeader>
       <SidebarContent>
-        {navGroups.map((group, index) => (
-          <NavGroup key={index} label={group.label} items={group.items} />
-        ))}
+        {filteredGroups.length === 0 ? (
+          <p className="px-4 py-6 text-center text-xs text-muted-foreground">
+            Menu &ldquo;{query}&rdquo; tidak ditemukan.
+          </p>
+        ) : (
+          filteredGroups.map((group, index) => (
+            <NavGroup key={group.label ?? index} label={group.label} items={group.items} />
+          ))
+        )}
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser user={user} />
+      <SidebarFooter className="p-3">
+        <div className="flex flex-col gap-2 rounded-xl border border-border p-4">
+          <CircleHelpIcon className="size-5 text-primary" />
+          <p className="text-sm font-semibold text-foreground">Butuh bantuan?</p>
+          <p className="text-xs text-muted-foreground">
+            Lihat dokumentasi atau hubungi tim support internal.
+          </p>
+          <Button variant="outline" size="sm" className="mt-1">
+            Buka Dokumentasi
+            <ExternalLinkIcon />
+          </Button>
+        </div>
       </SidebarFooter>
     </Sidebar>
   )

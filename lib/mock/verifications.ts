@@ -30,7 +30,7 @@ export const verificationRequests: VerificationRequest[] = [
   {
     id: "v3",
     businessId: "b1",
-    businessName: "TransGO",
+    businessName: "TransGO Rental",
     submittedBy: "Andi Pratama",
     status: "VERIFIED",
     documents: [
@@ -39,7 +39,7 @@ export const verificationRequests: VerificationRequest[] = [
     ],
     submittedAt: "2022-11-10T10:00:00+07:00",
     reviewedAt: "2022-11-14T15:00:00+07:00",
-    reviewedBy: "Sarah Wijaya",
+    reviewedBy: "Billyaz",
     history: [
       { status: "PENDING", note: "Dokumen diajukan.", at: "2022-11-10T10:00:00+07:00" },
       { status: "VERIFIED", note: "Dokumen lengkap dan valid.", at: "2022-11-14T15:00:00+07:00" },
@@ -54,7 +54,7 @@ export const verificationRequests: VerificationRequest[] = [
     documents: [{ id: "d7", name: "NIB Wisata Nusantara.pdf", type: "NIB", uploadedAt: "2022-04-25" }],
     submittedAt: "2022-04-25T10:00:00+07:00",
     reviewedAt: "2022-04-28T10:00:00+07:00",
-    reviewedBy: "Sarah Wijaya",
+    reviewedBy: "Billyaz",
     history: [
       { status: "PENDING", note: "Dokumen diajukan.", at: "2022-04-25T10:00:00+07:00" },
       { status: "VERIFIED", note: "Dokumen lengkap dan valid.", at: "2022-04-28T10:00:00+07:00" },
@@ -69,7 +69,7 @@ export const verificationRequests: VerificationRequest[] = [
     documents: [{ id: "d8", name: "NIB Warung Rasa.pdf", type: "NIB", uploadedAt: "2021-10-05" }],
     submittedAt: "2021-10-05T10:00:00+07:00",
     reviewedAt: "2021-10-09T10:00:00+07:00",
-    reviewedBy: "Sarah Wijaya",
+    reviewedBy: "Billyaz",
     history: [
       { status: "PENDING", note: "Dokumen diajukan.", at: "2021-10-05T10:00:00+07:00" },
       { status: "VERIFIED", note: "Dokumen lengkap dan valid.", at: "2021-10-09T10:00:00+07:00" },
@@ -84,7 +84,7 @@ export const verificationRequests: VerificationRequest[] = [
     documents: [{ id: "d9", name: "SIUP BandungMotor.pdf", type: "SIUP", uploadedAt: "2024-11-10" }],
     submittedAt: "2024-11-10T10:00:00+07:00",
     reviewedAt: "2024-11-15T10:00:00+07:00",
-    reviewedBy: "Sarah Wijaya",
+    reviewedBy: "Billyaz",
     reason: "Dokumen SIUP tidak terbaca dan nama usaha tidak cocok dengan KTP pemohon.",
     history: [
       { status: "PENDING", note: "Dokumen diajukan.", at: "2024-11-10T10:00:00+07:00" },

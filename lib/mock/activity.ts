@@ -11,9 +11,10 @@ export const businessActivity: Record<string, ActivityItem[]> = {
 }
 
 export const platformActivity: ActivityItem[] = [
-  { id: "pa1", icon: "verification", text: "Sarah Wijaya menyetujui verifikasi TransGO.", at: "2022-11-14T15:00:00+07:00" },
-  { id: "pa2", icon: "report", text: "Sarah Wijaya menghapus review #r15 dari PropertyHub Indonesia.", at: "2026-09-05T11:30:00+07:00" },
-  { id: "pa3", icon: "review", text: "Review baru masuk dari Wulan Ratna untuk Snaplease.", at: "2026-09-18T12:00:00+07:00" },
-  { id: "pa4", icon: "team", text: "Business Admin baru mendaftar: Rina Amelia (HotelKita Malioboro).", at: "2024-01-09T10:00:00+07:00" },
-  { id: "pa5", icon: "report", text: "Review #r14 disembunyikan karena terindikasi fraud.", at: "2026-09-08T06:10:00+07:00" },
+  { id: "pa1", icon: "reply", text: "Andi Pratama membalas review dari Putri Handayani.", at: "2026-09-21T10:00:00+07:00" },
+  { id: "pa2", icon: "verification", text: "Pengajuan verifikasi baru dari Snaplease.", at: "2026-09-21T08:00:00+07:00" },
+  { id: "pa3", icon: "review", text: "Review baru diterima untuk Wisata Nusantara.", at: "2026-09-21T07:00:00+07:00" },
+  { id: "pa4", icon: "report", text: "User Akun Tidak Dikenal dilaporkan oleh sistem.", at: "2026-09-21T06:00:00+07:00" },
+  { id: "pa5", icon: "evidence", text: "Bukti transaksi diunggah untuk Report #rep1.", at: "2026-09-21T04:00:00+07:00" },
+  { id: "pa6", icon: "business", text: "Business baru terdaftar: HotelKita Malioboro.", at: "2026-09-21T02:00:00+07:00" },
 ]

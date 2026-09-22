@@ -3,17 +3,24 @@ import type { Business, BusinessMember, Location } from "@/lib/types"
 export const businesses: Business[] = [
   {
     id: "b1",
-    name: "TransGO",
-    slug: "transgo",
+    name: "TransGO Rental",
+    slug: "transgo-rental",
     description:
-      "Layanan rental mobil dan motor harian dengan armada terawat di seluruh kota besar Indonesia.",
-    category: "Rental Mobil",
+      "Layanan rental mobil terpercaya di Indonesia dengan armada lengkap, harga kompetitif, dan pelayanan profesional. Solusi transportasi untuk perjalanan bisnis, liburan, dan kebutuhan harian Anda.",
+    category: "Transportasi",
+    additionalCategories: ["Rental Mobil", "Sewa Harian", "Sewa Bulanan"],
     website: "https://transgo.id",
-    phone: "021-5550123",
-    email: "cs@transgo.id",
-    address: "Jl. Sudirman No. 45",
-    city: "Jakarta",
+    phone: "+62 812 3456 7890",
+    email: "info@transgo.id",
+    address: "Jl. Sudirman No. 123, Karet Tengsin",
+    city: "Tanah Abang, Jakarta Pusat",
     province: "DKI Jakarta",
+    postalCode: "10220",
+    foundedYear: 2020,
+    employeeRange: "11–50 karyawan",
+    taxId: "12.345.678.9-012.000",
+    about:
+      "TransGO Rental berkomitmen memberikan pengalaman sewa mobil yang mudah, aman, dan terpercaya. Dengan armada terawat dan layanan pelanggan 24/7, kami siap menjadi partner perjalanan Anda.",
     socialLinks: [
       { platform: "Instagram", url: "https://instagram.com/transgo.id" },
       { platform: "TikTok", url: "https://tiktok.com/@transgo.id" },

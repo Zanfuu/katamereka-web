@@ -40,8 +40,8 @@ export const currentBusinessAdminMemberships: BusinessMember[] = [
 // The currently "logged in" Super Admin — internal KataMereka team member.
 export const currentSuperAdmin: User = {
   id: "u-super-1",
-  name: "Sarah Wijaya",
-  email: "sarah@katamereka.com",
+  name: "Billyaz",
+  email: "billyaz@katamereka.com",
   platformRole: "SUPER_ADMIN",
   status: "ACTIVE",
   reviewCount: 0,

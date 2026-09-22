@@ -122,7 +122,7 @@ export function BusinessAdminActions({ business }: { business: Business }) {
               <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => toast.info("Permintaan dokumen tambahan telah dikirim ke admin.")}
+                  onClick={() => toast.success("Permintaan dokumen tambahan telah dikirim ke admin.")}
                 >
                   Request Information
                 </Button>

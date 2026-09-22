@@ -1,12 +1,23 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
+import { HomeIcon } from "lucide-react"
 
+import { DateRangeSelector } from "@/components/date-range-selector"
 import { FilterDropdown } from "@/components/filter-dropdown"
 import { PageHeader } from "@/components/page-header"
 import { ResourceTable, type ResourceTableColumn } from "@/components/resource-table"
 import { SearchInput } from "@/components/search-input"
 import { StatusBadge } from "@/components/status-badge"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { auditLog } from "@/lib/mock/audit-log"
 import { formatDateTime } from "@/lib/format"
 import type { AuditLogEntry } from "@/lib/types"
@@ -19,8 +30,17 @@ const ROLE_OPTIONS = [
 
 export default function AdminAuditLogsPage() {
   const [search, setSearch] = React.useState("")
+  const [actorFilter, setActorFilter] = React.useState("all")
   const [roleFilter, setRoleFilter] = React.useState("all")
   const [actionFilter, setActionFilter] = React.useState("all")
+
+  const actorOptions = [
+    { value: "all", label: "Semua Actor" },
+    ...Array.from(new Set(auditLog.map((entry) => entry.actorName))).map((name) => ({
+      value: name,
+      label: name,
+    })),
+  ]
 
   const actionOptions = [
     { value: "all", label: "Semua Action" },
@@ -31,6 +51,7 @@ export default function AdminAuditLogsPage() {
   ]
 
   const filtered = auditLog.filter((entry) => {
+    if (actorFilter !== "all" && entry.actorName !== actorFilter) return false
     if (roleFilter !== "all" && entry.actorRole !== roleFilter) return false
     if (actionFilter !== "all" && entry.action !== actionFilter) return false
     if (
@@ -86,6 +107,20 @@ export default function AdminAuditLogsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink render={<Link href="/admin" />}>
+              <HomeIcon className="size-3.5" />
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Audit Logs</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <PageHeader
         title="Audit Logs"
         description="Catatan seluruh tindakan sensitif pada platform KataMereka. Read-only."
@@ -94,8 +129,10 @@ export default function AdminAuditLogsPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <SearchInput value={search} onChange={setSearch} placeholder="Cari actor atau target..." />
         <div className="flex flex-wrap items-center gap-2">
+          <FilterDropdown label="Actor" options={actorOptions} value={actorFilter} onChange={setActorFilter} />
           <FilterDropdown label="Role" options={ROLE_OPTIONS} value={roleFilter} onChange={setRoleFilter} />
           <FilterDropdown label="Action" options={actionOptions} value={actionFilter} onChange={setActionFilter} />
+          <DateRangeSelector />
         </div>
       </div>
 
@@ -103,6 +140,8 @@ export default function AdminAuditLogsPage() {
         data={filtered}
         columns={columns}
         getRowId={(entry) => entry.id}
+        itemLabel="log"
+        pageSize={10}
         emptyTitle="Tidak ada log ditemukan."
         emptyDescription="Coba ubah filter pencarian."
       />
