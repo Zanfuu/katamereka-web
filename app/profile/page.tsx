@@ -108,7 +108,6 @@ export default function ProfilePage() {
               {[
                 { id: "overview", label: "Overview", icon: Home },
                 { id: "reviews", label: "Review Saya", icon: Star },
-                { id: "saved", label: "Bisnis Tersimpan", icon: Bookmark },
                 { id: "helpful", label: "Review Membantu", icon: ThumbsUp },
                 { id: "activity", label: "Aktivitas", icon: Clock },
                 { id: "settings", label: "Pengaturan", icon: Settings },
@@ -130,8 +129,18 @@ export default function ProfilePage() {
                   </button>
                 );
               })}
+
+              {/* Tersimpan — navigasi ke halaman /saved */}
+              <Link
+                href="/saved"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-semibold transition-all text-slate-600 hover:bg-slate-50 hover:text-[#008767]"
+              >
+                <Bookmark className="w-4 h-4 text-slate-400" />
+                <span>Bisnis Tersimpan</span>
+              </Link>
             </div>
           </aside>
+
 
           {/* ================= RIGHT MAIN AREA ================= */}
           <section className="lg:col-span-9 space-y-6">

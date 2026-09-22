@@ -31,6 +31,38 @@ import Navbar from "@/components/navbar";
 
 export default function LandingPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const faqs = [
+    {
+      q: "Apa itu Katamereka?",
+      a: "Katamereka adalah platform ulasan dan rekomendasi bisnis dari pengguna nyata. Kamu bisa menemukan ulasan terpercaya tentang bisnis, produk, tempat, jasa, aplikasi, hingga institusi — semuanya dalam satu tempat."
+    },
+    {
+      q: "Apakah Katamereka gratis untuk digunakan?",
+      a: "Ya, Katamereka sepenuhnya gratis untuk pengguna umum. Kamu bisa membaca ulasan, mencari bisnis, dan menulis ulasan sendiri tanpa biaya apapun."
+    },
+    {
+      q: "Bagaimana cara menulis ulasan di Katamereka?",
+      a: "Cukup daftarkan akun Customer secara gratis, lalu kunjungi halaman bisnis yang ingin kamu ulas. Klik tombol 'Tulis Ulasan', berikan rating bintang, dan tuliskan pengalamanmu."
+    },
+    {
+      q: "Apakah ulasan di Katamereka sudah terverifikasi?",
+      a: "Kami memiliki sistem moderasi untuk memastikan kualitas ulasan. Ulasan yang terverifikasi akan mendapatkan badge 'Verified Experience' sehingga pembaca bisa membedakannya dari ulasan biasa."
+    },
+    {
+      q: "Bisakah pemilik bisnis mendaftarkan usahanya ke Katamereka?",
+      a: "Tentu! Pemilik bisnis bisa mendaftar dengan memilih tipe 'Akun Bisnis' saat registrasi. Setelah itu kamu bisa mengelola profil bisnis, membalas ulasan pelanggan, dan mengakses Dashboard Admin."
+    },
+    {
+      q: "Bagaimana jika ada ulasan yang tidak jujur atau menyesatkan?",
+      a: "Kamu bisa melaporkan ulasan yang mencurigakan langsung dari halaman ulasan tersebut. Tim Katamereka akan meninjau dan mengambil tindakan sesuai kebijakan platform."
+    },
+    {
+      q: "Di mana saya bisa menghubungi tim Katamereka?",
+      a: "Kamu bisa menghubungi kami melalui halaman Pusat Bantuan atau mengirim email ke support@katamereka.id. Kami siap membantu setiap hari Senin–Jumat pukul 09.00–17.00 WIB."
+    },
+  ];
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -453,6 +485,67 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ================= SECTION 5: FAQ ================= */}
+      <section className="py-16 bg-gradient-to-b from-[#f4faf7] to-white border-t border-[#d3f0e5]">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+          {/* Header */}
+          <div className="text-center space-y-3">
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Ada yang ingin kamu tanyakan?</h2>
+            <p className="text-sm sm:text-base text-slate-500 max-w-xl mx-auto">
+              Berikut beberapa pertanyaan yang sering kami terima. Tidak ada jawabannya? Hubungi kami langsung.
+            </p>
+          </div>
+
+          {/* Accordion */}
+          <div className="space-y-3">
+            {faqs.map((faq, i) => (
+              <div
+                key={i}
+                className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                  openFaq === i
+                    ? "border-[#008767]/30 bg-white shadow-md shadow-[#008767]/5"
+                    : "border-slate-200/80 bg-white hover:border-[#008767]/20 hover:shadow-sm"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left"
+                >
+                  <span className={`font-semibold text-sm sm:text-base transition-colors ${
+                    openFaq === i ? "text-[#008767]" : "text-slate-900"
+                  }`}>
+                    {faq.q}
+                  </span>
+                  <span className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 ${
+                    openFaq === i
+                      ? "bg-[#008767] text-white rotate-180"
+                      : "bg-slate-100 text-slate-500"
+                  }`}>
+                    <ChevronDown className="w-4 h-4" />
+                  </span>
+                </button>
+
+                {openFaq === i && (
+                  <div className="px-5 pb-5">
+                    <div className="h-px bg-[#e1f3ed] mb-4" />
+                    <p className="text-sm text-slate-600 leading-relaxed">{faq.a}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom CTA */}
+          <div className="text-center pt-2">
+            <p className="text-sm text-slate-500">
+              Masih punya pertanyaan?{" "}
+              <a href="#" className="font-semibold text-[#008767] hover:underline">Hubungi kami</a>
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* ================= SECTION 4: CTA BANNER ================= */}
       <section className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -479,6 +572,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
 
       {/* ================= FOOTER ================= */}
       <footer className="bg-white border-t border-slate-200/80 pt-16 pb-12 text-slate-600 text-sm">

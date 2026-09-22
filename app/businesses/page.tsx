@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Star,
   Heart,
+  Bookmark,
   ArrowRight,
   ShieldCheck,
   Award,
@@ -370,15 +371,20 @@ export default function BusinessesPage() {
                               )}
                             </div>
 
-                            {/* Heart Favorite Button */}
+                            {/* Save Button */}
                             <button
                               onClick={(e) => toggleFavorite(biz.id, e)}
-                              aria-label="Favorite"
-                              className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 shadow-2xs transition-colors z-10"
+                              aria-label="Simpan"
+                              title={isFav ? "Hapus dari tersimpan" : "Simpan bisnis ini"}
+                              className={`w-8 h-8 rounded-full border flex items-center justify-center shadow-2xs transition-all z-10 ${
+                                isFav
+                                  ? "bg-[#e8f6f2] border-[#008767]/30 text-[#008767]"
+                                  : "bg-white/90 backdrop-blur-xs border-slate-200 text-slate-400 hover:border-[#008767]/40 hover:text-[#008767]"
+                              }`}
                             >
-                              <Heart
+                              <Bookmark
                                 className={`w-4 h-4 ${
-                                  isFav ? "fill-red-500 text-red-500" : ""
+                                  isFav ? "fill-[#008767]" : ""
                                 }`}
                               />
                             </button>
