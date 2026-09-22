@@ -1,69 +1,594 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import Link from "next/link";
+import { useState } from "react";
+import {
+  Search,
+  Star,
+  MessageSquare,
+  ChevronDown,
+  ArrowRight,
+  CheckCircle2,
+  Building2,
+  Package,
+  MapPin,
+  Wrench,
+  Smartphone,
+  GraduationCap,
+  Utensils,
+  Hotel,
+  Sparkles,
+  Laptop,
+  Plane,
+  Store,
+  ArrowUp,
+  ArrowUpRight,
+  ShieldCheck,
+  AppWindow
+} from "lucide-react";
+
+import Navbar from "@/components/navbar";
+
+export default function LandingPage() {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-slate-50/50 text-slate-800 font-sans">
+      <Navbar />
+
+      {/* ================= HERO SECTION ================= */}
+      <section className="relative pt-12 pb-20 md:pt-16 md:pb-28 overflow-hidden bg-gradient-to-b from-white via-[#f4faf7]/50 to-slate-50/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            
+            {/* Left Column: Heading & Search */}
+            <div className="lg:col-span-7 space-y-6">
+
+              {/* Main Headline */}
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-[1.15]">
+                Dengar Kata <span className="text-[#008767]">Mereka</span> Sebelum Memilih.
+              </h1>
+
+              {/* Subheadline */}
+              <p className="text-base sm:text-lg text-slate-600 max-w-xl leading-relaxed">
+                Katamereka adalah platform ulasan dan rekomendasi bisnis dari orang-orang seperti kamu. Temukan ulasan terpercaya, produk terbaik, dan layanan yang sesuai dengan kebutuhanmu.
+              </p>
+
+              {/* Search Box */}
+              <div className="pt-2">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (searchQuery) window.location.href = `/businesses?q=${encodeURIComponent(searchQuery)}`;
+                  }}
+                  className="bg-white p-2 sm:p-2.5 rounded-full shadow-lg shadow-slate-200/60 border border-slate-200/80 flex items-center gap-2 max-w-xl focus-within:ring-2 focus-within:ring-[#008767]/30 transition-all"
+                >
+                  <Search className="w-5 h-5 text-slate-400 ml-3 flex-shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Cari nama bisnis, website, atau kategori..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-transparent border-none outline-none text-slate-800 placeholder:text-slate-400 text-sm sm:text-base py-1"
+                  />
+                  <button
+                    type="submit"
+                    className="px-6 py-3 rounded-full bg-[#008767] hover:bg-[#007458] text-white text-sm font-semibold flex-shrink-0 transition-all shadow-sm active:scale-95"
+                  >
+                    Cari
+                  </button>
+                </form>
+              </div>
+
+              {/* Popular Search Tags */}
+              <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-slate-500 pt-1">
+                <span className="font-medium text-slate-700 mr-1">Populer:</span>
+                <Link href="/businesses" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 hover:border-[#008767] hover:text-[#008767] transition-all shadow-2xs">
+                  <Utensils className="w-3.5 h-3.5 text-amber-500" /> Restoran
+                </Link>
+                <Link href="/businesses" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 hover:border-[#008767] hover:text-[#008767] transition-all shadow-2xs">
+                  <Hotel className="w-3.5 h-3.5 text-blue-500" /> Hotel
+                </Link>
+                <Link href="/businesses" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 hover:border-[#008767] hover:text-[#008767] transition-all shadow-2xs">
+                  <Sparkles className="w-3.5 h-3.5 text-pink-500" /> Kecantikan
+                </Link>
+                <Link href="/businesses" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 hover:border-[#008767] hover:text-[#008767] transition-all shadow-2xs">
+                  <Laptop className="w-3.5 h-3.5 text-indigo-500" /> Elektronik
+                </Link>
+                <Link href="/businesses" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 hover:border-[#008767] hover:text-[#008767] transition-all shadow-2xs">
+                  <Plane className="w-3.5 h-3.5 text-sky-500" /> Travel & Wisata
+                </Link>
+              </div>
+            </div>
+
+            {/* Right Column: Floating Cards Stack Over Gradient Container */}
+            <div className="lg:col-span-5 relative flex justify-center items-center">
+              {/* Background Mint Blob */}
+              <div className="w-[340px] h-[340px] sm:w-[420px] sm:h-[420px] rounded-full bg-gradient-to-tr from-[#d3f2e9] via-[#e5f7f2] to-white opacity-90 blur-xs flex items-center justify-center relative shadow-inner">
+                {/* Dengar Pengalaman Mereka Badge Annotation */}
+                <div className="absolute -top-4 -right-2 bg-white/90 backdrop-blur-xs px-4 py-2 rounded-2xl shadow-md border border-[#c4ebde] text-xs font-semibold text-[#008767] flex items-center gap-1.5 animate-bounce">
+                  <MessageSquare className="w-4 h-4 text-[#008767]" />
+                  <span>Dengar pengalaman mereka.</span>
+                </div>
+
+                {/* Floating Cards (No photos as requested, styled as brand cards) */}
+                <div className="w-full space-y-3.5 px-4 z-10">
+                  {/* Card 1 */}
+                  <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-lg shadow-slate-200/80 border border-slate-100 flex items-center justify-between hover:scale-102 transition-transform">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                        <Hotel className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-sm">Hotel Santika Premiere</h4>
+                        <div className="flex items-center gap-1 text-xs text-amber-500 font-semibold mt-0.5">
+                          <span>4.5</span>
+                          <div className="flex text-amber-400">
+                            {"★".repeat(5)}
+                          </div>
+                          <span className="text-slate-400 font-normal ml-1">(2.8k ulasan)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 2 */}
+                  <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-lg shadow-slate-200/80 border border-slate-100 flex items-center justify-between transform translate-x-3 hover:scale-102 transition-transform">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
+                        <Smartphone className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-sm">iPhone 17</h4>
+                        <div className="flex items-center gap-1 text-xs text-amber-500 font-semibold mt-0.5">
+                          <span>4.8</span>
+                          <div className="flex text-amber-400">
+                            {"★".repeat(5)}
+                          </div>
+                          <span className="text-slate-400 font-normal ml-1">(3.5k ulasan)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 3 */}
+                  <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-lg shadow-slate-200/80 border border-slate-100 flex items-center justify-between hover:scale-102 transition-transform">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-500 font-bold text-sm">
+                        <Plane className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-sm">Traveloka</h4>
+                        <div className="flex items-center gap-1 text-xs text-amber-500 font-semibold mt-0.5">
+                          <span>4.6</span>
+                          <div className="flex text-amber-400">
+                            {"★".repeat(5)}
+                          </div>
+                          <span className="text-slate-400 font-normal ml-1">(12.4k ulasan)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* ================= SECTION 1: BISNIS POPULER ================= */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🔥</span>
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Bisnis Populer</h2>
+            </div>
+            <Link
+              href="/businesses"
+              className="group text-sm font-semibold text-[#008767] hover:text-[#006e54] flex items-center gap-1.5 transition-colors"
+            >
+              <span>Lihat semua</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
+
+          {/* Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
+            {[
+              {
+                name: "Tokopedia",
+                slug: "tokopedia",
+                category: "E-commerce",
+                rating: 4.6,
+                reviews: "12.4k ulasan",
+                bgColor: "bg-emerald-50 text-emerald-600 border-emerald-100",
+                initial: "T"
+              },
+              {
+                name: "Shopee",
+                slug: "shopee",
+                category: "E-commerce",
+                rating: 4.5,
+                reviews: "10.3k ulasan",
+                bgColor: "bg-orange-50 text-orange-600 border-orange-100",
+                initial: "S"
+              },
+              {
+                name: "Traveloka",
+                slug: "traveloka",
+                category: "Travel & Wisata",
+                rating: 4.7,
+                reviews: "8.9k ulasan",
+                bgColor: "bg-sky-50 text-sky-600 border-sky-100",
+                initial: "T"
+              },
+              {
+                name: "iPhone 17",
+                slug: "iphone-17",
+                category: "Elektronik",
+                rating: 4.8,
+                reviews: "6.4k ulasan",
+                bgColor: "bg-slate-100 text-slate-800 border-slate-200",
+                initial: ""
+              },
+              {
+                name: "Indomaret",
+                slug: "indomaret",
+                category: "Minimarket",
+                rating: 4.3,
+                reviews: "5.7k ulasan",
+                bgColor: "bg-red-50 text-red-600 border-red-100",
+                initial: "I"
+              }
+            ].map((biz) => (
+              <Link
+                key={biz.slug}
+                href={`/business/${biz.slug}`}
+                className="group bg-white rounded-2xl border border-slate-200/80 p-4 hover:border-[#008767]/40 hover:shadow-xl hover:shadow-slate-200/50 transition-all flex flex-col justify-between"
+              >
+                <div className="space-y-3">
+                  {/* Logo Icon & Action Arrow */}
+                  <div className="flex items-center justify-between">
+                    <div className={`w-11 h-11 rounded-xl font-bold flex items-center justify-center border text-base ${biz.bgColor}`}>
+                      {biz.initial}
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-slate-50 group-hover:bg-[#008767] group-hover:text-white flex items-center justify-center text-slate-400 transition-colors">
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div>
+                    <h3 className="font-bold text-slate-900 group-hover:text-[#008767] transition-colors line-clamp-1">
+                      {biz.name}
+                    </h3>
+                    <div className="flex items-center gap-1 text-xs text-amber-500 font-semibold mt-1">
+                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                      <span>{biz.rating}</span>
+                      <span className="text-slate-400 font-normal">({biz.reviews})</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">{biz.category}</p>
+                  </div>
+                </div>
+
+                {/* Card Placeholder Container (NO IMAGE as requested, but styled card container) */}
+                <div className="mt-4 h-24 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-100 flex items-center justify-center text-slate-400 text-xs font-medium group-hover:bg-[#f0faf6] transition-colors">
+                  <div className="flex items-center gap-1.5 text-slate-400 group-hover:text-[#008767]">
+                    <Store className="w-4 h-4" />
+                    <span>Profil Bisnis</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
-      </main>
+      </section>
+
+      {/* ================= SECTION 2: PENGALAMAN TERBARU ================= */}
+      <section className="py-16 bg-slate-50/70 border-t border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">💬</span>
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Pengalaman Terbaru</h2>
+            </div>
+            <Link
+              href="/businesses"
+              className="group text-sm font-semibold text-[#008767] hover:text-[#006e54] flex items-center gap-1.5 transition-colors"
+            >
+              <span>Lihat semua</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
+
+          {/* Review Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[
+              {
+                author: "Rina S.",
+                initials: "RS",
+                rating: 4.6,
+                time: "3 hari yang lalu",
+                content: "Pelayanannya cepat dan barang sesuai deskripsi. Sudah beberapa kali belanja di sini dan selalu ini aman.",
+                business: "Tokopedia",
+                slug: "tokopedia",
+                initial: "T",
+                bgColor: "bg-emerald-50 text-emerald-600"
+              },
+              {
+                author: "Andi Pratama",
+                initials: "AP",
+                rating: 4.5,
+                time: "5 hari yang lalu",
+                content: "Kamarnya bersih, pelayanan ramah, lokasi strategis. Cuma sarapan bisa lebih bervariasi lagi.",
+                business: "Hotel Santika Premiere",
+                slug: "hotel-santika-premiere",
+                initial: "H",
+                bgColor: "bg-blue-50 text-blue-600"
+              },
+              {
+                author: "Dewi Lestari",
+                initials: "DL",
+                rating: 4.8,
+                time: "1 minggu yang lalu",
+                content: "Performanya luar biasa! Baterai tahan lama dan kameranya makin keren. Sangat worth it.",
+                business: "iPhone 17",
+                slug: "iphone-17",
+                initial: "",
+                bgColor: "bg-slate-100 text-slate-800"
+              },
+              {
+                author: "Fajar Nugroho",
+                initials: "FN",
+                rating: 4.6,
+                time: "1 minggu yang lalu",
+                content: "Proses booking mudah, harga juga kompetitif. Tapi beberapa kali ada delay di check-in.",
+                business: "Traveloka",
+                slug: "traveloka",
+                initial: "T",
+                bgColor: "bg-sky-50 text-sky-600"
+              }
+            ].map((rev, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between space-y-4"
+              >
+                <div className="space-y-3">
+                  {/* User Profile Info */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-700">
+                      {rev.initials}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">{rev.author}</h4>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
+                        <div className="flex text-amber-400">
+                          {"★".repeat(5)}
+                        </div>
+                        <span className="font-medium text-amber-500">{rev.rating}</span>
+                        <span>•</span>
+                        <span>{rev.time}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Review Text */}
+                  <p className="text-sm text-slate-600 leading-relaxed italic">
+                    "{rev.content}"
+                  </p>
+                </div>
+
+                <div className="space-y-3 pt-2 border-t border-slate-100">
+                  {/* Verified Badge */}
+                  <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#008767] bg-[#e8f6f2] px-2.5 py-1 rounded-md">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Verified Experience</span>
+                  </div>
+
+                  {/* Tagged Business */}
+                  <Link
+                    href={`/business/${rev.slug}`}
+                    className="flex items-center gap-2 text-xs font-semibold text-slate-700 hover:text-[#008767] transition-colors"
+                  >
+                    <div className={`w-5 h-5 rounded-md flex items-center justify-center font-bold text-[10px] ${rev.bgColor}`}>
+                      {rev.initial}
+                    </div>
+                    <span className="truncate">{rev.business}</span>
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= SECTION 3: KATEGORI ================= */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Jelajahi berdasarkan kategori</h2>
+            <div className="hidden sm:flex items-center gap-1 text-xs font-semibold text-[#008767] bg-[#e8f6f2] px-3 py-1.5 rounded-full border border-[#c4ebde]">
+              <span>Temukan lebih banyak kategori lainnya</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
+
+          {/* Grid Kategori */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {[
+              { name: "Bisnis", count: "12.4k+ entitas", icon: Building2, color: "text-blue-600 bg-blue-50 border-blue-100" },
+              { name: "Produk", count: "8.7k+ entitas", icon: Package, color: "text-amber-600 bg-amber-50 border-amber-100" },
+              { name: "Tempat", count: "10.2k+ entitas", icon: MapPin, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
+              { name: "Jasa", count: "6.3k+ entitas", icon: Wrench, color: "text-purple-600 bg-purple-50 border-purple-100" },
+              { name: "Aplikasi", count: "5.1k+ entitas", icon: Smartphone, color: "text-sky-600 bg-sky-50 border-sky-100" },
+              { name: "Institusi", count: "3.8k+ entitas", icon: GraduationCap, color: "text-indigo-600 bg-indigo-50 border-indigo-100" },
+            ].map((cat, i) => {
+              const IconComp = cat.icon;
+              return (
+                <Link
+                  key={i}
+                  href="/businesses"
+                  className="group bg-slate-50/60 hover:bg-white rounded-2xl border border-slate-200/80 p-5 text-center transition-all hover:shadow-lg hover:border-[#008767]/30 flex flex-col items-center justify-center space-y-3"
+                >
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border ${cat.color} group-hover:scale-110 transition-transform shadow-2xs`}>
+                    <IconComp className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm group-hover:text-[#008767] transition-colors">{cat.name}</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">{cat.count}</p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= SECTION 4: CTA BANNER ================= */}
+      <section className="py-12 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-gradient-to-r from-[#e1f3ed] via-[#ebf7f3] to-[#f4faf7] rounded-3xl p-8 sm:p-10 border border-[#bce4d7] shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+              <div className="w-14 h-14 rounded-2xl bg-[#008767] text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-[#008767]/20">
+                <MessageSquare className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-900">Pernah mencoba sesuatu?</h3>
+                <p className="text-sm sm:text-base text-slate-600">
+                  Bagikan pengalamanmu agar orang lain bisa membuat keputusan yang lebih baik.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/review"
+              className="px-7 py-3.5 rounded-full bg-[#008767] hover:bg-[#007458] text-white font-semibold text-sm flex items-center gap-2 transition-all shadow-md shadow-[#008767]/20 active:scale-95 flex-shrink-0"
+            >
+              <span>Tulis Ulasan</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= FOOTER ================= */}
+      <footer className="bg-white border-t border-slate-200/80 pt-16 pb-12 text-slate-600 text-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+          {/* Top Footer Columns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-12">
+            
+            {/* Brand Info */}
+            <div className="lg:col-span-4 space-y-4">
+              <Link href="/" className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#008767] flex items-center justify-center text-white">
+                  <MessageSquare className="w-4 h-4 fill-white/20" />
+                </div>
+                <span className="text-2xl font-bold text-slate-900 tracking-tight">
+                  Kata<span className="text-[#008767]">mereka</span>
+                </span>
+              </Link>
+              <p className="text-xs sm:text-sm text-slate-500 max-w-sm leading-relaxed">
+                Platform ulasan dan rekomendasi bisnis dari orang-orang seperti kamu. Temukan ulasan terpercaya dan layanan yang tepat.
+              </p>
+              
+              {/* Social Icons */}
+              <div className="flex items-center gap-3 pt-2">
+                {["Instagram", "TikTok", "X", "YouTube"].map((soc, idx) => (
+                  <button
+                    key={idx}
+                    aria-label={soc}
+                    className="w-9 h-9 rounded-full bg-slate-100 hover:bg-[#008767] hover:text-white flex items-center justify-center text-slate-600 text-xs font-semibold transition-colors"
+                  >
+                    {soc[0]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Links Column 1: Tautan Cepat */}
+            <div className="lg:col-span-2 space-y-3">
+              <h4 className="font-bold text-slate-900 text-sm">Tautan Cepat</h4>
+              <ul className="space-y-2 text-xs sm:text-sm text-slate-500">
+                <li><Link href="/" className="hover:text-[#008767] transition-colors">Beranda</Link></li>
+                <li><Link href="/businesses" className="hover:text-[#008767] transition-colors">Jelajahi</Link></li>
+                <li><Link href="/businesses" className="hover:text-[#008767] transition-colors">Kategori</Link></li>
+                <li><Link href="/businesses" className="hover:text-[#008767] transition-colors">Untuk Bisnis</Link></li>
+                <li><Link href="#" className="hover:text-[#008767] transition-colors">Tentang Kami</Link></li>
+              </ul>
+            </div>
+
+            {/* Links Column 2: Kategori */}
+            <div className="lg:col-span-2 space-y-3">
+              <h4 className="font-bold text-slate-900 text-sm">Kategori</h4>
+              <ul className="space-y-2 text-xs sm:text-sm text-slate-500">
+                <li><Link href="/businesses" className="hover:text-[#008767] transition-colors">Bisnis</Link></li>
+                <li><Link href="/businesses" className="hover:text-[#008767] transition-colors">Produk</Link></li>
+                <li><Link href="/businesses" className="hover:text-[#008767] transition-colors">Tempat</Link></li>
+                <li><Link href="/businesses" className="hover:text-[#008767] transition-colors">Jasa</Link></li>
+                <li><Link href="/businesses" className="hover:text-[#008767] transition-colors">Aplikasi</Link></li>
+                <li><Link href="/businesses" className="hover:text-[#008767] transition-colors">Institusi</Link></li>
+              </ul>
+            </div>
+
+            {/* Links Column 3: Dukungan */}
+            <div className="lg:col-span-2 space-y-3">
+              <h4 className="font-bold text-slate-900 text-sm">Dukungan</h4>
+              <ul className="space-y-2 text-xs sm:text-sm text-slate-500">
+                <li><Link href="#" className="hover:text-[#008767] transition-colors">Pusat Bantuan</Link></li>
+                <li><Link href="#" className="hover:text-[#008767] transition-colors">Kebijakan Privasi</Link></li>
+                <li><Link href="#" className="hover:text-[#008767] transition-colors">Syarat & Ketentuan</Link></li>
+                <li><Link href="#" className="hover:text-[#008767] transition-colors">Hubungi Kami</Link></li>
+              </ul>
+            </div>
+
+            {/* Links Column 4: Download Aplikasi */}
+            <div className="lg:col-span-2 space-y-3">
+              <h4 className="font-bold text-slate-900 text-sm">Download Aplikasi</h4>
+              <p className="text-xs text-slate-500">
+                Nikmati pengalaman lebih baik di perangkatmu.
+              </p>
+              <div className="space-y-2 pt-1">
+                <div className="px-3.5 py-2 rounded-xl bg-slate-900 text-white flex items-center gap-2.5 cursor-pointer hover:bg-slate-800 transition-colors">
+                  <AppWindow className="w-5 h-5 text-white" />
+                  <div>
+                    <p className="text-[10px] text-slate-300 leading-none">Download on the</p>
+                    <p className="text-xs font-semibold leading-tight mt-0.5">App Store</p>
+                  </div>
+                </div>
+                <div className="px-3.5 py-2 rounded-xl bg-slate-900 text-white flex items-center gap-2.5 cursor-pointer hover:bg-slate-800 transition-colors">
+                  <Smartphone className="w-5 h-5 text-white" />
+                  <div>
+                    <p className="text-[10px] text-slate-300 leading-none">GET IT ON</p>
+                    <p className="text-xs font-semibold leading-tight mt-0.5">Google Play</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Bottom Footer Bar */}
+          <div className="pt-8 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+            <p>© 2025 Katamereka. Semua hak dilindungi.</p>
+            <button
+              onClick={scrollToTop}
+              className="inline-flex items-center gap-1.5 font-semibold text-slate-600 hover:text-[#008767] transition-colors"
+            >
+              <ArrowUp className="w-3.5 h-3.5" />
+              <span>Kembali ke atas</span>
+            </button>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
