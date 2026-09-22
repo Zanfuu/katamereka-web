@@ -28,7 +28,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: transgo/mereka:web
+          tags: transgo/katamereka:web
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
