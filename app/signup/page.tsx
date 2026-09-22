@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
 import { MessageSquare, User, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2 } from "lucide-react";
 
 function SignupFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectPath = searchParams.get("redirect") || "/";
+
+  const { signup } = useAuth();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -45,14 +48,17 @@ function SignupFormContent() {
 
     setIsLoading(true);
 
-    // Simulate signup request
-    setTimeout(() => {
+    const ok = signup(username, email, password);
+    if (ok) {
       setIsLoading(false);
       setSuccess(true);
       setTimeout(() => {
-        router.push(redirectPath);
-      }, 1000);
-    }, 800);
+        router.push("/login?registered=true");
+      }, 1200);
+    } else {
+      setIsLoading(false);
+      setError("Gagal memproses pendaftaran. Silakan coba lagi.");
+    }
   };
 
   return (
@@ -87,7 +93,7 @@ function SignupFormContent() {
           {success && (
             <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-medium flex items-center gap-2.5 animate-fadeIn">
               <CheckCircle2 className="w-5 h-5 text-[#008767] flex-shrink-0" />
-              <span>Pendaftaran berhasil! Mengalihkan ke halaman utama...</span>
+              <span>Pendaftaran berhasil! Mengalihkan ke halaman Login...</span>
             </div>
           )}
 

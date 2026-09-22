@@ -2,14 +2,41 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { MessageSquare, Search, ChevronDown, Menu, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { useAuth } from "@/lib/auth-context";
+import {
+  MessageSquare,
+  Search,
+  ChevronDown,
+  Menu,
+  X,
+  User as UserIcon,
+  Star,
+  Settings,
+  LogOut,
+  ShieldCheck
+} from "lucide-react";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { user, isLoggedIn, logout } = useAuth();
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const isActive = (path: string) => {
     if (path === "/" && pathname === "/") return true;
@@ -25,7 +52,7 @@ export default function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/60 shadow-2xs transition-all">
+    <header className="sticky top-0 z-50 bg-white/85 backdrop-blur-md border-b border-slate-200/70 shadow-2xs transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
@@ -87,9 +114,9 @@ export default function Navbar() {
           </Link>
         </nav>
 
-        {/* Action Buttons */}
+        {/* Right Actions */}
         <div className="flex items-center gap-3">
-          {/* Inline Search Bar (Desktop expandable or input) */}
+          {/* Search Button / Input */}
           {searchOpen ? (
             <form onSubmit={handleSearchSubmit} className="relative animate-fadeIn">
               <input
@@ -118,23 +145,90 @@ export default function Navbar() {
             </button>
           )}
 
-          <Link
-            href="/login"
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              isActive("/login")
-                ? "text-[#008767] font-bold"
-                : "text-slate-700 hover:text-[#008767]"
-            }`}
-          >
-            Masuk
-          </Link>
+          {/* Conditional Profile or Login/Register */}
+          {isLoggedIn && user ? (
+            <div className="relative" ref={dropdownRef}>
+              {/* Profile Avatar Button (Initials) */}
+              <button
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                className="flex items-center gap-2 p-1 rounded-full hover:bg-slate-100 transition-colors border border-slate-200/80"
+              >
+                <div className="w-10 h-10 rounded-full bg-[#008767] text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                  {user.initials}
+                </div>
+              </button>
 
-          <Link
-            href="/signup"
-            className="px-5 py-2.5 text-sm font-semibold text-white bg-[#008767] hover:bg-[#007458] rounded-full shadow-sm hover:shadow-md hover:shadow-[#008767]/20 transition-all active:scale-95"
-          >
-            Daftar
-          </Link>
+              {/* Profile Dropdown Menu */}
+              {profileDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/80 py-2 z-50 animate-fadeIn">
+                  <div className="px-4 py-3 border-b border-slate-100 space-y-0.5">
+                    <p className="font-bold text-slate-900 text-sm">{user.name}</p>
+                    <p className="text-xs text-slate-400 font-medium">@{user.username}</p>
+                  </div>
+
+                  <div className="py-1 text-xs font-semibold text-slate-700">
+                    <Link
+                      href="/profile"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
+                    >
+                      <UserIcon className="w-4 h-4 text-slate-400" />
+                      <span>Profil Saya</span>
+                    </Link>
+                    <Link
+                      href="/profile"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
+                    >
+                      <Star className="w-4 h-4 text-slate-400" />
+                      <span>Review Saya</span>
+                    </Link>
+                    <Link
+                      href="/profile"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
+                    >
+                      <Settings className="w-4 h-4 text-slate-400" />
+                      <span>Pengaturan</span>
+                    </Link>
+                  </div>
+
+                  <div className="pt-1 border-t border-slate-100">
+                    <button
+                      onClick={() => {
+                        logout();
+                        setProfileDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors text-left"
+                    >
+                      <LogOut className="w-4 h-4 text-red-500" />
+                      <span>Keluar (Logout)</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  isActive("/login")
+                    ? "text-[#008767] font-bold"
+                    : "text-slate-700 hover:text-[#008767]"
+                }`}
+              >
+                Masuk
+              </Link>
+
+              <Link
+                href="/signup"
+                className="px-5 py-2.5 text-sm font-semibold text-white bg-[#008767] hover:bg-[#007458] rounded-full shadow-sm hover:shadow-md hover:shadow-[#008767]/20 transition-all active:scale-95"
+              >
+                Daftar
+              </Link>
+            </>
+          )}
 
           {/* Mobile Menu Toggle Button */}
           <button
@@ -185,6 +279,28 @@ export default function Navbar() {
           >
             Tentang Kami
           </Link>
+
+          {isLoggedIn && user && (
+            <div className="pt-3 border-t border-slate-100 space-y-2">
+              <Link
+                href="/profile"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2 py-2 text-sm font-semibold text-[#008767]"
+              >
+                <UserIcon className="w-4 h-4" />
+                <span>Profil Saya ({user.name})</span>
+              </Link>
+              <button
+                onClick={() => {
+                  logout();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full text-left py-2 text-sm font-semibold text-red-600"
+              >
+                Keluar
+              </button>
+            </div>
+          )}
         </div>
       )}
     </header>

@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { MessageSquare, User, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { MessageSquare, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2 } from "lucide-react";
 
 function LoginFormContent() {
-  const router = Router();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectPath = searchParams.get("redirect") || "/";
 
-  const [username, setUsername] = useState("");
+  const { login } = useAuth();
+
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -21,21 +24,29 @@ function LoginFormContent() {
     e.preventDefault();
     setError("");
 
-    if (!username.trim() || !password.trim()) {
-      setError("Username dan kata sandi wajib diisi.");
+    if (!email.trim() || !password.trim()) {
+      setError("Email dan kata sandi wajib diisi.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Kata sandi minimal harus 6 karakter.");
       return;
     }
 
     setIsLoading(true);
 
-    // Simulate login request
-    setTimeout(() => {
+    const ok = login(email, password);
+    if (ok) {
       setIsLoading(false);
       setSuccess(true);
       setTimeout(() => {
         router.push(redirectPath);
-      }, 1000);
-    }, 800);
+      }, 800);
+    } else {
+      setIsLoading(false);
+      setError("Gagal masuk. Periksa kembali email dan kata sandi Anda.");
+    }
   };
 
   return (
@@ -62,9 +73,17 @@ function LoginFormContent() {
           <div className="space-y-2 text-center">
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Masuk ke Akun</h1>
             <p className="text-xs sm:text-sm text-slate-500">
-              Masukkan username dan kata sandi Anda untuk melanjutkan.
+              Masukkan email dan kata sandi Anda untuk melanjutkan.
             </p>
           </div>
+
+          {/* Registered Notice Banner */}
+          {searchParams.get("registered") === "true" && !success && (
+            <div className="p-4 rounded-2xl bg-[#e8f6f2] border border-[#c4ebde] text-emerald-800 text-xs sm:text-sm font-medium flex items-center gap-2.5 animate-fadeIn">
+              <CheckCircle2 className="w-5 h-5 text-[#008767] flex-shrink-0" />
+              <span>Akun Anda berhasil dibuat! Silakan masuk dengan email dan kata sandi Anda.</span>
+            </div>
+          )}
 
           {/* Success Banner */}
           {success && (
@@ -83,20 +102,20 @@ function LoginFormContent() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Field 1: Username */}
+            {/* Field 1: Email */}
             <div className="space-y-1.5">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
-                Username
+                Email
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <User className="w-4 h-4" />
+                  <Mail className="w-4 h-4" />
                 </div>
                 <input
-                  type="text"
-                  placeholder="Masukkan username kamu"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  type="email"
+                  placeholder="contoh@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-50/80 border border-slate-200 focus:border-[#008767] focus:bg-white focus:ring-2 focus:ring-[#008767]/20 rounded-xl pl-10 pr-4 py-3 text-slate-800 text-sm outline-none transition-all placeholder:text-slate-400"
                 />
               </div>
@@ -118,7 +137,7 @@ function LoginFormContent() {
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder="Minimal 6 karakter"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-slate-50/80 border border-slate-200 focus:border-[#008767] focus:bg-white focus:ring-2 focus:ring-[#008767]/20 rounded-xl pl-10 pr-11 py-3 text-slate-800 text-sm outline-none transition-all placeholder:text-slate-400"
@@ -180,12 +199,6 @@ function LoginFormContent() {
       </div>
     </div>
   );
-}
-
-// Router helper wrapper
-import { useRouter as useNextRouter } from "next/navigation";
-function Router() {
-  return useNextRouter();
 }
 
 export default function LoginPage() {
