@@ -5,37 +5,67 @@ import Link from "next/link"
 import {
   BarChart3Icon,
   BuildingIcon,
+  DatabaseIcon,
   LayoutDashboardIcon,
-  MapPinIcon,
-  MessageSquareTextIcon,
-  SendIcon,
+  ScrollTextIcon,
   SettingsIcon,
-  ShieldCheckIcon,
+  ShieldIcon,
+  ShieldAlertIcon,
   StarIcon,
+  UserCogIcon,
   UsersIcon,
 } from "lucide-react"
 
-import { NavItemButton } from "@/components/nav-group"
-import { NavCollapsibleItem } from "@/components/nav-collapsible-item"
+import { NavGroup } from "@/components/nav-group"
 import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { currentBusinessAdmin } from "@/lib/mock/session"
+import { currentSuperAdmin } from "@/lib/mock/session"
+
+const navGroups = [
+  {
+    items: [{ title: "Overview", url: "/admin", icon: LayoutDashboardIcon }],
+  },
+  {
+    label: "Platform",
+    items: [
+      { title: "Customers", url: "/admin/customers", icon: UserCogIcon },
+      { title: "Businesses", url: "/admin/businesses", icon: BuildingIcon },
+      { title: "Users", url: "/admin/users", icon: UsersIcon },
+      { title: "Reviews", url: "/admin/reviews", icon: StarIcon },
+    ],
+  },
+  {
+    label: "Trust & Safety",
+    items: [{ title: "Trust & Safety", url: "/admin/trust-safety", icon: ShieldAlertIcon }],
+  },
+  {
+    label: "Management",
+    items: [
+      { title: "Master Data", url: "/admin/master-data", icon: DatabaseIcon },
+      { title: "Analytics", url: "/admin/analytics", icon: BarChart3Icon },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { title: "Audit Logs", url: "/admin/audit-logs", icon: ScrollTextIcon },
+      { title: "System", url: "/admin/system", icon: SettingsIcon },
+    ],
+  },
+]
 
 export function AdminSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const user = {
-    name: currentBusinessAdmin.name,
-    email: currentBusinessAdmin.email,
+    name: currentSuperAdmin.name,
+    email: currentSuperAdmin.email,
     avatar: "",
   }
 
@@ -48,93 +78,21 @@ export function AdminSidebar(props: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:p-1.5!"
               render={<Link href="/admin" />}
             >
-              <MessageSquareTextIcon className="size-5!" />
-              <span className="text-base font-semibold">KataMereka</span>
+              <ShieldIcon className="size-5!" />
+              <div className="flex flex-col leading-none">
+                <span className="text-base font-semibold">KataMereka</span>
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  Super Admin
+                </span>
+              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Overview</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <NavItemButton title="Overview" url="/admin" icon={LayoutDashboardIcon} />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Reputasi</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <NavCollapsibleItem
-                title="Reviews"
-                icon={StarIcon}
-                items={[
-                  { title: "Semua Review", url: "/admin/reviews" },
-                  { title: "Menunggu Balasan", url: "/admin/reviews/pending" },
-                  { title: "Review Dilaporkan", url: "/admin/reviews/reported" },
-                ]}
-              />
-              <NavItemButton
-                title="Rating & Reputasi"
-                url="/admin/reputation"
-                icon={BarChart3Icon}
-              />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Customer Engagement</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <NavCollapsibleItem
-                title="Undang Review"
-                icon={SendIcon}
-                items={[
-                  { title: "Kirim Undangan", url: "/admin/invitations" },
-                  { title: "Riwayat Undangan", url: "/admin/invitations/history" },
-                ]}
-              />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Analytics</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <NavItemButton title="Analytics" url="/admin/analytics" icon={BarChart3Icon} />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Bisnis</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <NavItemButton title="Profil Bisnis" url="/admin/business" icon={BuildingIcon} />
-              <NavItemButton title="Lokasi / Cabang" url="/admin/locations" icon={MapPinIcon} />
-              <NavItemButton
-                title="Verifikasi Bisnis"
-                url="/admin/verification"
-                icon={ShieldCheckIcon}
-              />
-              <NavItemButton title="Anggota Tim" url="/admin/team" icon={UsersIcon} />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Pengaturan</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <NavItemButton title="Pengaturan" url="/admin/settings" icon={SettingsIcon} />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {navGroups.map((group, index) => (
+          <NavGroup key={index} label={group.label} items={group.items} />
+        ))}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

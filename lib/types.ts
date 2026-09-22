@@ -1,5 +1,5 @@
-// Shared domain types for KataMereka's Business Admin (/admin) and Super Admin
-// (/super-admin) dashboards. Mirrors the data shape a future API would return —
+// Shared domain types for KataMereka's Business Admin dashboard and Super Admin
+// (/admin) dashboard. Mirrors the data shape a future API would return —
 // keep this in sync with lib/mock/* which is the only place that currently
 // implements it.
 
@@ -110,6 +110,8 @@ export interface Review {
   status: ReviewStatus
   moderationStatus: ModerationStatus
   reportCount: number
+  /** Short triage label shown on the Business Admin "needs attention" list, e.g. "Rating Rendah". */
+  issue?: string
   reply?: { content: string; repliedAt: string; repliedBy: string }
   createdAt: string
 }
@@ -171,6 +173,7 @@ export interface AuditLogEntry {
   action: string
   target: string
   timestamp: string
+  ip: string
   metadata?: string
 }
 
@@ -191,9 +194,31 @@ export interface Category {
   status: "ACTIVE" | "INACTIVE"
 }
 
+export interface PlatformLocation {
+  id: string
+  province: string
+  city: string
+  status: "ACTIVE" | "INACTIVE"
+}
+
+export type EvidenceType = "RECEIPT" | "PHOTO" | "CHAT_LOG" | "OTHER"
+
+export type EvidenceStatus = "PENDING" | "VERIFIED" | "REJECTED"
+
+export interface Evidence {
+  id: string
+  reviewId: string
+  reviewExcerpt: string
+  userName: string
+  businessName: string
+  type: EvidenceType
+  submittedAt: string
+  status: EvidenceStatus
+}
+
 export interface ActivityItem {
   id: string
-  icon: "reply" | "review" | "verification" | "team" | "report"
+  icon: "reply" | "review" | "verification" | "team" | "report" | "invitation"
   text: string
   at: string
 }

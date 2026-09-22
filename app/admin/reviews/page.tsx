@@ -1,149 +1,224 @@
 "use client"
 
 import * as React from "react"
-import { FlagIcon, MessageSquareTextIcon, StarIcon } from "lucide-react"
-
-import { useBusinessContext } from "@/components/business-provider"
-import { PageHeader } from "@/components/page-header"
-import { ReplyDialog } from "@/components/reply-dialog"
-import { ReviewCard } from "@/components/review-card"
-import { SearchInput } from "@/components/search-input"
-import { FilterDropdown } from "@/components/filter-dropdown"
-import { StatCard } from "@/components/stat-card"
-import { Button } from "@/components/ui/button"
-import { EmptyState } from "@/components/empty-state"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
-import { getReviewsByBusiness } from "@/lib/mock/reviews"
+import { StarIcon } from "lucide-react"
 
-const RATING_TABS = [
+import { ConfirmDialog } from "@/components/confirm-dialog"
+import { PageHeader } from "@/components/page-header"
+import { RatingStars } from "@/components/rating-stars"
+import { ResourceTable, type ResourceTableColumn } from "@/components/resource-table"
+import { SearchInput } from "@/components/search-input"
+import { StatCard } from "@/components/stat-card"
+import { StatusBadge } from "@/components/status-badge"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { formatDate } from "@/lib/format"
+import { reviews } from "@/lib/mock/reviews"
+import type { Review } from "@/lib/types"
+
+const TABS = [
   { value: "all", label: "Semua" },
-  { value: "5", label: "5 Bintang" },
-  { value: "4", label: "4 Bintang" },
-  { value: "3", label: "3 Bintang" },
-  { value: "2", label: "2 Bintang" },
-  { value: "1", label: "1 Bintang" },
+  { value: "reported", label: "Reported" },
+  { value: "HIDDEN", label: "Hidden" },
+  { value: "REMOVED", label: "Removed" },
 ] as const
 
-const STATUS_OPTIONS = [
-  { value: "all", label: "Semua Status" },
-  { value: "replied", label: "Sudah Dibalas" },
-  { value: "unreplied", label: "Belum Dibalas" },
-]
-
-const VERIFIED_OPTIONS = [
-  { value: "all", label: "Semua" },
-  { value: "verified", label: "Verified" },
-  { value: "unverified", label: "Unverified" },
-]
-
-export default function AdminAllReviewsPage() {
-  const { selectedBusiness } = useBusinessContext()
-  const [tab, setTab] = React.useState<string>("all")
+export default function AdminGlobalReviewsPage() {
   const [search, setSearch] = React.useState("")
-  const [statusFilter, setStatusFilter] = React.useState("all")
-  const [verifiedFilter, setVerifiedFilter] = React.useState("all")
+  const [tab, setTab] = React.useState<string>("all")
+  const [action, setAction] = React.useState<{
+    review: Review
+    type: "HIDE" | "RESTORE" | "REMOVE"
+  } | null>(null)
 
-  if (!selectedBusiness) return null
-
-  const reviews = getReviewsByBusiness(selectedBusiness.id)
-  const unrepliedCount = reviews.filter((review) => !review.reply).length
-  const reportedCount = reviews.filter((review) => review.reportCount > 0).length
-  const averageRating =
-    reviews.length > 0
-      ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1)
-      : "0.0"
+  const counts = {
+    total: reviews.length,
+    published: reviews.filter((r) => r.status === "PUBLISHED").length,
+    reported: reviews.filter((r) => r.reportCount > 0).length,
+    hidden: reviews.filter((r) => r.status === "HIDDEN").length,
+    removed: reviews.filter((r) => r.status === "REMOVED").length,
+  }
 
   const filtered = reviews.filter((review) => {
-    if (tab !== "all" && String(review.rating) !== tab) return false
-    if (statusFilter === "replied" && !review.reply) return false
-    if (statusFilter === "unreplied" && review.reply) return false
-    if (verifiedFilter === "verified" && !review.isVerified) return false
-    if (verifiedFilter === "unverified" && review.isVerified) return false
+    if (tab === "reported" && review.reportCount === 0) return false
+    if (tab !== "all" && tab !== "reported" && review.status !== tab) return false
     if (
       search &&
       !review.reviewerName.toLowerCase().includes(search.toLowerCase()) &&
+      !review.businessName.toLowerCase().includes(search.toLowerCase()) &&
       !review.content.toLowerCase().includes(search.toLowerCase())
-    ) {
+    )
       return false
-    }
     return true
   })
+
+  const columns: ResourceTableColumn<Review>[] = [
+    {
+      key: "reviewerName",
+      header: "Reviewer",
+      sortValue: (r) => r.reviewerName,
+      render: (review) => <span className="font-medium text-foreground">{review.reviewerName}</span>,
+    },
+    { key: "businessName", header: "Business", render: (review) => review.businessName },
+    {
+      key: "rating",
+      header: "Rating",
+      sortValue: (r) => r.rating,
+      render: (review) => <RatingStars rating={review.rating} size="sm" />,
+    },
+    {
+      key: "content",
+      header: "Review",
+      render: (review) => (
+        <span className="line-clamp-1 max-w-xs text-muted-foreground">{review.content}</span>
+      ),
+    },
+    {
+      key: "isVerified",
+      header: "Verification",
+      render: (review) => (
+        <StatusBadge status={review.isVerified ? "VERIFIED" : "UNVERIFIED"} />
+      ),
+    },
+    {
+      key: "reportCount",
+      header: "Reports",
+      sortValue: (r) => r.reportCount,
+      render: (review) =>
+        review.reportCount > 0 ? (
+          <span className="font-medium text-destructive">{review.reportCount}</span>
+        ) : (
+          <span className="text-muted-foreground">0</span>
+        ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (review) => <StatusBadge status={review.status} />,
+    },
+    {
+      key: "createdAt",
+      header: "Created At",
+      sortValue: (r) => r.createdAt,
+      render: (review) => (
+        <span className="text-muted-foreground">{formatDate(review.createdAt)}</span>
+      ),
+    },
+    {
+      key: "actions",
+      header: "",
+      className: "text-right",
+      render: (review) => (
+        <div className="flex justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="sm" />}>
+              Aksi
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => toast.info(`Menampilkan detail review ${review.reviewerName}.`)}
+              >
+                View
+              </DropdownMenuItem>
+              {review.reportCount > 0 && (
+                <DropdownMenuItem
+                  onClick={() => toast.info(`Menampilkan ${review.reportCount} laporan terkait.`)}
+                >
+                  View Reports
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                onClick={() => toast.info("Menampilkan evidence transaksi terkait.")}
+              >
+                View Evidence
+              </DropdownMenuItem>
+              {review.status === "PUBLISHED" && (
+                <DropdownMenuItem onClick={() => setAction({ review, type: "HIDE" })}>
+                  Hide
+                </DropdownMenuItem>
+              )}
+              {review.status === "HIDDEN" && (
+                <DropdownMenuItem onClick={() => setAction({ review, type: "RESTORE" })}>
+                  Restore
+                </DropdownMenuItem>
+              )}
+              {review.status !== "REMOVED" && (
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setAction({ review, type: "REMOVE" })}
+                >
+                  Remove
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ),
+    },
+  ]
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Semua Review"
-        description="Lihat, cari, filter, dan tanggapi review customer."
+        title="Global Review Management"
+        description="Kelola seluruh review yang ada di platform KataMereka."
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 @5xl/main:grid-cols-4">
-        <StatCard label="Total Review" value={reviews.length} icon={MessageSquareTextIcon} />
-        <StatCard label="Average Rating" value={averageRating} icon={StarIcon} />
-        <StatCard label="Belum Dibalas" value={unrepliedCount} deltaTone="neutral" />
-        <StatCard label="Reported" value={reportedCount} deltaTone="negative" icon={FlagIcon} />
-      </div>
-
-      <Tabs value={tab} onValueChange={(value) => typeof value === "string" && setTab(value)}>
-        <TabsList className="w-full overflow-x-auto sm:w-fit">
-          {RATING_TABS.map((option) => (
-            <TabsTrigger key={option.value} value={option.value}>
-              {option.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Cari customer, isi review, atau keyword..."
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          <FilterDropdown
-            label="Status"
-            options={STATUS_OPTIONS}
-            value={statusFilter}
-            onChange={setStatusFilter}
-          />
-          <FilterDropdown
-            label="Verifikasi"
-            options={VERIFIED_OPTIONS}
-            value={verifiedFilter}
-            onChange={setVerifiedFilter}
-          />
-        </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 @5xl/main:grid-cols-5">
+        <StatCard label="Total" value={counts.total} icon={StarIcon} />
+        <StatCard label="Published" value={counts.published} />
+        <StatCard label="Reported" value={counts.reported} deltaTone="negative" />
+        <StatCard label="Hidden" value={counts.hidden} deltaTone="neutral" />
+        <StatCard label="Removed" value={counts.removed} deltaTone="negative" />
       </div>
 
       <div className="flex flex-col gap-3">
-        {filtered.length === 0 && (
-          <EmptyState
-            icon={MessageSquareTextIcon}
-            title="Belum ada review."
-            description="Review dari customer akan muncul di sini."
-          />
-        )}
-        {filtered.map((review) => (
-          <ReviewCard
-            key={review.id}
-            review={review}
-            showModerationStatus={review.reportCount > 0}
-            actions={
-              <>
-                {!review.reply && <ReplyDialog review={review} />}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toast.info("Review dilaporkan untuk ditinjau tim KataMereka.")}
-                >
-                  Laporkan
-                </Button>
-              </>
-            }
-          />
-        ))}
+        <Tabs value={tab} onValueChange={(v) => typeof v === "string" && setTab(v)}>
+          <TabsList>
+            {TABS.map((t) => (
+              <TabsTrigger key={t.value} value={t.value}>
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Cari reviewer, bisnis, atau isi review..."
+        />
       </div>
+
+      <ResourceTable
+        data={filtered}
+        columns={columns}
+        getRowId={(review) => review.id}
+        emptyTitle="Tidak ada review ditemukan."
+      />
+
+      <ConfirmDialog
+        open={!!action}
+        onOpenChange={(open) => !open && setAction(null)}
+        title={`${
+          action?.type === "HIDE" ? "Sembunyikan" : action?.type === "RESTORE" ? "Pulihkan" : "Hapus"
+        } review dari ${action?.review.reviewerName}?`}
+        confirmLabel={
+          action?.type === "HIDE" ? "Hide" : action?.type === "RESTORE" ? "Restore" : "Remove"
+        }
+        variant={action?.type === "RESTORE" ? "default" : "destructive"}
+        requireReason={action?.type !== "RESTORE"}
+        reasonLabel="Alasan moderasi"
+        onConfirm={() => {
+          toast.success("Tindakan moderasi berhasil dicatat di audit log.")
+        }}
+      />
     </div>
   )
 }
