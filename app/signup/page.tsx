@@ -36,7 +36,7 @@ function SignupFormContent() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -62,8 +62,8 @@ function SignupFormContent() {
 
     setIsLoading(true);
 
-    const ok = signup(username, email, password, role);
-    if (ok) {
+    const res = await signup(username, email, password, role);
+    if (res.success) {
       setIsLoading(false);
       setSuccess(true);
       setTimeout(() => {
@@ -71,7 +71,7 @@ function SignupFormContent() {
       }, 1200);
     } else {
       setIsLoading(false);
-      setError("Gagal memproses pendaftaran. Silakan coba lagi.");
+      setError(res.message || "Gagal memproses pendaftaran. Silakan coba lagi.");
     }
   };
 

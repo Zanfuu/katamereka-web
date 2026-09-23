@@ -94,30 +94,30 @@ function WriteReviewContent() {
 
     setIsAuthProcessing(true);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       setIsAuthProcessing(false);
       if (authMode === "register") {
-        const ok = signup(finalUsername, authEmail, authPassword, "customer");
-        if (ok) {
-          login(authEmail, authPassword);
+        const resSignup = await signup(finalUsername, authEmail, authPassword, "customer");
+        if (resSignup.success) {
+          await login(authEmail, authPassword);
           setModalTitle("Pendaftaran Berhasil! 🎉");
           setModalMessage(
             `Selamat datang, @${finalUsername.toLowerCase()}! Akun kamu berhasil dibuat. Sekarang kamu dapat melanjutkan menulis ulasan.`
           );
           setShowSuccessModal(true);
         } else {
-          setAuthError("Gagal mendaftar. Pastikan data yang dimasukkan benar.");
+          setAuthError(resSignup.message || "Gagal mendaftar. Pastikan data yang dimasukkan benar.");
         }
       } else {
-        const ok = login(authEmail, authPassword);
-        if (ok) {
+        const resLogin = await login(authEmail, authPassword);
+        if (resLogin.success) {
           setModalTitle("Berhasil Masuk! 🎉");
           setModalMessage(
             "Selamat datang kembali! Akun kamu berhasil terverifikasi. Sekarang kamu dapat melanjutkan menulis ulasan."
           );
           setShowSuccessModal(true);
         } else {
-          setAuthError("Gagal masuk. Periksa kembali email dan password kamu.");
+          setAuthError(resLogin.message || "Gagal masuk. Periksa kembali email dan password kamu.");
         }
       }
     }, 600);
