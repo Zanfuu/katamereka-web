@@ -1,10 +1,9 @@
 "use client"
 
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { BellIcon, LogOutIcon, SettingsIcon, UserIcon } from "lucide-react"
+import { BellIcon } from "lucide-react"
 
 import { useBusinessContext } from "@/components/business-provider"
+import { ProfileSidebar } from "@/components/profile-sidebar"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -20,9 +19,8 @@ import { timeAgo } from "@/lib/format"
 import { businessActivity } from "@/lib/mock/activity"
 
 export function DashboardHeader() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const { selectedBusiness } = useBusinessContext()
-  const router = useRouter()
 
   const notifications = (selectedBusiness && businessActivity[selectedBusiness.id]) ?? []
   const hasUnread = notifications.length > 0
@@ -63,49 +61,24 @@ export function DashboardHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-muted"
-              />
-            }
-          >
-            <Avatar size="sm" className="bg-primary text-primary-foreground">
-              <AvatarFallback className="bg-primary text-primary-foreground">
-                {user?.initials ?? "U"}
-              </AvatarFallback>
-            </Avatar>
-            <span className="hidden flex-col items-start leading-none sm:flex">
-              <span className="text-sm font-medium text-foreground">{user?.name}</span>
-              <span className="text-[11px] text-muted-foreground">Business Admin</span>
-            </span>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem render={<Link href="/dashboard/settings" />}>
-              <UserIcon />
-              Profil Saya
-            </DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/dashboard/settings" />}>
-              <SettingsIcon />
-              Pengaturan
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => {
-                logout()
-                router.push("/login")
-              }}
+        <ProfileSidebar
+          trigger={
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-muted"
             >
-              <LogOutIcon />
-              Keluar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <Avatar size="sm" className="bg-primary text-primary-foreground">
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  {user?.initials ?? "U"}
+                </AvatarFallback>
+              </Avatar>
+              <span className="hidden flex-col items-start leading-none sm:flex">
+                <span className="text-sm font-medium text-foreground">{user?.name}</span>
+                <span className="text-[11px] text-muted-foreground">Business Admin</span>
+              </span>
+            </button>
+          }
+        />
       </div>
     </header>
   )
