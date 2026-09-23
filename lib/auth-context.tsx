@@ -102,6 +102,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       const returnedUser = data.user || {};
+      const lowerEmail = email.trim().toLowerCase();
+
+      // Determine user role (check API response first, then localStorage registered_user)
+      let userRole: UserRole = "customer";
+      if (returnedUser.role === "bisnis" || returnedUser.role === "BISNIS") {
+        userRole = "bisnis";
+      } else {
+        try {
+          const storedReg = localStorage.getItem(`registered_user_${lowerEmail}`);
+          if (storedReg) {
+            const parsedReg = JSON.parse(storedReg);
+            if (parsedReg.role === "bisnis") {
+              userRole = "bisnis";
+            }
+          } else {
+            const lastReg = localStorage.getItem("last_registered_user");
+            if (lastReg) {
+              const parsedLast = JSON.parse(lastReg);
+              if (parsedLast.email?.toLowerCase() === lowerEmail && parsedLast.role === "bisnis") {
+                userRole = "bisnis";
+              }
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
       const userName = returnedUser.name || email.split("@")[0];
       const initials = userName
         .split(" ")
@@ -113,17 +141,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const loadedUser: UserProfile = {
         id: returnedUser.id || "76157bdb-1804-4752-83ae-80ab3fb699df",
         name: userName,
-        username: email.split("@")[0].toLowerCase().replace(/\s+/g, ""),
-        email: returnedUser.email || email,
+        username: lowerEmail.split("@")[0].toLowerCase().replace(/\s+/g, ""),
+        email: returnedUser.email || lowerEmail,
         initials: initials || "U",
         joinedDate: "Sep 2026",
         verified: true,
-        role: "customer",
+        role: userRole,
         status: returnedUser.status || "ACTIVE",
         accessToken: data.accessToken,
         reviewCount: 0,
         helpfulCount: 0,
-        businessCount: 0,
+        businessCount: userRole === "bisnis" ? 1 : 0,
       };
 
       setUser(loadedUser);
@@ -144,6 +172,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Fallback local logic if network error
       const namePart = email.split("@")[0] || "User";
       const initials = namePart.substring(0, 2).toUpperCase();
+      const lowerEmail = email.trim().toLowerCase();
+
+      let userRole: UserRole = "customer";
+      try {
+        const storedReg = localStorage.getItem(`registered_user_${lowerEmail}`);
+        if (storedReg) {
+          const parsedReg = JSON.parse(storedReg);
+          if (parsedReg.role === "bisnis") {
+            userRole = "bisnis";
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+
       const fallbackUser: UserProfile = {
         id: "76157bdb-1804-4752-83ae-80ab3fb699df",
         name: namePart,
@@ -152,11 +195,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         initials: initials,
         joinedDate: "Sep 2026",
         verified: true,
-        role: "customer",
+        role: userRole,
         status: "ACTIVE",
         reviewCount: 0,
         helpfulCount: 0,
-        businessCount: 0,
+        businessCount: userRole === "bisnis" ? 1 : 0,
       };
 
       setUser(fallbackUser);
@@ -181,14 +224,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return { success: false, message: "Semua bidang wajib diisi dengan valid" };
     }
 
+    const lowerEmail = email.trim().toLowerCase();
+
+    // Save registered user profile including selected role in localStorage
+    const regUserData = {
+      name: name.trim(),
+      email: lowerEmail,
+      role: role,
+    };
+    try {
+      localStorage.setItem(`registered_user_${lowerEmail}`, JSON.stringify(regUserData));
+      localStorage.setItem("last_registered_user", JSON.stringify(regUserData));
+    } catch (e) {
+      // ignore
+    }
+
     try {
       const res = await fetch("/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          email: email.trim(),
+          email: lowerEmail,
           password: pass,
+          role: role,
         }),
       });
 

@@ -67,8 +67,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
-          <div className="w-10 h-10 rounded-xl bg-[#008767] flex items-center justify-center text-white shadow-md shadow-[#008767]/20 group-hover:scale-105 transition-transform">
-            <MessageSquare className="w-5 h-5 fill-white/20" />
+          <div className="w-10 h-10 rounded-full overflow-hidden shadow-md shadow-[#008767]/20 group-hover:scale-105 transition-transform flex-shrink-0 bg-[#008767]">
+            <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
           </div>
           <span className="text-2xl font-bold text-slate-900 tracking-tight">
             Kata<span className="text-[#008767]">mereka</span>
@@ -278,8 +278,8 @@ export default function Navbar() {
                 <div className="w-12 h-1.5 bg-slate-200 rounded-full mb-3" />
                 <div className="w-full flex items-center justify-between pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-[#008767] flex items-center justify-center text-white">
-                      <MessageSquare className="w-4 h-4 fill-white/20" />
+                    <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-[#008767]">
+                      <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
                     </div>
                     <span className="text-lg font-bold text-slate-900">
                       Kata<span className="text-[#008767]">mereka</span>

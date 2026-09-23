@@ -102,8 +102,8 @@ function LoginFormContent() {
         {/* Top Brand Link */}
         <div className="text-center">
           <Link href="/" className="inline-flex items-center gap-2.5 group">
-            <div className="w-11 h-11 rounded-2xl bg-[#008767] flex items-center justify-center text-white shadow-lg shadow-[#008767]/25 group-hover:scale-105 transition-transform">
-              <MessageSquare className="w-6 h-6 fill-white/20" />
+            <div className="w-11 h-11 rounded-full overflow-hidden shadow-lg shadow-[#008767]/25 group-hover:scale-105 transition-transform flex-shrink-0 bg-[#008767]">
+              <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
             </div>
             <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
               Kata<span className="text-[#008767]">mereka</span>

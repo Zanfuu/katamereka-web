@@ -23,6 +23,11 @@ const gabarito = Gabarito({
 export const metadata: Metadata = {
   title: "Katamereka — Platform Ulasan & Rekomendasi Bisnis Terpercaya",
   description: "Dengar kata mereka sebelum memilih. Temukan ulasan terpercaya, produk terbaik, dan layanan yang sesuai dengan kebutuhanmu.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
