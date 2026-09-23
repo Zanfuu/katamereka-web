@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "@/lib/auth-context";
 import {
   MessageSquare,
-  Search,
   ChevronDown,
+  ChevronRight,
   Menu,
   X,
   User as UserIcon,
@@ -25,13 +26,13 @@ export default function Navbar() {
   const { user, isLoggedIn, logout } = useAuth();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setMounted(true);
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setProfileDropdownOpen(false);
@@ -47,15 +48,22 @@ export default function Navbar() {
     return false;
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      window.location.href = `/businesses?q=${encodeURIComponent(searchQuery)}`;
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
     }
-  };
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
 
   return (
-    <header className="sticky top-0 z-50 bg-white/85 backdrop-blur-md border-b border-slate-200/70 shadow-2xs transition-all">
+    <header
+      className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-xs transition-all"
+      style={{ backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
@@ -119,37 +127,10 @@ export default function Navbar() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
-          {/* Search Button / Input */}
-          {searchOpen ? (
-            <form onSubmit={handleSearchSubmit} className="relative animate-fadeIn">
-              <input
-                type="text"
-                placeholder="Cari bisnis..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoFocus
-                className="w-44 sm:w-60 bg-slate-100 border border-slate-300 rounded-full px-4 py-2 text-xs outline-none focus:border-[#008767] focus:bg-white"
-              />
-              <button
-                type="button"
-                onClick={() => setSearchOpen(false)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </form>
-          ) : (
-            <button
-              onClick={() => setSearchOpen(true)}
-              aria-label="Search"
-              className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200/80 flex items-center justify-center text-slate-600 transition-colors"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-          )}
+
 
           {/* Conditional Admin Button for Business Account */}
-          {isLoggedIn && user && user.role === "bisnis" && (
+          {mounted && isLoggedIn && user && user.role === "bisnis" && (
             <Link
               href="/dashboard"
               className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs transition-all shadow-2xs"
@@ -160,7 +141,7 @@ export default function Navbar() {
           )}
 
           {/* Conditional Profile or Login/Register */}
-          {isLoggedIn && user ? (
+          {mounted && isLoggedIn && user ? (
             <div className="relative" ref={dropdownRef}>
               {/* Profile Avatar Button (Initials) */}
               <button
@@ -248,10 +229,10 @@ export default function Navbar() {
               )}
             </div>
           ) : (
-            <>
+            <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
               <Link
                 href="/login"
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap ${
                   isActive("/login")
                     ? "text-[#008767] font-bold"
                     : "text-slate-700 hover:text-[#008767]"
@@ -262,17 +243,17 @@ export default function Navbar() {
 
               <Link
                 href="/signup"
-                className="px-5 py-2.5 text-sm font-semibold text-white bg-[#008767] hover:bg-[#007458] rounded-full shadow-sm hover:shadow-md hover:shadow-[#008767]/20 transition-all active:scale-95"
+                className="px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-[#008767] hover:bg-[#007458] rounded-full shadow-sm hover:shadow-md hover:shadow-[#008767]/20 transition-all active:scale-95 whitespace-nowrap"
               >
                 Daftar
               </Link>
-            </>
+            </div>
           )}
 
           {/* Mobile Menu Toggle Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700"
+            className="md:hidden w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 transition-colors flex-shrink-0"
             aria-label="Toggle Menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -280,77 +261,148 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
-      {mobileMenuOpen && (
-        <div className="md:hidden bg-white/95 backdrop-blur-md border-b border-slate-200 p-4 space-y-3 animate-fadeIn">
-          <Link
-            href="/"
+      {/* Mobile Bottom Sheet Menu (Rendered via Portal to escape header context) */}
+      {mounted && mobileMenuOpen && createPortal(
+        <>
+          {/* Backdrop Overlay */}
+          <div
             onClick={() => setMobileMenuOpen(false)}
-            className="block py-2 text-sm font-semibold text-slate-800 hover:text-[#008767]"
-          >
-            Utama
-          </Link>
-          <Link
-            href="/businesses"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-2 text-sm font-semibold text-slate-800 hover:text-[#008767]"
-          >
-            Jelajahi
-          </Link>
-          <Link
-            href="/businesses"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-2 text-sm font-semibold text-slate-800 hover:text-[#008767]"
-          >
-            Kategori
-          </Link>
-          <Link
-            href="/businesses"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-2 text-sm font-semibold text-slate-800 hover:text-[#008767]"
-          >
-            Untuk Bisnis
-          </Link>
-          <Link
-            href="/tentang-kami"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-2 text-sm font-semibold text-slate-800 hover:text-[#008767]"
-          >
-            Tentang Kami
-          </Link>
+            className="md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[9999] animate-fadeIn"
+          />
 
-          {isLoggedIn && user && (
-            <div className="pt-3 border-t border-slate-100 space-y-2">
-              {user.role === "bisnis" && (
+          {/* Bottom Sheet Container (Slides up from screen bottom, max height 60vh) */}
+          <div className="md:hidden fixed inset-x-0 bottom-0 z-[10000] bg-white rounded-t-3xl shadow-2xl p-5 border-t border-slate-100 max-h-[60vh] flex flex-col justify-between animate-in slide-in-from-bottom duration-300 ease-out overflow-y-auto">
+            <div>
+              {/* Drag Handle & Header */}
+              <div className="flex flex-col items-center mb-3">
+                <div className="w-12 h-1.5 bg-slate-200 rounded-full mb-3" />
+                <div className="w-full flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#008767] flex items-center justify-center text-white">
+                      <MessageSquare className="w-4 h-4 fill-white/20" />
+                    </div>
+                    <span className="text-lg font-bold text-slate-900">
+                      Kata<span className="text-[#008767]">mereka</span>
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
+                    aria-label="Close menu"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Links List */}
+              <div className="space-y-1">
                 <Link
-                  href="/dashboard"
+                  href="/"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2 py-2 text-sm font-bold text-amber-900 bg-amber-50 px-3 rounded-xl border border-amber-300"
+                  className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
+                    isActive("/") && pathname === "/"
+                      ? "bg-emerald-50 text-[#008767] font-bold"
+                      : "text-slate-800 hover:bg-slate-50"
+                  }`}
                 >
-                  <LayoutDashboard className="w-4 h-4 text-amber-700" />
-                  <span>Dashboard</span>
+                  Utama
                 </Link>
-              )}
-              <Link
-                href="/profile"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2 py-2 text-sm font-semibold text-slate-700 hover:text-[#008767]"
-              >
-                <UserIcon className="w-4 h-4" />
-                <span>Profil Saya ({user.name})</span>
-              </Link>
-              <button
-                onClick={() => {
-                  logout();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full text-left py-2 text-sm font-semibold text-red-600"
-              >
-                Keluar
-              </button>
+                <Link
+                  href="/businesses"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
+                    isActive("/businesses")
+                      ? "bg-emerald-50 text-[#008767] font-bold"
+                      : "text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  Jelajahi
+                </Link>
+                <Link
+                  href="/businesses"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block py-2.5 px-4 rounded-xl text-base font-semibold text-slate-800 hover:bg-slate-50 transition-colors"
+                >
+                  Kategori
+                </Link>
+                <Link
+                  href="/businesses"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block py-2.5 px-4 rounded-xl text-base font-semibold text-slate-800 hover:bg-slate-50 transition-colors"
+                >
+                  Untuk Bisnis
+                </Link>
+                <Link
+                  href="/tentang-kami"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
+                    isActive("/tentang-kami")
+                      ? "bg-emerald-50 text-[#008767] font-bold"
+                      : "text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  Tentang Kami
+                </Link>
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Auth Actions / Profile Section */}
+            {isLoggedIn && user ? (
+              <div className="pt-3 border-t border-slate-100 space-y-2 mt-3">
+                {user.role === "bisnis" && (
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-between py-2.5 px-4 text-sm font-bold text-amber-900 bg-amber-50 rounded-xl border border-amber-200"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <LayoutDashboard className="w-4 h-4 text-amber-700" />
+                      <span>Masuk Dashboard</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-amber-600" />
+                  </Link>
+                )}
+                <Link
+                  href="/profile"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 py-2.5 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors"
+                >
+                  <UserIcon className="w-4 h-4 text-slate-400" />
+                  <span>Profil Saya ({user.name})</span>
+                </Link>
+                <button
+                  onClick={() => {
+                    logout();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 py-2.5 px-4 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors text-left cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4 text-red-500" />
+                  <span>Keluar</span>
+                </button>
+              </div>
+            ) : (
+              <div className="pt-3 border-t border-slate-100 flex flex-col gap-2.5 mt-3">
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full text-center py-2.5 rounded-xl border border-slate-200 text-slate-800 font-bold text-sm hover:bg-slate-50 transition-colors"
+                >
+                  Masuk
+                </Link>
+                <Link
+                  href="/signup"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full text-center py-2.5 rounded-xl bg-[#008767] hover:bg-[#007458] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all"
+                >
+                  Daftar
+                </Link>
+              </div>
+            )}
+          </div>
+        </>,
+        document.body
       )}
     </header>
   );

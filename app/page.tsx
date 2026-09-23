@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { businesses } from "@/lib/mock-data";
 import {
   Search,
   Star,
   MessageSquare,
   ChevronDown,
+  ChevronRight,
   ArrowRight,
   CheckCircle2,
   Building2,
@@ -31,7 +33,26 @@ import Navbar from "@/components/navbar";
 
 export default function LandingPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredBusinesses = businesses.filter((b) =>
+    b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    b.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    b.location.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const faqs = [
     {
@@ -78,26 +99,28 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             
             {/* Left Column: Heading & Search */}
-            <div className="lg:col-span-7 space-y-6">
+            <div className="lg:col-span-7 space-y-6 text-center lg:text-left flex flex-col items-center lg:items-start">
 
               {/* Main Headline */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-[1.15]">
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-[1.15] text-center lg:text-left">
                 Dengar Kata <span className="text-[#008767]">Mereka</span> Sebelum Memilih.
               </h1>
 
               {/* Subheadline */}
-              <p className="text-base sm:text-lg text-slate-600 max-w-xl leading-relaxed">
+              <p className="text-sm sm:text-lg text-slate-600 max-w-xl leading-relaxed text-center lg:text-left mx-auto lg:mx-0">
                 Katamereka adalah platform ulasan dan rekomendasi bisnis dari orang-orang seperti kamu. Temukan ulasan terpercaya, produk terbaik, dan layanan yang sesuai dengan kebutuhanmu.
               </p>
 
               {/* Search Box */}
-              <div className="pt-2">
+              <div className="pt-2 max-w-xl w-full mx-auto lg:mx-0">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (searchQuery) window.location.href = `/businesses?q=${encodeURIComponent(searchQuery)}`;
+                    if (searchQuery.trim()) {
+                      window.location.href = `/search?q=${encodeURIComponent(searchQuery)}`;
+                    }
                   }}
-                  className="bg-white p-2 sm:p-2.5 rounded-full shadow-lg shadow-slate-200/60 border border-slate-200/80 flex items-center gap-2 max-w-xl focus-within:ring-2 focus-within:ring-[#008767]/30 transition-all"
+                  className="bg-white p-2 sm:p-2.5 rounded-full shadow-lg shadow-slate-200/60 border border-slate-200/80 flex items-center gap-2 max-w-xl w-full focus-within:ring-2 focus-within:ring-[#008767]/30 transition-all"
                 >
                   <Search className="w-5 h-5 text-slate-400 ml-3 flex-shrink-0" />
                   <input
@@ -105,52 +128,37 @@ export default function LandingPage() {
                     placeholder="Cari nama bisnis, website, atau kategori..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-transparent border-none outline-none text-slate-800 placeholder:text-slate-400 text-sm sm:text-base py-1"
+                    className="w-full bg-transparent border-none outline-none text-slate-800 placeholder:text-slate-400 text-xs sm:text-base py-1 font-medium"
                   />
                   <button
                     type="submit"
-                    className="px-6 py-3 rounded-full bg-[#008767] hover:bg-[#007458] text-white text-sm font-semibold flex-shrink-0 transition-all shadow-sm active:scale-95"
+                    className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-[#008767] hover:bg-[#007458] text-white text-xs sm:text-sm font-semibold flex-shrink-0 transition-all shadow-sm active:scale-95 cursor-pointer"
                   >
                     Cari
                   </button>
                 </form>
               </div>
 
-              {/* Popular Search Tags */}
-              <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-slate-500 pt-1">
-                <span className="font-medium text-slate-700 mr-1">Populer:</span>
-                <Link href="/businesses" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 hover:border-[#008767] hover:text-[#008767] transition-all shadow-2xs">
-                  <Utensils className="w-3.5 h-3.5 text-amber-500" /> Restoran
-                </Link>
-                <Link href="/businesses" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 hover:border-[#008767] hover:text-[#008767] transition-all shadow-2xs">
-                  <Hotel className="w-3.5 h-3.5 text-blue-500" /> Hotel
-                </Link>
-                <Link href="/businesses" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 hover:border-[#008767] hover:text-[#008767] transition-all shadow-2xs">
-                  <Sparkles className="w-3.5 h-3.5 text-pink-500" /> Kecantikan
-                </Link>
-                <Link href="/businesses" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 hover:border-[#008767] hover:text-[#008767] transition-all shadow-2xs">
-                  <Laptop className="w-3.5 h-3.5 text-indigo-500" /> Elektronik
-                </Link>
-                <Link href="/businesses" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 hover:border-[#008767] hover:text-[#008767] transition-all shadow-2xs">
-                  <Plane className="w-3.5 h-3.5 text-sky-500" /> Travel & Wisata
-                </Link>
-              </div>
+
             </div>
 
-            {/* Right Column: Floating Cards Stack Over Gradient Container */}
-            <div className="lg:col-span-5 relative flex justify-center items-center">
-              {/* Background Mint Blob */}
-              <div className="w-[340px] h-[340px] sm:w-[420px] sm:h-[420px] rounded-full bg-gradient-to-tr from-[#d3f2e9] via-[#e5f7f2] to-white opacity-90 blur-xs flex items-center justify-center relative shadow-inner">
+            {/* Right Column: Floating Cards Stack Over Mint Circle Container (Hidden on mobile) */}
+            <div className="hidden lg:flex lg:col-span-5 relative justify-center items-center">
+              {/* Container for circle & cards */}
+              <div className="w-[340px] h-[340px] sm:w-[420px] sm:h-[420px] relative flex items-center justify-center">
+                {/* Background Mint Blob (absolute behind cards) */}
+                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#d3f2e9] via-[#e5f7f2] to-white opacity-90 shadow-inner" />
+
                 {/* Dengar Pengalaman Mereka Badge Annotation */}
-                <div className="absolute -top-4 -right-2 bg-white/90 backdrop-blur-xs px-4 py-2 rounded-2xl shadow-md border border-[#c4ebde] text-xs font-semibold text-[#008767] flex items-center gap-1.5 animate-bounce">
+                <div className="absolute -top-4 -right-2 bg-white px-4 py-2 rounded-2xl shadow-md border border-[#c4ebde] text-xs font-semibold text-[#008767] flex items-center gap-1.5 animate-bounce z-20">
                   <MessageSquare className="w-4 h-4 text-[#008767]" />
                   <span>Dengar pengalaman mereka.</span>
                 </div>
 
-                {/* Floating Cards (No photos as requested, styled as brand cards) */}
+                {/* Floating Cards (100% Crisp & Clear) */}
                 <div className="w-full space-y-3.5 px-4 z-10">
                   {/* Card 1 */}
-                  <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-lg shadow-slate-200/80 border border-slate-100 flex items-center justify-between hover:scale-102 transition-transform">
+                  <div className="bg-white p-3.5 rounded-2xl shadow-lg shadow-slate-200/80 border border-slate-100 flex items-center justify-between hover:scale-102 transition-transform">
                     <div className="flex items-center gap-3">
                       <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
                         <Hotel className="w-5 h-5" />
@@ -169,7 +177,7 @@ export default function LandingPage() {
                   </div>
 
                   {/* Card 2 */}
-                  <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-lg shadow-slate-200/80 border border-slate-100 flex items-center justify-between transform translate-x-3 hover:scale-102 transition-transform">
+                  <div className="bg-white p-3.5 rounded-2xl shadow-lg shadow-slate-200/80 border border-slate-100 flex items-center justify-between transform translate-x-3 hover:scale-102 transition-transform">
                     <div className="flex items-center gap-3">
                       <div className="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
                         <Smartphone className="w-5 h-5" />
@@ -188,7 +196,7 @@ export default function LandingPage() {
                   </div>
 
                   {/* Card 3 */}
-                  <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-lg shadow-slate-200/80 border border-slate-100 flex items-center justify-between hover:scale-102 transition-transform">
+                  <div className="bg-white p-3.5 rounded-2xl shadow-lg shadow-slate-200/80 border border-slate-100 flex items-center justify-between hover:scale-102 transition-transform">
                     <div className="flex items-center gap-3">
                       <div className="w-11 h-11 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-500 font-bold text-sm">
                         <Plane className="w-5 h-5" />

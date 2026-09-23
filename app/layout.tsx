@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import { Poppins, Gabarito } from "next/font/google";
 import "./globals.css";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -9,6 +9,13 @@ import { AuthProvider } from "@/lib/auth-context";
 const poppins = Poppins({
   variable: "--font-poppins",
   weight: ["300", "400", "500", "600", "700", "800"],
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const gabarito = Gabarito({
+  variable: "--font-gabarito",
+  weight: ["400", "500", "600", "700", "800", "900"],
   subsets: ["latin"],
   display: "swap",
 });
@@ -24,11 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="id"
-      className={`${poppins.variable} h-full antialiased`}
-      suppressHydrationWarning
-    >
+    <html lang="id" className={`${poppins.variable} ${gabarito.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans bg-background text-foreground">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <AuthProvider>{children}</AuthProvider>

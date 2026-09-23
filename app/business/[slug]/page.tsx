@@ -235,7 +235,7 @@ export default function BusinessProfilePage() {
             </div>
 
             {/* Sub-Navigation Tabs Bar */}
-            <div className="flex items-center gap-8 border-b border-slate-100 mt-8 text-sm font-semibold sticky top-20 z-20 bg-white/95 backdrop-blur-md pt-2">
+            <div className="flex items-center gap-8 border-b border-slate-100 mt-8 text-sm font-semibold sticky top-20 z-20 bg-white/95 backdrop-blur-md pt-2 overflow-x-auto no-scrollbar whitespace-nowrap">
               {[
                 { id: "profil", label: "Profil" },
                 { id: "review", label: `Review (${business.reviewCountFormatted})` },
@@ -245,7 +245,7 @@ export default function BusinessProfilePage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`pb-3 border-b-2 transition-colors ${
+                  className={`pb-3 border-b-2 transition-colors flex-shrink-0 ${
                     activeTab === tab.id
                       ? "border-[#008767] text-[#008767]"
                       : "border-transparent text-slate-500 hover:text-slate-800"
