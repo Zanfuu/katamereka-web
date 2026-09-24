@@ -97,7 +97,7 @@ const searchMockBusinesses = [
 function SearchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialQuery = searchParams.get("q") || "Insurance agency in United States";
+  const initialQuery = searchParams.get("q") || "";
 
   const [searchInput, setSearchInput] = useState<string>(initialQuery);
   const [activeQuery, setActiveQuery] = useState<string>(initialQuery);
@@ -108,10 +108,8 @@ function SearchContent() {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchInput.trim()) {
-      setActiveQuery(searchInput);
-      router.replace(`/search?q=${encodeURIComponent(searchInput)}`);
-    }
+    setActiveQuery(searchInput);
+    router.replace(searchInput.trim() ? `/search?q=${encodeURIComponent(searchInput)}` : "/search");
   };
 
   const toggleBookmark = (id: string, e: React.MouseEvent) => {
@@ -147,12 +145,14 @@ function SearchContent() {
     const q = activeQuery.toLowerCase().trim();
 
     return allSearchItems.filter((item) => {
+      const targetText = `${item.name} ${item.category} ${item.location} ${item.website}`.toLowerCase();
+      const queryWords = q.split(/\s+/).filter(Boolean);
+
       const matchesQuery =
         !q ||
-        item.name.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q) ||
-        item.location.toLowerCase().includes(q) ||
-        item.website.toLowerCase().includes(q);
+        targetText.includes(q) ||
+        queryWords.every((word) => targetText.includes(word)) ||
+        queryWords.some((word) => word.length >= 3 && targetText.includes(word));
 
       const matchesType = selectedType === "Semua" || item.type === selectedType;
       const matchesCategorySidebar =
