@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { businesses, Business } from "@/lib/mock-data";
+import { fetchBusinesses, mapApiBusinessToUiModel } from "@/lib/api-client";
 import {
   Search,
   ChevronDown,
@@ -36,6 +37,28 @@ export default function BusinessesPage() {
   const [sortBy, setSortBy] = useState("Terpopuler");
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [apiBusinesses, setApiBusinesses] = useState<Business[]>([]);
+
+  useEffect(() => {
+    async function loadApiBusinesses() {
+      try {
+        const res = await fetchBusinesses({
+          search: searchQuery.trim() || undefined,
+          city: selectedLocation === "Semua Lokasi" ? undefined : selectedLocation,
+          category: selectedCategory === "Semua Kategori" ? undefined : selectedCategory,
+          page: currentPage,
+          limit: 20,
+        });
+
+        if (res && res.data && res.data.length > 0) {
+          setApiBusinesses(res.data.map(mapApiBusinessToUiModel));
+        }
+      } catch (err) {
+        // Fallback to local filtering
+      }
+    }
+    loadApiBusinesses();
+  }, [searchQuery, selectedCategory, selectedLocation, currentPage]);
 
   // Filter Categories
   const categories = [

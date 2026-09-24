@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { getBusinessBySlug } from "@/lib/mock-data";
+import { fetchBusinessBySlug, ApiBusinessDetail } from "@/lib/api-client";
 import {
   Search,
   ChevronDown,
@@ -37,8 +38,40 @@ import { useAuth } from "@/lib/auth-context";
 export default function BusinessProfilePage() {
   const params = useParams();
   const slug = (params.slug as string) || "sunny-cafe";
-  const business = getBusinessBySlug(slug);
+  const mockBusiness = getBusinessBySlug(slug);
   const { user } = useAuth();
+
+  const [apiDetail, setApiDetail] = useState<ApiBusinessDetail | null>(null);
+
+  useEffect(() => {
+    async function loadApiBusinessDetail() {
+      try {
+        const res = await fetchBusinessBySlug(slug);
+        if (res && res.data) {
+          setApiDetail(res.data);
+        }
+      } catch (err) {
+        // Fallback to mock data
+      }
+    }
+    loadApiBusinessDetail();
+  }, [slug]);
+
+  const business = apiDetail
+    ? {
+        ...mockBusiness,
+        id: apiDetail.id,
+        name: apiDetail.name,
+        slug: apiDetail.slug,
+        category: apiDetail.category || mockBusiness.category,
+        location: apiDetail.city ? `${apiDetail.city}, ${apiDetail.province}` : mockBusiness.location,
+        address: apiDetail.address || mockBusiness.address,
+        phone: apiDetail.phone || mockBusiness.phone,
+        rating: apiDetail.rating ? (typeof apiDetail.rating === 'number' ? apiDetail.rating : parseFloat(apiDetail.rating)) : mockBusiness.rating,
+        reviewCount: apiDetail.reviews_count || mockBusiness.reviewCount,
+        reviewCountFormatted: `${apiDetail.reviews_count || mockBusiness.reviewCount} ulasan`,
+      }
+    : mockBusiness;
 
   const [activeTab, setActiveTab] = useState<"profil" | "review" | "foto" | "info">("profil");
   const [isSaved, setIsSaved] = useState(false);

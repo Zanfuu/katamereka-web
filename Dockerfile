@@ -12,6 +12,10 @@ COPY . .
 # Set environment variable for production build
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ARG API_URL=https://api.katamereka.id
+ARG NEXT_PUBLIC_API_URL=https://api.katamereka.id
+ENV API_URL=https://api.katamereka.id
+ENV NEXT_PUBLIC_API_URL=https://api.katamereka.id
 
 RUN npm run build
 
@@ -23,6 +27,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
+ENV API_URL=https://api.katamereka.id
+ENV NEXT_PUBLIC_API_URL=https://api.katamereka.id
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/public ./public
