@@ -43,12 +43,7 @@ export default function BisnisLandingPage() {
               
               {/* Left Column: Hero Text & Actions */}
               <div className="lg:col-span-6 space-y-6 text-left">
-                {/* Handwritten Style Badge */}
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#008767]/10 border border-[#008767]/20 text-[#008767] font-semibold text-xs sm:text-sm shadow-2xs">
-                  <Sparkles className="w-4 h-4 text-[#008767]" />
-                  <span>Reputasi baik berawal dari pengalaman nyata</span>
-                  <span className="text-[#008767] font-extrabold">↗</span>
-                </div>
+
 
                 {/* Main Heading */}
                 <h1 className="text-3xl sm:text-5xl lg:text-[2.75rem] font-extrabold text-slate-900 leading-tight sm:leading-[1.2] tracking-tight">
@@ -79,81 +74,13 @@ export default function BisnisLandingPage() {
                 </div>
               </div>
 
-              {/* Right Column: Hero Visual with Overlay Cards */}
-              <div className="lg:col-span-6 relative flex justify-center">
-                {/* Background Tint Circle */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-[#008767]/10 to-emerald-200/30 rounded-3xl transform rotate-1 scale-95 blur-sm" />
-
-
-
-                {/* Main Card Container */}
-                <div className="relative z-20 w-full max-w-md sm:max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-white/60 bg-white group">
-                  {/* Photo of Business Owner */}
-                  <div className="relative h-72 sm:h-96 w-full overflow-hidden bg-slate-100">
-                    <img
-                      src="/business-hero.jpg"
-                      alt="Pemilik Bisnis Katamereka"
-                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-transparent" />
-                  </div>
-
-                  {/* Floating Overlay Card 1: Top Left */}
-                  <div className="absolute top-4 left-4 right-4 sm:right-auto sm:max-w-[260px] bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-xl border border-slate-100 space-y-1.5 z-30">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center font-bold text-amber-800 text-xs overflow-hidden flex-shrink-0">
-                        <Store className="w-5 h-5 text-amber-700" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1">
-                          <h4 className="font-bold text-slate-900 text-xs sm:text-sm truncate">
-                            Kedai Rasa Kita
-                          </h4>
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#008767] fill-[#008767]/20 flex-shrink-0" />
-                        </div>
-                        <p className="text-[11px] text-slate-500">Restoran</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px]">
-                      <div className="flex items-center gap-1 font-bold text-slate-800">
-                        <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                        <span>4.5</span>
-                        <span className="text-slate-400 font-normal">(2.8k Ulasan)</span>
-                      </div>
-                      <div className="flex items-center gap-0.5 text-slate-500">
-                        <MapPin className="w-3 h-3 text-slate-400" />
-                        <span className="truncate max-w-[90px]">Jakarta, Indonesia</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Floating Overlay Card 2: Bottom Left */}
-                  <div className="absolute bottom-4 left-4 right-4 sm:right-auto bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-xl border border-slate-100 z-30 flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-[11px] font-semibold text-slate-500">Ulasan Pelanggan</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="font-extrabold text-slate-900 text-base">4.5</span>
-                        <div className="flex items-center text-amber-400">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center gap-0.5">
-                        <TrendingUp className="w-3 h-3 text-emerald-600" />
-                        +24%
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center gap-0.5">
-                        <TrendingUp className="w-3 h-3 text-emerald-600" />
-                        +34%
-                      </span>
-                    </div>
-                  </div>
-
-                </div>
+              {/* Right Column: Hero Visual Image (ilus.webp) */}
+              <div className="lg:col-span-6 flex justify-center items-center">
+                <img
+                  src="/ilus.webp"
+                  alt="Katamereka Bisnis"
+                  className="w-full max-w-2xl lg:max-w-3xl h-auto object-contain scale-105 lg:scale-110 transform transition-transform duration-300"
+                />
               </div>
 
             </div>

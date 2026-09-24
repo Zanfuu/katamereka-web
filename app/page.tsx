@@ -99,7 +99,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             
             {/* Left Column: Heading & Search */}
-            <div className="lg:col-span-7 space-y-6 text-center lg:text-left flex flex-col items-center lg:items-start">
+            <div className="lg:col-span-6 space-y-6 text-center lg:text-left flex flex-col items-center lg:items-start">
 
               {/* Main Headline */}
               <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-[1.15] text-center lg:text-left">
@@ -142,79 +142,13 @@ export default function LandingPage() {
 
             </div>
 
-            {/* Right Column: Floating Cards Stack Over Mint Circle Container (Hidden on mobile) */}
-            <div className="hidden lg:flex lg:col-span-5 relative justify-center items-center">
-              {/* Container for circle & cards */}
-              <div className="w-[340px] h-[340px] sm:w-[420px] sm:h-[420px] relative flex items-center justify-center">
-                {/* Background Mint Blob (absolute behind cards) */}
-                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#d3f2e9] via-[#e5f7f2] to-white opacity-90 shadow-inner" />
-
-                {/* Dengar Pengalaman Mereka Badge Annotation */}
-                <div className="absolute -top-4 -right-2 bg-white px-4 py-2 rounded-2xl shadow-md border border-[#c4ebde] text-xs font-semibold text-[#008767] flex items-center gap-1.5 animate-bounce z-20">
-                  <MessageSquare className="w-4 h-4 text-[#008767]" />
-                  <span>Dengar pengalaman mereka.</span>
-                </div>
-
-                {/* Floating Cards (100% Crisp & Clear) */}
-                <div className="w-full space-y-3.5 px-4 z-10">
-                  {/* Card 1 */}
-                  <div className="bg-white p-3.5 rounded-2xl shadow-lg shadow-slate-200/80 border border-slate-100 flex items-center justify-between hover:scale-102 transition-transform">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
-                        <Hotel className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-sm">Hotel Santika Premiere</h4>
-                        <div className="flex items-center gap-1 text-xs text-amber-500 font-semibold mt-0.5">
-                          <span>4.5</span>
-                          <div className="flex text-amber-400">
-                            {"★".repeat(5)}
-                          </div>
-                          <span className="text-slate-400 font-normal ml-1">(2.8k ulasan)</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card 2 */}
-                  <div className="bg-white p-3.5 rounded-2xl shadow-lg shadow-slate-200/80 border border-slate-100 flex items-center justify-between transform translate-x-3 hover:scale-102 transition-transform">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
-                        <Smartphone className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-sm">iPhone 17</h4>
-                        <div className="flex items-center gap-1 text-xs text-amber-500 font-semibold mt-0.5">
-                          <span>4.8</span>
-                          <div className="flex text-amber-400">
-                            {"★".repeat(5)}
-                          </div>
-                          <span className="text-slate-400 font-normal ml-1">(3.5k ulasan)</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card 3 */}
-                  <div className="bg-white p-3.5 rounded-2xl shadow-lg shadow-slate-200/80 border border-slate-100 flex items-center justify-between hover:scale-102 transition-transform">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-500 font-bold text-sm">
-                        <Plane className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-sm">Traveloka</h4>
-                        <div className="flex items-center gap-1 text-xs text-amber-500 font-semibold mt-0.5">
-                          <span>4.6</span>
-                          <div className="flex text-amber-400">
-                            {"★".repeat(5)}
-                          </div>
-                          <span className="text-slate-400 font-normal ml-1">(12.4k ulasan)</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {/* Right Column: Hero Visual Image (ilus.webp) */}
+            <div className="hidden lg:flex lg:col-span-6 relative justify-center items-center">
+              <img
+                src="/ilus.webp"
+                alt="Katamereka Platform Ulasan"
+                className="w-full max-w-2xl lg:max-w-3xl h-auto object-contain scale-105 lg:scale-110 transform transition-transform duration-300"
+              />
             </div>
 
           </div>
