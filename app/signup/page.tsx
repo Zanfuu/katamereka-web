@@ -82,7 +82,7 @@ function SignupFormContent() {
       <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-[#008767]/15 blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-4xl relative z-10 space-y-6">
-        
+
         {/* TOP BRAND LOGO */}
         <div className="text-center">
           <Link href="/" className="inline-flex items-center gap-2.5 group">
@@ -97,7 +97,7 @@ function SignupFormContent() {
 
         {/* TWO SEPARATE CARDS ATTACHED SIDE-BY-SIDE */}
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-12 shadow-2xl rounded-3xl overflow-hidden">
-          
+
           {/* LEFT CARD: FORM INPUTS (MD:COL-SPAN-6) */}
           <div className="md:col-span-6 bg-white/95 backdrop-blur-md p-6 sm:p-8 lg:p-10 border border-slate-200/80 rounded-t-3xl md:rounded-tr-none md:rounded-l-3xl md:border-r-0 space-y-5">
             <div className="space-y-1">
@@ -228,18 +228,16 @@ function SignupFormContent() {
                 <button
                   type="button"
                   onClick={() => setRole("customer")}
-                  className={`w-full p-4 rounded-2xl border text-left transition-all flex items-start gap-3 ${
-                    role === "customer"
+                  className={`w-full p-4 rounded-2xl border text-left transition-all flex items-start gap-3 ${role === "customer"
                       ? "border-[#008767] bg-white ring-2 ring-[#008767]/20 shadow-xs"
                       : "border-slate-200 bg-white/60 hover:bg-white"
-                  }`}
+                    }`}
                 >
                   <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                      role === "customer"
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${role === "customer"
                         ? "bg-[#008767] text-white"
                         : "bg-slate-200 text-slate-600"
-                    }`}
+                      }`}
                   >
                     <User className="w-5 h-5" />
                   </div>
@@ -260,18 +258,16 @@ function SignupFormContent() {
                 <button
                   type="button"
                   onClick={() => setRole("bisnis")}
-                  className={`w-full p-4 rounded-2xl border text-left transition-all flex items-start gap-3 ${
-                    role === "bisnis"
+                  className={`w-full p-4 rounded-2xl border text-left transition-all flex items-start gap-3 ${role === "bisnis"
                       ? "border-[#008767] bg-white ring-2 ring-[#008767]/20 shadow-xs"
                       : "border-slate-200 bg-white/60 hover:bg-white"
-                  }`}
+                    }`}
                 >
                   <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                      role === "bisnis"
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${role === "bisnis"
                         ? "bg-[#008767] text-white"
                         : "bg-slate-200 text-slate-600"
-                    }`}
+                      }`}
                   >
                     <Building2 className="w-5 h-5" />
                   </div>

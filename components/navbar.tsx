@@ -18,7 +18,11 @@ import {
   Building2,
   LayoutDashboard,
   ExternalLink,
-  Bookmark
+  Bookmark,
+  Bell,
+  HelpCircle,
+  MessageCircle,
+  Store
 } from "lucide-react";
 
 export default function Navbar() {
@@ -28,6 +32,7 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -40,6 +45,14 @@ export default function Navbar() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const isActive = (path: string) => {
@@ -59,14 +72,21 @@ export default function Navbar() {
     };
   }, [mobileMenuOpen]);
 
+  const isBusinessUser = mounted && isLoggedIn && user && user.role === "bisnis";
+
   return (
     <header
-      className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-xs transition-all"
-      style={{ backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}
+      className={`sticky top-0 z-50 transition-all duration-300 border-b ${
+        isScrolled
+          ? "bg-white/80 backdrop-blur-md shadow-md border-slate-200/80"
+          : "bg-white/95 backdrop-blur-sm border-slate-200/80 shadow-xs"
+      }`}
+      style={{ backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+        
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
+        <Link href={isBusinessUser ? "/untuk-bisnis" : "/"} className="flex items-center gap-2.5 group flex-shrink-0">
           <div className="w-10 h-10 rounded-full overflow-hidden shadow-md shadow-[#008767]/20 group-hover:scale-105 transition-transform flex-shrink-0 bg-[#008767]">
             <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
           </div>
@@ -77,65 +97,110 @@ export default function Navbar() {
 
         {/* Desktop Navigation Links */}
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-          <Link
-            href="/"
-            className={`transition-colors hover:text-[#008767] ${
-              isActive("/") && pathname === "/"
-                ? "text-[#008767] font-bold"
-                : ""
-            }`}
-          >
-            Utama
-          </Link>
+          {isBusinessUser ? (
+            /* Business Account Specific Navbar Items */
+            <>
+              <Link
+                href="/bisnis"
+                className={`transition-colors hover:text-[#008767] ${
+                  isActive("/bisnis") || isActive("/untuk-bisnis") ? "text-[#008767] font-bold" : ""
+                }`}
+              >
+                Utama
+              </Link>
 
-          <Link
-            href="/businesses"
-            className={`relative group flex items-center gap-1 transition-colors hover:text-[#008767] ${
-              isActive("/businesses") || isActive("/business")
-                ? "text-[#008767] font-bold"
-                : ""
-            }`}
-          >
-            <span>Jelajahi</span>
-            <ChevronDown className="w-4 h-4 opacity-70 group-hover:rotate-180 transition-transform" />
-          </Link>
+              <Link
+                href="/business/sunny-cafe"
+                className={`transition-colors hover:text-[#008767] ${
+                  isActive("/business") ? "text-[#008767] font-bold" : ""
+                }`}
+              >
+                Bisnis Saya
+              </Link>
 
-          <Link
-            href="/businesses"
-            className="relative group flex items-center gap-1 transition-colors hover:text-[#008767]"
-          >
-            <span>Kategori</span>
-            <ChevronDown className="w-4 h-4 opacity-70 group-hover:rotate-180 transition-transform" />
-          </Link>
+              <Link
+                href="/ulasan"
+                className={`transition-colors hover:text-[#008767] ${
+                  isActive("/ulasan") ? "text-[#008767] font-bold" : ""
+                }`}
+              >
+                Ulasan
+              </Link>
 
-          <Link
-            href="/businesses"
-            className="transition-colors hover:text-[#008767]"
-          >
-            Untuk Bisnis
-          </Link>
+              <Link
+                href="/bantuan"
+                className={`transition-colors hover:text-[#008767] ${
+                  isActive("/bantuan") ? "text-[#008767] font-bold" : ""
+                }`}
+              >
+                Bantuan
+              </Link>
+            </>
+          ) : (
+            /* Standard Customer / Guest Navbar Items */
+            <>
+              <Link
+                href="/"
+                className={`transition-colors hover:text-[#008767] ${
+                  isActive("/") && pathname === "/" ? "text-[#008767] font-bold" : ""
+                }`}
+              >
+                Utama
+              </Link>
 
-          <Link
-            href="/tentang-kami"
-            className={`transition-colors hover:text-[#008767] ${
-              isActive("/tentang-kami") ? "text-[#008767] font-bold" : ""
-            }`}
-          >
-            Tentang Kami
-          </Link>
+              <Link
+                href="/businesses"
+                className={`relative group flex items-center gap-1 transition-colors hover:text-[#008767] ${
+                  isActive("/businesses") || (isActive("/business") && !isBusinessUser)
+                    ? "text-[#008767] font-bold"
+                    : ""
+                }`}
+              >
+                <span>Jelajahi</span>
+                <ChevronDown className="w-4 h-4 opacity-70 group-hover:rotate-180 transition-transform" />
+              </Link>
+
+              <Link
+                href="/businesses"
+                className="relative group flex items-center gap-1 transition-colors hover:text-[#008767]"
+              >
+                <span>Kategori</span>
+                <ChevronDown className="w-4 h-4 opacity-70 group-hover:rotate-180 transition-transform" />
+              </Link>
+
+              <Link
+                href="/tentang-kami"
+                className={`transition-colors hover:text-[#008767] ${
+                  isActive("/tentang-kami") ? "text-[#008767] font-bold" : ""
+                }`}
+              >
+                Tentang Kami
+              </Link>
+            </>
+          )}
         </nav>
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
-
+          
+          {/* Business Notification Bell (For Business Accounts) */}
+          {isBusinessUser && (
+            <button
+              className="relative p-2 rounded-full hover:bg-slate-100 text-slate-600 transition-colors"
+              aria-label="Notifikasi"
+            >
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white" />
+            </button>
+          )}
 
           {/* Conditional Admin Button for Business Account */}
-          {mounted && isLoggedIn && user && user.role === "bisnis" && (
+          {isBusinessUser && (
             <Link
               href="/dashboard"
-              className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs transition-all shadow-2xs"
+              className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs transition-all shadow-2xs hover:scale-105"
             >
-              <LayoutDashboard className="w-3.5 h-3.5 text-amber-700" />
+              <LayoutDashboard className="w-4 h-4 text-amber-700" />
               <span>Dashboard</span>
             </Link>
           )}
@@ -143,7 +208,7 @@ export default function Navbar() {
           {/* Conditional Profile or Login/Register */}
           {mounted && isLoggedIn && user ? (
             <div className="relative" ref={dropdownRef}>
-              {/* Profile Avatar Button (Initials) */}
+              {/* Profile Avatar Button */}
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                 className="flex items-center gap-2 p-1 rounded-full hover:bg-slate-100 transition-colors border border-slate-200/80"
@@ -155,15 +220,17 @@ export default function Navbar() {
 
               {/* Profile Dropdown Menu */}
               {profileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-xl border border-slate-200/80 py-2 z-50 animate-fadeIn">
+                <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200/80 py-2 z-50 animate-fadeIn">
                   <div className="px-4 py-3 border-b border-slate-100 space-y-1">
                     <div className="flex items-center justify-between">
-                      <p className="font-bold text-slate-900 text-sm">{user.name}</p>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                        user.role === "bisnis"
-                          ? "bg-amber-100 text-amber-900 border border-amber-300"
-                          : "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                      }`}>
+                      <p className="font-bold text-slate-900 text-sm truncate">{user.name}</p>
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                          user.role === "bisnis"
+                            ? "bg-amber-100 text-amber-900 border border-amber-300"
+                            : "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        }`}
+                      >
                         {user.role === "bisnis" ? "Akun Bisnis" : "Customer"}
                       </span>
                     </div>
@@ -176,12 +243,23 @@ export default function Navbar() {
                       <Link
                         href="/dashboard"
                         onClick={() => setProfileDropdownOpen(false)}
-                        className="flex items-center justify-between px-4 py-2.5 bg-amber-50/60 hover:bg-amber-100 text-amber-900 transition-colors font-bold"
+                        className="flex items-center justify-between px-4 py-2.5 bg-amber-50/70 hover:bg-amber-100 text-amber-900 transition-colors font-bold"
                       >
                         <div className="flex items-center gap-2.5">
                           <LayoutDashboard className="w-4 h-4 text-amber-700" />
-                          <span>Masuk Dashboard</span>
+                          <span>Masuk Dashboard Admin</span>
                         </div>
+                      </Link>
+                    )}
+
+                    {user.role === "bisnis" && (
+                      <Link
+                        href="/business/sunny-cafe"
+                        onClick={() => setProfileDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
+                      >
+                        <Store className="w-4 h-4 text-slate-400" />
+                        <span>Profil Bisnis Saya</span>
                       </Link>
                     )}
 
@@ -191,25 +269,16 @@ export default function Navbar() {
                       className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
                     >
                       <UserIcon className="w-4 h-4 text-slate-400" />
-                      <span>Profil Saya</span>
+                      <span>Profil Sesi Log</span>
                     </Link>
 
                     <Link
-                      href="/profile"
+                      href="/ulasan"
                       onClick={() => setProfileDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
                     >
                       <Star className="w-4 h-4 text-slate-400" />
-                      <span>Review Saya</span>
-                    </Link>
-
-                    <Link
-                      href="/profile"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
-                    >
-                      <Settings className="w-4 h-4 text-slate-400" />
-                      <span>Pengaturan</span>
+                      <span>Kelola Ulasan</span>
                     </Link>
                   </div>
 
@@ -219,31 +288,26 @@ export default function Navbar() {
                         logout();
                         setProfileDropdownOpen(false);
                       }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors text-left"
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors text-left cursor-pointer"
                     >
                       <LogOut className="w-4 h-4 text-red-500" />
-                      <span>Keluar (Logout)</span>
+                      <span>Keluar</span>
                     </button>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+            <div className="hidden sm:flex items-center gap-2.5">
               <Link
                 href="/login"
-                className={`px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap ${
-                  isActive("/login")
-                    ? "text-[#008767] font-bold"
-                    : "text-slate-700 hover:text-[#008767]"
-                }`}
+                className="px-4 py-2 rounded-xl text-slate-700 hover:text-[#008767] font-semibold text-sm transition-colors"
               >
                 Masuk
               </Link>
-
               <Link
                 href="/signup"
-                className="px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-[#008767] hover:bg-[#007458] rounded-full shadow-sm hover:shadow-md hover:shadow-[#008767]/20 transition-all active:scale-95 whitespace-nowrap"
+                className="px-4 py-2 rounded-xl bg-[#008767] hover:bg-[#007458] text-white font-semibold text-sm shadow-md shadow-[#008767]/20 transition-all hover:scale-105"
               >
                 Daftar
               </Link>
@@ -261,7 +325,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Bottom Sheet Menu (Rendered via Portal to escape header context) */}
+      {/* Mobile Bottom Sheet Menu (Rendered via Portal) */}
       {mounted && mobileMenuOpen && createPortal(
         <>
           {/* Backdrop Overlay */}
@@ -270,8 +334,8 @@ export default function Navbar() {
             className="md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[9999] animate-fadeIn"
           />
 
-          {/* Bottom Sheet Container (Slides up from screen bottom, max height 60vh) */}
-          <div className="md:hidden fixed inset-x-0 bottom-0 z-[10000] bg-white rounded-t-3xl shadow-2xl p-5 border-t border-slate-100 max-h-[60vh] flex flex-col justify-between animate-in slide-in-from-bottom duration-300 ease-out overflow-y-auto">
+          {/* Bottom Sheet Container */}
+          <div className="md:hidden fixed inset-x-0 bottom-0 z-[10000] bg-white rounded-t-3xl shadow-2xl p-5 border-t border-slate-100 max-h-[70vh] flex flex-col justify-between animate-in slide-in-from-bottom duration-300 ease-out overflow-y-auto">
             <div>
               {/* Drag Handle & Header */}
               <div className="flex flex-col items-center mb-3">
@@ -297,53 +361,97 @@ export default function Navbar() {
 
               {/* Links List */}
               <div className="space-y-1">
-                <Link
-                  href="/"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
-                    isActive("/") && pathname === "/"
-                      ? "bg-emerald-50 text-[#008767] font-bold"
-                      : "text-slate-800 hover:bg-slate-50"
-                  }`}
-                >
-                  Utama
-                </Link>
-                <Link
-                  href="/businesses"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
-                    isActive("/businesses")
-                      ? "bg-emerald-50 text-[#008767] font-bold"
-                      : "text-slate-800 hover:bg-slate-50"
-                  }`}
-                >
-                  Jelajahi
-                </Link>
-                <Link
-                  href="/businesses"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block py-2.5 px-4 rounded-xl text-base font-semibold text-slate-800 hover:bg-slate-50 transition-colors"
-                >
-                  Kategori
-                </Link>
-                <Link
-                  href="/businesses"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block py-2.5 px-4 rounded-xl text-base font-semibold text-slate-800 hover:bg-slate-50 transition-colors"
-                >
-                  Untuk Bisnis
-                </Link>
-                <Link
-                  href="/tentang-kami"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
-                    isActive("/tentang-kami")
-                      ? "bg-emerald-50 text-[#008767] font-bold"
-                      : "text-slate-800 hover:bg-slate-50"
-                  }`}
-                >
-                  Tentang Kami
-                </Link>
+                {isBusinessUser ? (
+                  <>
+                    <Link
+                      href="/bisnis"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
+                        isActive("/bisnis") || isActive("/untuk-bisnis")
+                          ? "bg-emerald-50 text-[#008767] font-bold"
+                          : "text-slate-800 hover:bg-slate-50"
+                      }`}
+                    >
+                      Utama
+                    </Link>
+                    <Link
+                      href="/business/sunny-cafe"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
+                        isActive("/business")
+                          ? "bg-emerald-50 text-[#008767] font-bold"
+                          : "text-slate-800 hover:bg-slate-50"
+                      }`}
+                    >
+                      Bisnis Saya
+                    </Link>
+                    <Link
+                      href="/ulasan"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
+                        isActive("/ulasan")
+                          ? "bg-emerald-50 text-[#008767] font-bold"
+                          : "text-slate-800 hover:bg-slate-50"
+                      }`}
+                    >
+                      Ulasan
+                    </Link>
+                    <Link
+                      href="/bantuan"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
+                        isActive("/bantuan")
+                          ? "bg-emerald-50 text-[#008767] font-bold"
+                          : "text-slate-800 hover:bg-slate-50"
+                      }`}
+                    >
+                      Bantuan
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
+                        isActive("/") && pathname === "/"
+                          ? "bg-emerald-50 text-[#008767] font-bold"
+                          : "text-slate-800 hover:bg-slate-50"
+                      }`}
+                    >
+                      Utama
+                    </Link>
+                    <Link
+                      href="/businesses"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
+                        isActive("/businesses")
+                          ? "bg-emerald-50 text-[#008767] font-bold"
+                          : "text-slate-800 hover:bg-slate-50"
+                      }`}
+                    >
+                      Jelajahi
+                    </Link>
+                    <Link
+                      href="/businesses"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="block py-2.5 px-4 rounded-xl text-base font-semibold text-slate-800 hover:bg-slate-50 transition-colors"
+                    >
+                      Kategori
+                    </Link>
+                    <Link
+                      href="/tentang-kami"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
+                        isActive("/tentang-kami")
+                          ? "bg-emerald-50 text-[#008767] font-bold"
+                          : "text-slate-800 hover:bg-slate-50"
+                      }`}
+                    >
+                      Tentang Kami
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
 
@@ -358,7 +466,7 @@ export default function Navbar() {
                   >
                     <div className="flex items-center gap-2.5">
                       <LayoutDashboard className="w-4 h-4 text-amber-700" />
-                      <span>Masuk Dashboard</span>
+                      <span>Masuk Dashboard Admin</span>
                     </div>
                     <ChevronRight className="w-4 h-4 text-amber-600" />
                   </Link>
@@ -383,18 +491,18 @@ export default function Navbar() {
                 </button>
               </div>
             ) : (
-              <div className="pt-3 border-t border-slate-100 flex flex-col gap-2.5 mt-3">
+              <div className="pt-4 border-t border-slate-100 space-y-2.5 mt-3">
                 <Link
                   href="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-center py-2.5 rounded-xl border border-slate-200 text-slate-800 font-bold text-sm hover:bg-slate-50 transition-colors"
+                  className="w-full block text-center py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors"
                 >
                   Masuk
                 </Link>
                 <Link
                   href="/signup"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-center py-2.5 rounded-xl bg-[#008767] hover:bg-[#007458] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all"
+                  className="w-full block text-center py-2.5 rounded-xl bg-[#008767] hover:bg-[#007458] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all"
                 >
                   Daftar
                 </Link>

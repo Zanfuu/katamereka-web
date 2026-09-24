@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectPath = searchParams.get("redirect") || "/";
+  const redirectPath = searchParams.get("redirect") || "/bisnis";
 
   const { login, changePassword } = useAuth();
 

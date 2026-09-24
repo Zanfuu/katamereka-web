@@ -335,8 +335,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = () => {
     setUser(null);
     setIsLoggedIn(false);
-    localStorage.removeItem("katamereka_active_user");
-    localStorage.removeItem("accessToken");
+    try {
+      localStorage.removeItem("katamereka_active_user");
+      localStorage.removeItem("accessToken");
+    } catch (e) {
+      // ignore
+    }
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
   };
 
   return (
