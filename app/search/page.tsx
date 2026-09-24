@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useState, useMemo } from "react";
+import { Suspense, useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import Navbar from "@/components/navbar";
 import { businesses, Business } from "@/lib/mock-data";
+import { fetchBusinesses, mapApiBusinessToUiModel } from "@/lib/api-client";
 import {
   Search,
   Filter,
@@ -105,6 +106,45 @@ function SearchContent() {
   const [selectedCategorySidebar, setSelectedCategorySidebar] = useState<string>("Semua");
   const [sortBy, setSortBy] = useState<string>("Paling Relevan");
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
+  const [apiItems, setApiItems] = useState<any[]>([]);
+
+  // Live API integration: fetch businesses from GET /businesses endpoint
+  useEffect(() => {
+    async function loadLiveBusinesses() {
+      try {
+        const res = await fetchBusinesses({
+          search: activeQuery.trim() || undefined,
+          limit: 50
+        });
+
+        if (res && res.data && Array.isArray(res.data)) {
+          const mapped = res.data.map((item) => {
+            const ui = mapApiBusinessToUiModel(item);
+            return {
+              id: ui.id,
+              slug: ui.slug,
+              name: ui.name,
+              website: `${ui.slug}.katamereka.id`,
+              category: ui.category,
+              location: ui.location,
+              rating: typeof ui.rating === "number" ? ui.rating : parseFloat(String(ui.rating)) || 4.5,
+              reviewCount: ui.reviewCount || 12,
+              reviewCountFormatted: ui.reviewCountFormatted || `${ui.reviewCount || 12} ulasan`,
+              badge: "Terverifikasi" as const,
+              initials: ui.initials || ui.name.substring(0, 2).toUpperCase(),
+              color: ui.color || "bg-[#008767] text-white",
+              type: ui.category.toLowerCase().includes("restoran") || ui.category.toLowerCase().includes("service") ? "Jasa" : "Bisnis",
+              bannerUrl: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=500&auto=format&fit=crop&q=80"
+            };
+          });
+          setApiItems(mapped);
+        }
+      } catch (err) {
+        console.warn("Error fetching live search businesses:", err);
+      }
+    }
+    loadLiveBusinesses();
+  }, [activeQuery]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +158,7 @@ function SearchContent() {
     setBookmarks((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // Combine mock data with search mock data
+  // Combine mock data with search mock data & live API items (deduplicated by slug)
   const allSearchItems = useMemo(() => {
     const defaultMapped = businesses.map((b) => ({
       id: b.id,
@@ -137,8 +177,14 @@ function SearchContent() {
       bannerUrl: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=500&auto=format&fit=crop&q=80"
     }));
 
-    return [...searchMockBusinesses, ...defaultMapped];
-  }, []);
+    const pool = [...apiItems, ...searchMockBusinesses, ...defaultMapped];
+    const seen = new Set();
+    return pool.filter((item) => {
+      if (seen.has(item.slug)) return false;
+      seen.add(item.slug);
+      return true;
+    });
+  }, [apiItems]);
 
   // Filter items
   const filteredResults = useMemo(() => {
