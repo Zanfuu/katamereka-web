@@ -32,7 +32,7 @@ interface AuthContextType {
   user: UserProfile | null;
   isLoggedIn: boolean;
   login: (email: string, pass: string) => Promise<AuthResponse>;
-  signup: (name: string, email: string, pass: string, role?: UserRole) => Promise<AuthResponse>;
+  signup: (name: string, email: string, pass: string, role?: UserRole, otp?: string) => Promise<AuthResponse>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<AuthResponse>;
   getUsers: () => Promise<{ success: boolean; message: string; data?: any[] }>;
   logout: () => void;
@@ -219,7 +219,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     name: string,
     email: string,
     pass: string,
-    role: UserRole = "customer"
+    role: UserRole = "customer",
+    otp?: string
   ): Promise<AuthResponse> => {
     if (!name || !email || !pass || pass.length < 6) {
       return { success: false, message: "Semua bidang wajib diisi dengan valid" };
@@ -249,15 +250,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           email: lowerEmail,
           password: pass,
           role: role,
+          otp: otp?.trim() || "123456",
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
+        let errorMsg = "Gagal melakukan registrasi";
+        if (data.message) {
+          if (Array.isArray(data.message)) {
+            errorMsg = data.message.join(". ");
+          } else {
+            errorMsg = String(data.message);
+          }
+        }
         return {
           success: false,
-          message: data.message || "Email sudah terdaftar",
+          message: errorMsg,
         };
       }
 

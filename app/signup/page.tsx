@@ -1,47 +1,96 @@
 "use client";
 
 import Link from "next/link";
-import { useState, Suspense } from "react";
+import { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, UserRole } from "@/lib/auth-context";
 import {
-  MessageSquare,
   User,
   Mail,
   Lock,
   Eye,
   EyeOff,
   ArrowRight,
+  ArrowLeft,
   CheckCircle2,
-  Building2,
-  ShieldCheck,
-  LayoutDashboard
+  KeyRound,
+  RefreshCw
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function SignupFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectPath = searchParams.get("redirect") || "/";
+  const initialRole = (searchParams.get("role") as UserRole) || "customer";
 
   const { signup } = useAuth();
 
-  const [role, setRole] = useState<UserRole>("customer");
+  // Page Step State: "form" (Step 1) | "otp" (Step 2)
+  const [step, setStep] = useState<"form" | "otp">("form");
+
+  const [role, setRole] = useState<UserRole>(initialRole);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  
+  // 6-digit OTP state boxes
+  const [otpDigits, setOtpDigits] = useState<string[]>(["1", "2", "3", "4", "5", "6"]);
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
   const [showPassword, setShowPassword] = useState(false);
-  const [agreed, setAgreed] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Handler for OTP input box change
+  const handleOtpChange = (index: number, value: string) => {
+    // Only accept numeric digit
+    const digit = value.replace(/\D/g, "").slice(-1);
+    const newOtp = [...otpDigits];
+    newOtp[index] = digit;
+    setOtpDigits(newOtp);
+
+    // Auto-focus next input box
+    if (digit && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  // Handler for OTP backspace navigation
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace") {
+      if (!otpDigits[index] && index > 0) {
+        otpRefs.current[index - 1]?.focus();
+      }
+    }
+  };
+
+  // Handler for pasting 6-digit OTP code
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (pastedData) {
+      const newOtp = [...otpDigits];
+      for (let i = 0; i < 6; i++) {
+        newOtp[i] = pastedData[i] || "";
+      }
+      setOtpDigits(newOtp);
+      const focusIndex = Math.min(pastedData.length, 5);
+      otpRefs.current[focusIndex]?.focus();
+    }
+  };
+
+  // Step 1 Form Submission (Proceed to OTP Step)
+  const handleProceedToOtp = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!username.trim() || !email.trim() || !password.trim()) {
-      setError("Semua bidang (Username, Email, dan Kata Sandi) wajib diisi.");
+    if (!username.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+      setError("Semua bidang (Username, Email, Kata Sandi, dan Konfirmasi) wajib diisi.");
       return;
     }
 
@@ -55,14 +104,30 @@ function SignupFormContent() {
       return;
     }
 
-    if (!agreed) {
-      setError("Anda harus menyetujui Syarat & Ketentuan serta Kebijakan Privasi.");
+    if (password !== confirmPassword) {
+      setError("Konfirmasi kata sandi tidak cocok dengan kata sandi Anda.");
+      return;
+    }
+
+    // Proceed to Step 2: OTP Verification Card Slide
+    setError("");
+    setStep("otp");
+  };
+
+  // Step 2 Final Submission (Verify OTP & Register)
+  const handleVerifyOtpAndRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    const fullOtp = otpDigits.join("");
+    if (fullOtp.length !== 6) {
+      setError("Kode OTP harus lengkap 6 digit angka.");
       return;
     }
 
     setIsLoading(true);
 
-    const res = await signup(username, email, password, role);
+    const res = await signup(username, email, password, role, fullOtp);
     if (res.success) {
       setIsLoading(false);
       setSuccess(true);
@@ -71,254 +136,340 @@ function SignupFormContent() {
       }, 1200);
     } else {
       setIsLoading(false);
-      setError(res.message || "Gagal memproses pendaftaran. Silakan coba lagi.");
+      setError(res.message || "Gagal memproses pendaftaran. Silakan periksa kembali kode OTP Anda.");
     }
   };
 
+  // Resend OTP code handler
+  const handleResendOtp = () => {
+    setResendMessage("Kode OTP baru telah dikirim kembali (Default: 123456).");
+    setOtpDigits(["1", "2", "3", "4", "5", "6"]);
+    setTimeout(() => {
+      setResendMessage("");
+    }, 4000);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#e8f6f2] via-slate-50 to-[#f4faf7] flex items-center justify-center p-4 sm:p-6 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-[#e8f6f2] via-slate-50 to-[#f4faf7] flex items-center justify-center p-3 sm:p-5 relative overflow-hidden font-sans">
       {/* Background Decor Circles */}
-      <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-[#008767]/10 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-[#008767]/15 blur-3xl pointer-events-none" />
+      <div className="absolute -top-32 -left-32 w-[450px] h-[450px] rounded-full bg-[#008767]/10 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-[450px] h-[450px] rounded-full bg-[#008767]/12 blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-4xl relative z-10 space-y-6">
+      {/* MAIN CONTAINER CARD */}
+      <div className="w-full max-w-3xl lg:max-w-4xl bg-white rounded-3xl shadow-2xl shadow-emerald-950/10 border border-slate-100/90 overflow-hidden relative z-10 grid grid-cols-1 md:grid-cols-12">
+        
+        {/* ================= LEFT COLUMN: HERO & BRAND COMMUNITY ================= */}
+        <div className="md:col-span-6 bg-gradient-to-b from-[#f2faf7] to-white p-6 sm:p-7 lg:p-8 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-100 relative">
+          
+          {/* Top Logo */}
+          <div className="flex items-center gap-2.5">
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <div className="w-9 h-9 rounded-full bg-[#008767] flex items-center justify-center text-white shadow-md shadow-[#008767]/30 group-hover:scale-105 transition-transform overflow-hidden">
+                <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
+              </div>
+              <span className="text-xl font-extrabold text-[#008767] tracking-tight">
+                Katamereka
+              </span>
+            </Link>
+          </div>
 
-        {/* TOP BRAND LOGO */}
-        <div className="text-center">
-          <Link href="/" className="inline-flex items-center gap-2.5 group">
-            <div className="w-11 h-11 rounded-full overflow-hidden shadow-lg shadow-[#008767]/25 group-hover:scale-105 transition-transform flex-shrink-0 bg-[#008767]">
-              <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
-            </div>
-            <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
-              Kata<span className="text-[#008767]">mereka</span>
-            </span>
-          </Link>
+          {/* Center 3D Illustration Graphic */}
+          <div className="my-4 flex justify-center items-center relative py-2">
+            <img
+              src="/regis.webp"
+              alt="Katamereka Komunitas"
+              className="w-full max-w-[220px] sm:max-w-[260px] h-auto object-contain transition-transform duration-500 hover:scale-105"
+            />
+          </div>
+
+          {/* Bottom Community Text */}
+          <div className="space-y-1.5 text-left">
+            <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 leading-snug">
+              Bergabung dengan komunitas Katamereka
+            </h2>
+            <p className="text-xs text-slate-500 leading-relaxed max-w-sm">
+              Dapatkan akses ke berbagai ulasan, rekomendasi, dan informasi terpercaya dari pengguna lainnya.
+            </p>
+          </div>
+
         </div>
 
-        {/* TWO SEPARATE CARDS ATTACHED SIDE-BY-SIDE */}
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-12 shadow-2xl rounded-3xl overflow-hidden">
+        {/* ================= RIGHT COLUMN: SIGNUP FORM (STEP 1 & STEP 2 OTP) ================= */}
+        <div className="md:col-span-6 p-6 sm:p-7 lg:p-8 flex flex-col justify-between bg-white space-y-4">
+          
+          <div className="space-y-4">
+            
+            {/* Top Brand Logo & Step Back Button */}
+            <div className="flex items-center justify-between">
+              <Link href="/" className="flex items-center gap-2.5 group">
+                <div className="w-9 h-9 rounded-full bg-[#008767] flex items-center justify-center text-white shadow-md shadow-[#008767]/30 group-hover:scale-105 transition-transform overflow-hidden">
+                  <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
+                </div>
+                <span className="text-xl font-extrabold text-[#008767] tracking-tight">
+                  Katamereka
+                </span>
+              </Link>
 
-          {/* LEFT CARD: FORM INPUTS (MD:COL-SPAN-6) */}
-          <div className="md:col-span-6 bg-white/95 backdrop-blur-md p-6 sm:p-8 lg:p-10 border border-slate-200/80 rounded-t-3xl md:rounded-tr-none md:rounded-l-3xl md:border-r-0 space-y-5">
-            <div className="space-y-1">
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Buat Akun Baru ✨</h1>
-              <p className="text-xs sm:text-sm text-slate-500">
-                Isi data kredensial Anda di bawah ini.
-              </p>
+              {/* Back button when in Step 2 OTP */}
+              {step === "otp" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("form");
+                    setError("");
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#008767] transition-colors"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Ubah Data</span>
+                </button>
+              )}
             </div>
-
-            {/* Success Banner */}
-            {success && (
-              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-medium flex items-center gap-2.5 animate-fadeIn">
-                <CheckCircle2 className="w-5 h-5 text-[#008767] flex-shrink-0" />
-                <span>Pendaftaran akun {role === "bisnis" ? "Bisnis" : "Customer"} berhasil! Mengalihkan ke Login...</span>
-              </div>
-            )}
 
             {/* Error Banner */}
             {error && (
-              <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-xs sm:text-sm font-medium">
+              <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-xs font-medium leading-relaxed animate-shake">
                 {error}
               </div>
             )}
 
-            {/* Field 1: Username */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
-                Username {role === "bisnis" ? "Bisnis / Toko" : ""}
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <User className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  placeholder={role === "bisnis" ? "Contoh: kopi_sejahtera" : "Buat username unik kamu"}
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-slate-50/80 border border-slate-200 focus:border-[#008767] focus:bg-white focus:ring-2 focus:ring-[#008767]/20 rounded-xl pl-10 pr-4 py-3 text-slate-800 text-sm outline-none transition-all placeholder:text-slate-400"
-                />
+            {/* Success Banner */}
+            {success && (
+              <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2 animate-fadeIn">
+                <CheckCircle2 className="w-4 h-4 text-[#008767] shrink-0" />
+                <span>Registrasi berhasil! Mengalihkan ke halaman Login...</span>
               </div>
-            </div>
+            )}
 
-            {/* Field 2: Email */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
-                Email
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <input
-                  type="email"
-                  placeholder="contoh@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-50/80 border border-slate-200 focus:border-[#008767] focus:bg-white focus:ring-2 focus:ring-[#008767]/20 rounded-xl pl-10 pr-4 py-3 text-slate-800 text-sm outline-none transition-all placeholder:text-slate-400"
-                />
+            {/* Resend OTP Banner */}
+            {resendMessage && (
+              <div className="p-3 rounded-2xl bg-teal-50 border border-teal-200 text-[#008767] text-xs font-medium flex items-center gap-2 animate-fadeIn">
+                <KeyRound className="w-4 h-4 shrink-0" />
+                <span>{resendMessage}</span>
               </div>
-            </div>
+            )}
 
-            {/* Field 3: Password */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
-                Kata Sandi
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Lock className="w-4 h-4" />
+            {/* ================= STEP 1: INITIAL DATA FORM ================= */}
+            {step === "form" && (
+              <div className="space-y-4 animate-fadeIn">
+                
+                {/* Title & Subtitle */}
+                <div className="space-y-0.5">
+                  <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                    Buat Akun Baru
+                  </h1>
+                  <p className="text-xs text-slate-500">
+                    Isi data di bawah ini untuk mulai menggunakan Katamereka.
+                  </p>
                 </div>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Minimal 6 karakter"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-50/80 border border-slate-200 focus:border-[#008767] focus:bg-white focus:ring-2 focus:ring-[#008767]/20 rounded-xl pl-10 pr-11 py-3 text-slate-800 text-sm outline-none transition-all placeholder:text-slate-400"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+
+                {/* Role Switcher Tab (Customer / Bisnis) */}
+                <div className="flex items-center p-1 bg-slate-100 rounded-full text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setRole("customer")}
+                    className={`flex-1 py-1.5 px-3 rounded-full transition-all text-center ${
+                      role === "customer"
+                        ? "bg-[#008767] text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Customer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole("bisnis")}
+                    className={`flex-1 py-1.5 px-3 rounded-full transition-all text-center ${
+                      role === "bisnis"
+                        ? "bg-[#008767] text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Akun Bisnis
+                  </button>
+                </div>
+
+                <form onSubmit={handleProceedToOtp} className="space-y-3">
+                  
+                  {/* Field 1: Username */}
+                  <div className="border border-slate-200/90 rounded-2xl p-1.5 sm:p-2 px-3 sm:px-3.5 focus-within:border-[#008767] focus-within:ring-2 focus-within:ring-[#008767]/20 bg-white transition-all shadow-xs flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
+                      <User className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex-1 min-w-0 pr-2">
+                      <input
+                        type="text"
+                        placeholder={role === "bisnis" ? "Username (Toko / Bisnis)" : "Username"}
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="w-full text-slate-800 text-xs sm:text-sm bg-transparent outline-none placeholder:text-slate-400 font-medium py-0.5"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Field 2: Email */}
+                  <div className="border border-slate-200/90 rounded-2xl p-1.5 sm:p-2 px-3 sm:px-3.5 focus-within:border-[#008767] focus-within:ring-2 focus-within:ring-[#008767]/20 bg-white transition-all shadow-xs flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
+                      <Mail className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex-1 min-w-0 pr-2">
+                      <input
+                        type="email"
+                        placeholder="Email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full text-slate-800 text-xs sm:text-sm bg-transparent outline-none placeholder:text-slate-400 font-medium py-0.5"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Field 3: Kata Sandi */}
+                  <div className="border border-slate-200/90 rounded-2xl p-1.5 sm:p-2 px-3 sm:px-3.5 focus-within:border-[#008767] focus-within:ring-2 focus-within:ring-[#008767]/20 bg-white transition-all shadow-xs flex items-center gap-2.5 relative">
+                    <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
+                      <Lock className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex-1 min-w-0 pr-8">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Kata Sandi"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full text-slate-800 text-xs sm:text-sm bg-transparent outline-none placeholder:text-slate-400 font-medium py-0.5"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  {/* Field 4: Konfirmasi Kata Sandi */}
+                  <div className="border border-slate-200/90 rounded-2xl p-1.5 sm:p-2 px-3 sm:px-3.5 focus-within:border-[#008767] focus-within:ring-2 focus-within:ring-[#008767]/20 bg-white transition-all shadow-xs flex items-center gap-2.5 relative">
+                    <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
+                      <Lock className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex-1 min-w-0 pr-8">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Konfirmasi Kata Sandi"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full text-slate-800 text-xs sm:text-sm bg-transparent outline-none placeholder:text-slate-400 font-medium py-0.5"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3.5 text-slate-400 hover:text-slate-600"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  {/* Step 1 Submit Button */}
+                  <button
+                    type="submit"
+                    className="w-full py-3 rounded-full bg-[#008767] hover:bg-[#007055] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-[#008767]/25 active:scale-95 mt-2 cursor-pointer"
+                  >
+                    <span>Daftar Sebagai {role === "bisnis" ? "Pemilik Bisnis" : "Customer"}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+
+                </form>
+
               </div>
-            </div>
+            )}
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3.5 rounded-xl bg-[#008767] hover:bg-[#007458] text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-[#008767]/20 active:scale-95 disabled:opacity-70 mt-2"
-            >
-              {isLoading ? (
-                <span>Mendaftarkan...</span>
-              ) : (
-                <>
-                  <span>Daftar Sebagai {role === "bisnis" ? "Pemilik Bisnis" : "Customer"}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
+            {/* ================= STEP 2: VERIFIKASI KODE OTP (SLIDE 2) ================= */}
+            {step === "otp" && (
+              <div className="space-y-5 sm:space-y-6 animate-fadeIn py-1">
+                
+                {/* Title & Subtitle */}
+                <div className="space-y-1.5">
+                  <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                    Verifikasi Kode OTP
+                  </h1>
+                  <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                    Masukkan kode OTP 6-digit yang telah dikirimkan ke email <strong className="text-slate-800 font-bold">{email}</strong>.
+                  </p>
+                </div>
 
-            {/* Card Footer Link */}
-            <div className="pt-2 border-t border-slate-100 text-center text-xs text-slate-500">
-              <span>Sudah punya akun? </span>
-              <Link href="/login" className="font-bold text-[#008767] hover:underline">
-                Masuk di sini
-              </Link>
-            </div>
+                <form onSubmit={handleVerifyOtpAndRegister} className="space-y-5 pt-1">
+                  
+                  {/* 6 INDIVIDUAL OTP DIGIT BOXES */}
+                  <div className="flex items-center justify-between gap-2 sm:gap-3 my-4">
+                    {otpDigits.map((digit, index) => (
+                      <input
+                        key={index}
+                        ref={(el) => {
+                          otpRefs.current[index] = el;
+                        }}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={digit}
+                        onChange={(e) => handleOtpChange(index, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                        onPaste={handleOtpPaste}
+                        className="w-11 h-13 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-extrabold font-mono text-slate-900 bg-slate-50/90 border border-slate-200 focus:border-[#008767] focus:bg-white focus:ring-2 focus:ring-[#008767]/20 rounded-2xl outline-none transition-all shadow-xs"
+                      />
+                    ))}
+                  </div>
+
+                  {/* Informational Instruction Text Below OTP Boxes */}
+                  <p className="text-xs sm:text-sm text-slate-500 text-center my-2 font-medium tracking-wide">
+                    Pastikan Kode OTP Sesuai
+                  </p>
+
+                  {/* Resend OTP Button */}
+                  <div className="flex items-center justify-between text-xs sm:text-sm pt-2 pb-1">
+                    <span className="text-slate-500">Tidak menerima kode?</span>
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      className="inline-flex items-center gap-1.5 font-bold text-[#008767] hover:underline cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Kirim Ulang OTP</span>
+                    </button>
+                  </div>
+
+                  {/* Step 2 Submit Button */}
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3.5 rounded-full bg-[#008767] hover:bg-[#007055] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-[#008767]/25 active:scale-95 disabled:opacity-70 mt-3 cursor-pointer"
+                  >
+                    {isLoading ? (
+                      <span>Memverifikasi...</span>
+                    ) : (
+                      <>
+                        <span>Verifikasi & Selesaikan Pendaftaran</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+
+                </form>
+
+              </div>
+            )}
+
           </div>
 
-          {/* RIGHT CARD: ROLE SELECTION CARDS (MD:COL-SPAN-6) ATTACHED */}
-          <div className="md:col-span-6 bg-slate-50/90 backdrop-blur-md p-6 sm:p-8 lg:p-10 border border-slate-200/80 rounded-b-3xl md:rounded-bl-none md:rounded-r-3xl flex flex-col justify-between space-y-5">
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Pilih Tipe Akun <span className="text-rose-500">*</span>
-                </label>
-                <p className="text-xs text-slate-500">
-                  Pilih hak akses akun yang paling sesuai dengan kebutuhan Anda.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {/* Option 1: Customer */}
-                <button
-                  type="button"
-                  onClick={() => setRole("customer")}
-                  className={`w-full p-4 rounded-2xl border text-left transition-all flex items-start gap-3 ${role === "customer"
-                      ? "border-[#008767] bg-white ring-2 ring-[#008767]/20 shadow-xs"
-                      : "border-slate-200 bg-white/60 hover:bg-white"
-                    }`}
-                >
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${role === "customer"
-                        ? "bg-[#008767] text-white"
-                        : "bg-slate-200 text-slate-600"
-                      }`}
-                  >
-                    <User className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-slate-900 text-sm">Customer</h4>
-                      {role === "customer" && (
-                        <CheckCircle2 className="w-4 h-4 text-[#008767]" />
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      Menulis ulasan bisnis, memberi rating bintang, dan menyimpan bisnis favorit.
-                    </p>
-                  </div>
-                </button>
-
-                {/* Option 2: Bisnis (Owner) */}
-                <button
-                  type="button"
-                  onClick={() => setRole("bisnis")}
-                  className={`w-full p-4 rounded-2xl border text-left transition-all flex items-start gap-3 ${role === "bisnis"
-                      ? "border-[#008767] bg-white ring-2 ring-[#008767]/20 shadow-xs"
-                      : "border-slate-200 bg-white/60 hover:bg-white"
-                    }`}
-                >
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${role === "bisnis"
-                        ? "bg-[#008767] text-white"
-                        : "bg-slate-200 text-slate-600"
-                      }`}
-                  >
-                    <Building2 className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-slate-900 text-sm">Akun Bisnis</h4>
-                      {role === "bisnis" && (
-                        <CheckCircle2 className="w-4 h-4 text-[#008767]" />
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      Kelola profil bisnis, membalas ulasan, & akses tombol **Dashboard Admin**.
-                    </p>
-                  </div>
-                </button>
-              </div>
-
-              {/* Role Info Note */}
-              {role === "bisnis" && (
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
-                  <LayoutDashboard className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                  <span>
-                    Setelah mendaftar, tombol <strong>Dashboard Admin Bisnis</strong> akan muncul otomatis di navigasi.
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Terms Agreement Checkbox */}
-            <div className="flex items-start gap-2 pt-3 border-t border-slate-200/80">
-              <input
-                type="checkbox"
-                id="agree"
-                checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-                className="accent-[#008767] w-4 h-4 rounded cursor-pointer mt-0.5 shrink-0"
-              />
-              <label htmlFor="agree" className="text-xs text-slate-600 cursor-pointer leading-relaxed">
-                Saya menyetujui{" "}
-                <a href="#" className="font-bold text-[#008767] hover:underline">
-                  Syarat & Ketentuan
-                </a>{" "}
-                serta{" "}
-                <a href="#" className="font-bold text-[#008767] hover:underline">
-                  Kebijakan Privasi
-                </a>{" "}
-                Katamereka.
-              </label>
-            </div>
+          {/* Footer Link */}
+          <div className="pt-3 border-t border-slate-100 text-center text-xs text-slate-500">
+            <span>Sudah punya akun? </span>
+            <Link href="/login" className="font-bold text-[#008767] hover:underline">
+              Masuk di sini
+            </Link>
           </div>
-        </form>
+
+        </div>
+
       </div>
     </div>
   );
@@ -328,12 +479,8 @@ export default function SignupPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-4xl bg-white rounded-3xl p-8 border border-slate-200 space-y-6">
-            <Skeleton className="w-12 h-12 rounded-2xl mx-auto" />
-            <Skeleton className="w-48 h-8 rounded-xl mx-auto" />
-            <Skeleton className="w-full h-12 rounded-xl" />
-          </div>
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+          <Skeleton className="w-full max-w-4xl h-[600px] rounded-3xl" />
         </div>
       }
     >
