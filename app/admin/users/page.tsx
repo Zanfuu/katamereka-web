@@ -4,7 +4,6 @@ import * as React from "react"
 import Link from "next/link"
 import { toast } from "sonner"
 import {
-  BadgeCheckIcon,
   BanIcon,
   CalendarIcon,
   ClockIcon,
@@ -12,21 +11,17 @@ import {
   HomeIcon,
   MailIcon,
   RotateCcwIcon,
-  ScaleIcon,
   ShieldIcon,
-  StarIcon,
   UserIcon,
   UsersIcon,
   XIcon,
 } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { DateRangeSelector } from "@/components/date-range-selector"
-import { EmptyState } from "@/components/empty-state"
+import { DateRangeSelector, type DateRangeValue } from "@/components/date-range-selector"
 import { FilterDropdown } from "@/components/filter-dropdown"
 import { PageHeader } from "@/components/page-header"
 import { ResourceTable, type ResourceTableColumn } from "@/components/resource-table"
-import { ReviewCard } from "@/components/review-card"
 import { SearchInput } from "@/components/search-input"
 import { StatCard } from "@/components/stat-card"
 import { StatusBadge } from "@/components/status-badge"
@@ -46,12 +41,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatDate, formatDateTime } from "@/lib/format"
-import { reports } from "@/lib/mock/reports"
-import { reviews } from "@/lib/mock/reviews"
-import { platformUsers as initialPlatformUsers } from "@/lib/mock/users"
-import type { User } from "@/lib/types"
+import {
+  AdminApiError,
+  deleteCustomer,
+  fetchCustomers,
+  updateCustomerStatus,
+  type CustomerListItem,
+  type PlatformUserStatus,
+} from "@/lib/admin-api"
 
 const STATUS_OPTIONS = [
   { value: "all", label: "Semua Status" },
@@ -80,156 +78,199 @@ function avatarTone(id: string) {
   return AVATAR_TONES[hash]
 }
 
-function verifiedReviewCount(user: User) {
-  return reviews.filter((r) => r.reviewerId === user.id && r.isVerified).length
-}
-
-function reportCount(user: User) {
-  return reports.filter((r) => r.reviewerName === user.name).length
-}
-
 export default function UserManagementPage() {
-  const [users, setUsers] = React.useState<User[]>(initialPlatformUsers)
+  const [customers, setCustomers] = React.useState<CustomerListItem[]>([])
+  const [stats, setStats] = React.useState({ total_customer: 0, active_customer: 0, suspended_customer: 0 })
+  const [totalPages, setTotalPages] = React.useState(1)
+  const [apiPage, setApiPage] = React.useState(1)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | undefined>()
+
   const [search, setSearch] = React.useState("")
+  const [debouncedSearch, setDebouncedSearch] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState("all")
-  const [selectedId, setSelectedId] = React.useState<string | null>(null)
-  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
-  const [confirmTarget, setConfirmTarget] = React.useState<{
-    user: User
-    action: "SUSPEND" | "BAN" | "RESTORE"
-  } | null>(null)
+  const [dateRange, setDateRange] = React.useState<DateRangeValue>({ preset: "30d" })
 
-  const selected = users.find((u) => u.id === selectedId) ?? null
+  // Debounces the search box so it doesn't refetch on every keystroke. The
+  // page reset lives in this same timer callback (an external-timer callback,
+  // not a synchronous effect body) so changing the search term also jumps
+  // back to page 1 of the API result set.
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+      setApiPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [search])
 
-  const counts = {
-    total: users.length,
-    active: users.filter((u) => u.status === "ACTIVE").length,
-    suspended: users.filter((u) => u.status === "SUSPENDED").length,
-    banned: users.filter((u) => u.status === "BANNED").length,
+  function handleStatusFilterChange(value: string) {
+    setStatusFilter(value)
+    setApiPage(1)
   }
 
-  const filtered = users.filter((user) => {
-    if (statusFilter !== "all" && user.status !== statusFilter) return false
-    if (
-      search &&
-      !user.name.toLowerCase().includes(search.toLowerCase()) &&
-      !user.email.toLowerCase().includes(search.toLowerCase())
-    ) {
-      return false
+  function handleDateRangeChange(range: DateRangeValue) {
+    setDateRange(range)
+    setApiPage(1)
+  }
+
+  const [selectedId, setSelectedId] = React.useState<string | null>(null)
+  const [confirmTarget, setConfirmTarget] = React.useState<{
+    customer: CustomerListItem
+    action: "SUSPEND" | "BAN" | "RESTORE" | "DELETE"
+  } | null>(null)
+
+  const selected = customers.find((c) => c.id === selectedId) ?? null
+  const PAGE_LIMIT = 10
+  // Bumped after a status/delete mutation to re-trigger the fetch effect
+  // below without duplicating its fetch logic in every handler.
+  const [refreshTick, setRefreshTick] = React.useState(0)
+
+  React.useEffect(() => {
+    let ignore = false
+    async function run() {
+      try {
+        const res = await fetchCustomers({
+          page: apiPage,
+          limit: PAGE_LIMIT,
+          search: debouncedSearch || undefined,
+          status: statusFilter === "all" ? undefined : (statusFilter as PlatformUserStatus),
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+        })
+        if (ignore) return
+        setCustomers(res.data)
+        setStats(res.stats)
+        setTotalPages(res.pagination.total_pages)
+        setError(undefined)
+      } catch (e) {
+        if (!ignore) {
+          setError(e instanceof AdminApiError ? e.message : "Gagal memuat data customer dari server")
+        }
+      } finally {
+        if (!ignore) setIsLoading(false)
+      }
     }
-    return true
-  })
+    run()
+    return () => {
+      ignore = true
+    }
+  }, [apiPage, debouncedSearch, statusFilter, dateRange, refreshTick])
 
   function resetFilters() {
     setSearch("")
+    setDebouncedSearch("")
     setStatusFilter("all")
+    setApiPage(1)
   }
 
-  function openDetail(user: User) {
-    setSelectedId(user.id)
+  function openDetail(customer: CustomerListItem) {
+    setSelectedId(customer.id)
   }
 
-  function applyStatus(userId: string, status: User["status"]) {
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status } : u)))
+  async function handleConfirm() {
+    if (!confirmTarget) return
+    const { customer, action } = confirmTarget
+    try {
+      if (action === "DELETE") {
+        await deleteCustomer(customer.id)
+        toast.success(`${customer.name} berhasil dihapus.`)
+        if (selectedId === customer.id) setSelectedId(null)
+      } else {
+        const nextStatus: PlatformUserStatus =
+          action === "SUSPEND" ? "SUSPENDED" : action === "BAN" ? "BANNED" : "ACTIVE"
+        await updateCustomerStatus(customer.id, nextStatus)
+        toast.success(`Status ${customer.name} berhasil diperbarui.`)
+      }
+      setRefreshTick((t) => t + 1)
+    } catch (e) {
+      toast.error(e instanceof AdminApiError ? e.message : "Aksi gagal diproses")
+    }
   }
 
-  const columns: ResourceTableColumn<User>[] = [
+  const columns: ResourceTableColumn<CustomerListItem>[] = [
     {
       key: "name",
       header: "Nama",
-      sortValue: (user) => user.name,
-      render: (user) => (
+      render: (customer) => (
         <div className="flex items-center gap-2.5">
           <Avatar size="sm">
-            <AvatarFallback className={avatarTone(user.id)}>{initials(user.name)}</AvatarFallback>
+            <AvatarFallback className={avatarTone(customer.id)}>{initials(customer.name)}</AvatarFallback>
           </Avatar>
-          <span className="font-medium text-foreground">{user.name}</span>
+          <span className="font-medium text-foreground">{customer.name}</span>
         </div>
       ),
     },
     {
       key: "email",
       header: "Email",
-      render: (user) => <span className="text-muted-foreground">{user.email}</span>,
+      render: (customer) => <span className="text-muted-foreground">{customer.email}</span>,
     },
     {
       key: "role",
       header: "Role",
-      render: () => <StatusBadge status="gray" label="Customer" />,
-    },
-    {
-      key: "reviewCount",
-      header: "Reviews",
-      sortValue: (user) => user.reviewCount,
-      render: (user) => user.reviewCount,
-    },
-    {
-      key: "verifiedReviews",
-      header: "Verified Reviews",
-      render: (user) => verifiedReviewCount(user),
-    },
-    {
-      key: "reports",
-      header: "Reports",
-      render: (user) => {
-        const count = reportCount(user)
-        return count > 0 ? (
-          <span className="font-medium text-destructive">{count}</span>
-        ) : (
-          <span className="text-muted-foreground">0</span>
-        )
-      },
+      render: (customer) => <StatusBadge status="gray" label={customer.role} />,
     },
     {
       key: "status",
       header: "Status",
-      render: (user) => <StatusBadge status={user.status} />,
+      render: (customer) => <StatusBadge status={customer.status} />,
     },
     {
-      key: "joinedAt",
+      key: "last_login_at",
+      header: "Last Login",
+      render: (customer) => (
+        <span className="text-muted-foreground">
+          {customer.last_login_at ? formatDateTime(customer.last_login_at) : "-"}
+        </span>
+      ),
+    },
+    {
+      key: "created_at",
       header: "Bergabung",
-      sortValue: (user) => user.joinedAt,
-      render: (user) => <span className="text-muted-foreground">{formatDate(user.joinedAt)}</span>,
+      render: (customer) => <span className="text-muted-foreground">{formatDate(customer.created_at)}</span>,
     },
     {
       key: "actions",
       header: "",
       className: "text-right",
-      render: (user) => (
+      render: (customer) => (
         <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
               <UserIcon className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => openDetail(user)}>View</DropdownMenuItem>
-              {user.status === "ACTIVE" && (
-                <DropdownMenuItem onClick={() => setConfirmTarget({ user, action: "SUSPEND" })}>
+              <DropdownMenuItem onClick={() => openDetail(customer)}>View</DropdownMenuItem>
+              {customer.status === "ACTIVE" && (
+                <DropdownMenuItem onClick={() => setConfirmTarget({ customer, action: "SUSPEND" })}>
                   Suspend
                 </DropdownMenuItem>
               )}
-              {user.status !== "BANNED" && (
+              {customer.status !== "BANNED" && (
                 <DropdownMenuItem
                   variant="destructive"
-                  onClick={() => setConfirmTarget({ user, action: "BAN" })}
+                  onClick={() => setConfirmTarget({ customer, action: "BAN" })}
                 >
                   Ban
                 </DropdownMenuItem>
               )}
-              {user.status !== "ACTIVE" && (
-                <DropdownMenuItem onClick={() => setConfirmTarget({ user, action: "RESTORE" })}>
+              {customer.status !== "ACTIVE" && (
+                <DropdownMenuItem onClick={() => setConfirmTarget({ customer, action: "RESTORE" })}>
                   Restore
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setConfirmTarget({ customer, action: "DELETE" })}
+              >
+                Hapus
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       ),
     },
   ]
-
-  const selectedReviews = selected ? reviews.filter((r) => r.reviewerId === selected.id) : []
-  const selectedReports = selected ? reports.filter((r) => r.reviewerName === selected.name) : []
 
   return (
     <div className="flex flex-col gap-6">
@@ -252,7 +293,7 @@ export default function UserManagementPage() {
         description="Kelola akun customer/reviewer yang menulis dan menggunakan review di platform KataMereka."
         action={
           <>
-            <DateRangeSelector />
+            <DateRangeSelector onChange={handleDateRangeChange} />
             <Button variant="outline" onClick={() => toast.success("Data user berhasil diexport.")}>
               <DownloadIcon />
               Export Data
@@ -264,28 +305,21 @@ export default function UserManagementPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           label="Total Users"
-          value={counts.total}
-          delta="+18%"
-          hint="dari bulan lalu"
+          value={stats.total_customer}
           icon={UsersIcon}
-          onClick={() => setStatusFilter("all")}
+          onClick={() => handleStatusFilterChange("all")}
         />
         <StatCard
           label="Active Users"
-          value={counts.active}
-          delta="+16%"
-          hint="dari bulan lalu"
+          value={stats.active_customer}
           icon={UserIcon}
-          onClick={() => setStatusFilter("ACTIVE")}
+          onClick={() => handleStatusFilterChange("ACTIVE")}
         />
         <StatCard
           label="Suspended Users"
-          value={counts.suspended}
-          delta="+5%"
-          deltaTone="negative"
-          hint="dari bulan lalu"
+          value={stats.suspended_customer}
           icon={BanIcon}
-          onClick={() => setStatusFilter("SUSPENDED")}
+          onClick={() => handleStatusFilterChange("SUSPENDED")}
         />
       </div>
 
@@ -294,7 +328,7 @@ export default function UserManagementPage() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <SearchInput value={search} onChange={setSearch} placeholder="Cari nama atau email..." />
             <div className="flex flex-wrap items-center gap-2">
-              <FilterDropdown label="Status" options={STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} />
+              <FilterDropdown label="Status" options={STATUS_OPTIONS} value={statusFilter} onChange={handleStatusFilterChange} />
               <Button variant="outline" size="sm" onClick={resetFilters}>
                 <RotateCcwIcon />
                 Reset
@@ -303,25 +337,42 @@ export default function UserManagementPage() {
           </div>
 
           <ResourceTable
-            data={filtered}
+            data={customers}
             columns={columns}
-            getRowId={(user) => user.id}
+            getRowId={(customer) => customer.id}
             onRowClick={openDetail}
-            rowClassName={(user) => (user.id === selectedId ? "bg-primary/5" : undefined)}
-            selectedIds={selectedIds}
-            onToggleRow={(id, checked) =>
-              setSelectedIds((prev) => {
-                const next = new Set(prev)
-                if (checked) next.add(id)
-                else next.delete(id)
-                return next
-              })
-            }
-            onToggleAll={(checked) => setSelectedIds(checked ? new Set(filtered.map((u) => u.id)) : new Set())}
+            rowClassName={(customer) => (customer.id === selectedId ? "bg-primary/5" : undefined)}
+            isLoading={isLoading}
+            error={error}
             itemLabel="user"
-            pageSize={10}
+            pageSize={PAGE_LIMIT}
+            pageSizeOptions={[PAGE_LIMIT]}
             emptyTitle="Tidak ada user ditemukan."
           />
+
+          {!isLoading && !error && totalPages > 1 && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Halaman {apiPage} dari {totalPages}</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={apiPage <= 1}
+                  onClick={() => setApiPage((p) => Math.max(1, p - 1))}
+                >
+                  Sebelumnya
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={apiPage >= totalPages}
+                  onClick={() => setApiPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Selanjutnya
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {selected && (
@@ -346,95 +397,55 @@ export default function UserManagementPage() {
               </Button>
             </div>
 
-            <div className="p-4">
-              <Tabs defaultValue="profile">
-                <TabsList className="w-full">
-                  <TabsTrigger value="profile">Profile</TabsTrigger>
-                  <TabsTrigger value="reviews">Reviews</TabsTrigger>
-                  <TabsTrigger value="reports">Reports</TabsTrigger>
-                  <TabsTrigger value="activity">Activity</TabsTrigger>
-                </TabsList>
+            <div className="flex flex-col gap-4 p-4">
+              <div className="flex flex-col gap-3 text-sm">
+                <InfoRow icon={UserIcon} label="Nama Lengkap" value={selected.name} />
+                <InfoRow icon={MailIcon} label="Email" value={selected.email} />
+                <InfoRow icon={ShieldIcon} label="Role" value={<StatusBadge status="gray" label={selected.role} />} />
+                <InfoRow icon={CalendarIcon} label="Bergabung" value={formatDate(selected.created_at)} />
+                <InfoRow
+                  icon={ClockIcon}
+                  label="Terakhir Login"
+                  value={selected.last_login_at ? formatDateTime(selected.last_login_at) : "Belum pernah login"}
+                />
+                <InfoRow icon={ShieldIcon} label="Status" value={<StatusBadge status={selected.status} />} />
+              </div>
 
-                <TabsContent value="profile" className="mt-4 flex flex-col gap-4">
-                  <div className="flex flex-col gap-3 text-sm">
-                    <InfoRow icon={UserIcon} label="Nama Lengkap" value={selected.name} />
-                    <InfoRow icon={MailIcon} label="Email" value={selected.email} />
-                    <InfoRow icon={ShieldIcon} label="Role" value={<StatusBadge status="gray" label="Customer" />} />
-                    <InfoRow icon={StarIcon} label="Total Reviews" value={String(selected.reviewCount)} />
-                    <InfoRow
-                      icon={BadgeCheckIcon}
-                      label="Verified Reviews"
-                      value={String(verifiedReviewCount(selected))}
-                    />
-                    <InfoRow icon={CalendarIcon} label="Bergabung" value={formatDate(selected.joinedAt)} />
-                    <InfoRow icon={ClockIcon} label="Terakhir Aktif" value={formatDateTime(selected.lastActiveAt)} />
-                    <InfoRow icon={ShieldIcon} label="Status" value={<StatusBadge status={selected.status} />} />
-                  </div>
-
-                  <div className="flex flex-col gap-2 pt-1">
-                    {selected.status === "ACTIVE" && (
-                      <Button
-                        variant="outline"
-                        onClick={() => setConfirmTarget({ user: selected, action: "SUSPEND" })}
-                      >
-                        Suspend User
-                      </Button>
-                    )}
-                    {selected.status !== "BANNED" && (
-                      <Button
-                        variant="outline"
-                        className="border-destructive/40 text-destructive hover:bg-destructive/10"
-                        onClick={() => setConfirmTarget({ user: selected, action: "BAN" })}
-                      >
-                        <BanIcon />
-                        Ban User
-                      </Button>
-                    )}
-                    {selected.status !== "ACTIVE" && (
-                      <Button
-                        variant="outline"
-                        onClick={() => setConfirmTarget({ user: selected, action: "RESTORE" })}
-                      >
-                        Restore User
-                      </Button>
-                    )}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="reviews" className="mt-4 flex flex-col gap-3">
-                  {selectedReviews.length === 0 ? (
-                    <EmptyState icon={StarIcon} title="Belum ada review yang ditulis user ini." />
-                  ) : (
-                    selectedReviews.map((review) => (
-                      <ReviewCard key={review.id} review={review} showBusiness showModerationStatus />
-                    ))
-                  )}
-                </TabsContent>
-
-                <TabsContent value="reports" className="mt-4 flex flex-col gap-3">
-                  {selectedReports.length === 0 ? (
-                    <EmptyState icon={ScaleIcon} title="Tidak ada laporan terhadap review user ini." />
-                  ) : (
-                    selectedReports.map((report) => (
-                      <div key={report.id} className="flex flex-col gap-1.5 rounded-lg border border-border p-3 text-sm">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-foreground">{report.businessName}</span>
-                          <StatusBadge status={report.status} />
-                        </div>
-                        <p className="text-muted-foreground">{report.reason}</p>
-                        <p className="text-xs text-muted-foreground">{formatDate(report.createdAt)}</p>
-                      </div>
-                    ))
-                  )}
-                </TabsContent>
-
-                <TabsContent value="activity" className="mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Terakhir aktif {formatDateTime(selected.lastActiveAt)}. Total {selected.reviewCount} review
-                    ditulis di KataMereka.
-                  </p>
-                </TabsContent>
-              </Tabs>
+              <div className="flex flex-col gap-2 pt-1">
+                {selected.status === "ACTIVE" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirmTarget({ customer: selected, action: "SUSPEND" })}
+                  >
+                    Suspend User
+                  </Button>
+                )}
+                {selected.status !== "BANNED" && (
+                  <Button
+                    variant="outline"
+                    className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                    onClick={() => setConfirmTarget({ customer: selected, action: "BAN" })}
+                  >
+                    <BanIcon />
+                    Ban User
+                  </Button>
+                )}
+                {selected.status !== "ACTIVE" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirmTarget({ customer: selected, action: "RESTORE" })}
+                  >
+                    Restore User
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                  onClick={() => setConfirmTarget({ customer: selected, action: "DELETE" })}
+                >
+                  Hapus User
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -448,30 +459,22 @@ export default function UserManagementPage() {
             ? "Suspend"
             : confirmTarget?.action === "BAN"
               ? "Ban"
-              : "Restore"
-        } ${confirmTarget?.user.name}?`}
+              : confirmTarget?.action === "DELETE"
+                ? "Hapus"
+                : "Restore"
+        } ${confirmTarget?.customer.name}?`}
+        description={confirmTarget?.action === "DELETE" ? "Akun akan dihapus permanen dan tidak dapat dikembalikan." : undefined}
         confirmLabel={
           confirmTarget?.action === "SUSPEND"
             ? "Suspend"
             : confirmTarget?.action === "BAN"
               ? "Ban User"
-              : "Restore"
+              : confirmTarget?.action === "DELETE"
+                ? "Hapus"
+                : "Restore"
         }
         variant={confirmTarget?.action === "RESTORE" ? "default" : "destructive"}
-        requireReason={confirmTarget?.action !== "RESTORE"}
-        reasonLabel="Alasan tindakan"
-        onConfirm={() => {
-          if (!confirmTarget) return
-          applyStatus(
-            confirmTarget.user.id,
-            confirmTarget.action === "SUSPEND"
-              ? "SUSPENDED"
-              : confirmTarget.action === "BAN"
-                ? "BANNED"
-                : "ACTIVE"
-          )
-          toast.success(`Status ${confirmTarget.user.name} berhasil diperbarui.`)
-        }}
+        onConfirm={handleConfirm}
       />
     </div>
   )

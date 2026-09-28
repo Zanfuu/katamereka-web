@@ -10,16 +10,47 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-const PRESETS: { value: string; label: string; range?: string }[] = [
-  { value: "7d", label: "7 Hari Terakhir" },
-  { value: "30d", label: "30 Hari Terakhir", range: "1 – 30 September 2026" },
-  { value: "3m", label: "3 Bulan Terakhir" },
-  { value: "1y", label: "1 Tahun Terakhir" },
+const PRESETS: { value: string; label: string; days: number | null }[] = [
+  { value: "7d", label: "7 Hari Terakhir", days: 7 },
+  { value: "30d", label: "30 Hari Terakhir", days: 30 },
+  { value: "3m", label: "3 Bulan Terakhir", days: 90 },
+  { value: "1y", label: "1 Tahun Terakhir", days: 365 },
+  { value: "all", label: "Semua Waktu", days: null },
 ]
 
-export function DateRangeSelector() {
-  const [value, setValue] = React.useState<(typeof PRESETS)[number]["value"]>("30d")
+export interface DateRangeValue {
+  preset: string
+  startDate?: string
+  endDate?: string
+}
+
+function toIsoDate(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function computeRange(preset: (typeof PRESETS)[number]): DateRangeValue {
+  if (preset.days === null) return { preset: preset.value }
+  const end = new Date()
+  const start = new Date()
+  start.setDate(start.getDate() - preset.days)
+  return { preset: preset.value, startDate: toIsoDate(start), endDate: toIsoDate(end) }
+}
+
+/** Uncontrolled by default; pass `onChange` to receive `{startDate, endDate}` for server-side filtering. */
+export function DateRangeSelector({
+  defaultValue = "30d",
+  onChange,
+}: {
+  defaultValue?: string
+  onChange?: (range: DateRangeValue) => void
+}) {
+  const [value, setValue] = React.useState(defaultValue)
   const active = PRESETS.find((preset) => preset.value === value) ?? PRESETS[1]
+
+  function handleSelect(preset: (typeof PRESETS)[number]) {
+    setValue(preset.value)
+    onChange?.(computeRange(preset))
+  }
 
   return (
     <DropdownMenu>
@@ -32,12 +63,12 @@ export function DateRangeSelector() {
         }
       >
         <CalendarIcon className="size-4 text-muted-foreground" />
-        {active.range ?? active.label}
+        {active.label}
         <ChevronDownIcon className="size-3.5 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {PRESETS.map((preset) => (
-          <DropdownMenuItem key={preset.value} onClick={() => setValue(preset.value)}>
+          <DropdownMenuItem key={preset.value} onClick={() => handleSelect(preset)}>
             {preset.label}
           </DropdownMenuItem>
         ))}

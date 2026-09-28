@@ -11,8 +11,6 @@ import {
   DownloadIcon,
   HomeIcon,
   MailIcon,
-  PencilIcon,
-  PhoneIcon,
   PlusIcon,
   RotateCcwIcon,
   ShieldIcon,
@@ -22,7 +20,7 @@ import {
 } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { DateRangeSelector } from "@/components/date-range-selector"
+import { DateRangeSelector, type DateRangeValue } from "@/components/date-range-selector"
 import { FilterDropdown } from "@/components/filter-dropdown"
 import { PageHeader } from "@/components/page-header"
 import { ResourceTable, type ResourceTableColumn } from "@/components/resource-table"
@@ -54,10 +52,16 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
 import { formatDate, formatDateTime } from "@/lib/format"
-import { adminAccounts as initialAdminAccounts, type AdminAccount } from "@/lib/mock/admins"
+import {
+  AdminApiError,
+  createAdmin,
+  deleteAdmin,
+  fetchAdmins,
+  updateAdminStatus,
+  type AdminListItem,
+  type PlatformUserStatus,
+} from "@/lib/admin-api"
 
 const STATUS_OPTIONS = [
   { value: "all", label: "Semua Status" },
@@ -86,83 +90,158 @@ function avatarTone(id: string) {
   return AVATAR_TONES[hash]
 }
 
-function accountRole(admin: AdminAccount): "ADMIN_BISNIS" | "CUSTOMER" {
-  return admin.businesses.length > 0 ? "ADMIN_BISNIS" : "CUSTOMER"
-}
-
 function emptyForm() {
-  return { name: "", email: "", phone: "" }
+  return { name: "", email: "", password: "", status: "ACTIVE" as PlatformUserStatus }
 }
 
 export default function AdminManagementPage() {
-  const [admins, setAdmins] = React.useState<AdminAccount[]>(initialAdminAccounts)
+  const [admins, setAdmins] = React.useState<AdminListItem[]>([])
+  const [stats, setStats] = React.useState({ total_admin: 0, active_admin: 0, suspended_admin: 0 })
+  const [totalPages, setTotalPages] = React.useState(1)
+  const [apiPage, setApiPage] = React.useState(1)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | undefined>()
+
   const [search, setSearch] = React.useState("")
+  const [debouncedSearch, setDebouncedSearch] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState("all")
-  const [selectedId, setSelectedId] = React.useState<string | null>(null)
-  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
-  const [confirmTarget, setConfirmTarget] = React.useState<{
-    admin: AdminAccount
-    action: "SUSPEND" | "ACTIVATE"
-  } | null>(null)
-  const [formDialog, setFormDialog] = React.useState<"ADD" | "EDIT" | null>(null)
-  const [form, setForm] = React.useState(emptyForm())
-  const [editingNote, setEditingNote] = React.useState(false)
-  const [noteDraft, setNoteDraft] = React.useState("")
+  const [dateRange, setDateRange] = React.useState<DateRangeValue>({ preset: "30d" })
 
-  const selected = admins.find((a) => a.id === selectedId) ?? null
+  // Debounces the search box so it doesn't refetch on every keystroke. The
+  // page reset lives in this same timer callback (an external-timer callback,
+  // not a synchronous effect body) so changing the search term also jumps
+  // back to page 1 of the API result set.
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+      setApiPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [search])
 
-  const counts = {
-    total: admins.length,
-    active: admins.filter((a) => a.status === "ACTIVE").length,
-    suspended: admins.filter((a) => a.status === "SUSPENDED").length,
+  function handleStatusFilterChange(value: string) {
+    setStatusFilter(value)
+    setApiPage(1)
   }
 
-  const filtered = admins.filter((admin) => {
-    if (statusFilter !== "all" && admin.status !== statusFilter) return false
-    if (
-      search &&
-      !admin.name.toLowerCase().includes(search.toLowerCase()) &&
-      !admin.email.toLowerCase().includes(search.toLowerCase())
-    ) {
-      return false
+  function handleDateRangeChange(range: DateRangeValue) {
+    setDateRange(range)
+    setApiPage(1)
+  }
+
+  const [selectedId, setSelectedId] = React.useState<string | null>(null)
+  const [confirmTarget, setConfirmTarget] = React.useState<{
+    admin: AdminListItem
+    action: "SUSPEND" | "ACTIVATE" | "DELETE"
+  } | null>(null)
+  const [addOpen, setAddOpen] = React.useState(false)
+  const [form, setForm] = React.useState(emptyForm())
+  const [submitting, setSubmitting] = React.useState(false)
+
+  const selected = admins.find((a) => a.id === selectedId) ?? null
+  const PAGE_LIMIT = 10
+  // Bumped after a create/status/delete mutation to re-trigger the fetch
+  // effect below without duplicating its fetch logic in every handler.
+  const [refreshTick, setRefreshTick] = React.useState(0)
+
+  React.useEffect(() => {
+    let ignore = false
+    async function run() {
+      try {
+        const res = await fetchAdmins({
+          page: apiPage,
+          limit: PAGE_LIMIT,
+          search: debouncedSearch || undefined,
+          status: statusFilter === "all" ? undefined : (statusFilter as PlatformUserStatus),
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+        })
+        if (ignore) return
+        setAdmins(res.data)
+        setStats(res.stats)
+        setTotalPages(res.pagination.total_pages)
+        setError(undefined)
+      } catch (e) {
+        if (!ignore) {
+          setError(e instanceof AdminApiError ? e.message : "Gagal memuat data admin dari server")
+        }
+      } finally {
+        if (!ignore) setIsLoading(false)
+      }
     }
-    return true
-  })
+    run()
+    return () => {
+      ignore = true
+    }
+  }, [apiPage, debouncedSearch, statusFilter, dateRange, refreshTick])
 
   function resetFilters() {
     setSearch("")
+    setDebouncedSearch("")
     setStatusFilter("all")
+    setApiPage(1)
   }
 
-  function openAdd() {
-    setForm(emptyForm())
-    setFormDialog("ADD")
-  }
-
-  function openEdit(admin: AdminAccount) {
-    setForm({ name: admin.name, email: admin.email, phone: admin.phone })
-    setFormDialog("EDIT")
-  }
-
-  function openDetail(admin: AdminAccount) {
+  function openDetail(admin: AdminListItem) {
     setSelectedId(admin.id)
-    setEditingNote(false)
-    setNoteDraft(admin.note ?? "")
   }
 
-  function saveNote() {
-    setAdmins((prev) =>
-      prev.map((a) => (a.id === selectedId ? { ...a, note: noteDraft } : a))
-    )
-    setEditingNote(false)
-    toast.success("Catatan internal berhasil disimpan.")
+  async function handleAddAdmin() {
+    if (!form.name.trim() || !form.email.trim() || !form.password.trim()) {
+      toast.error("Nama, email, dan password wajib diisi.")
+      return
+    }
+    if (form.password.length < 6) {
+      toast.error("Password minimal 6 karakter.")
+      return
+    }
+    setSubmitting(true)
+    try {
+      await createAdmin({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        password: form.password,
+        status: form.status,
+      })
+      toast.success("Admin berhasil ditambahkan.")
+      setAddOpen(false)
+      setForm(emptyForm())
+      setApiPage(1)
+      setRefreshTick((t) => t + 1)
+    } catch (e) {
+      toast.error(e instanceof AdminApiError ? e.message : "Gagal menambahkan admin")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const columns: ResourceTableColumn<AdminAccount>[] = [
+  async function handleConfirm() {
+    if (!confirmTarget) return
+    const { admin, action } = confirmTarget
+    try {
+      if (action === "DELETE") {
+        await deleteAdmin(admin.id)
+        toast.success(`${admin.name} berhasil dihapus.`)
+        if (selectedId === admin.id) setSelectedId(null)
+      } else {
+        const nextStatus: PlatformUserStatus = action === "SUSPEND" ? "SUSPENDED" : "ACTIVE"
+        await updateAdminStatus(admin.id, nextStatus)
+        toast.success(
+          action === "SUSPEND"
+            ? `${admin.name} berhasil di-suspend.`
+            : `${admin.name} berhasil diaktifkan kembali.`
+        )
+      }
+      setRefreshTick((t) => t + 1)
+    } catch (e) {
+      toast.error(e instanceof AdminApiError ? e.message : "Aksi gagal diproses")
+    }
+  }
+
+  const columns: ResourceTableColumn<AdminListItem>[] = [
     {
       key: "name",
       header: "Nama",
-      sortValue: (admin) => admin.name,
       render: (admin) => (
         <div className="flex items-center gap-2.5">
           <Avatar size="sm">
@@ -180,18 +259,12 @@ export default function AdminManagementPage() {
     {
       key: "role",
       header: "Role",
-      render: (admin) =>
-        accountRole(admin) === "ADMIN_BISNIS" ? (
-          <StatusBadge status="ACTIVE" label="Admin Bisnis" />
-        ) : (
-          <StatusBadge status="gray" label="Customer" />
-        ),
+      render: (admin) => <StatusBadge status="ACTIVE" label={admin.role} />,
     },
     {
-      key: "businesses",
+      key: "business_count",
       header: "Jumlah Bisnis",
-      sortValue: (admin) => admin.businesses.length,
-      render: (admin) => (admin.businesses.length > 0 ? admin.businesses.length : "-"),
+      render: (admin) => (admin.business_count > 0 ? admin.business_count : "-"),
     },
     {
       key: "status",
@@ -199,18 +272,18 @@ export default function AdminManagementPage() {
       render: (admin) => <StatusBadge status={admin.status} />,
     },
     {
-      key: "lastLoginAt",
+      key: "last_login_at",
       header: "Last Login",
-      sortValue: (admin) => admin.lastLoginAt,
       render: (admin) => (
-        <span className="text-muted-foreground">{formatDateTime(admin.lastLoginAt)}</span>
+        <span className="text-muted-foreground">
+          {admin.last_login_at ? formatDateTime(admin.last_login_at) : "-"}
+        </span>
       ),
     },
     {
-      key: "joinedAt",
+      key: "created_at",
       header: "Bergabung",
-      sortValue: (admin) => admin.joinedAt,
-      render: (admin) => <span className="text-muted-foreground">{formatDate(admin.joinedAt)}</span>,
+      render: (admin) => <span className="text-muted-foreground">{formatDate(admin.created_at)}</span>,
     },
     {
       key: "actions",
@@ -224,7 +297,6 @@ export default function AdminManagementPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => openDetail(admin)}>View</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openEdit(admin)}>Edit Akun</DropdownMenuItem>
               {admin.status === "SUSPENDED" ? (
                 <DropdownMenuItem onClick={() => setConfirmTarget({ admin, action: "ACTIVATE" })}>
                   Activate
@@ -237,6 +309,12 @@ export default function AdminManagementPage() {
                   Suspend
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setConfirmTarget({ admin, action: "DELETE" })}
+              >
+                Hapus
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -265,12 +343,12 @@ export default function AdminManagementPage() {
         description="Kelola akun admin bisnis yang menggunakan platform KataMereka."
         action={
           <>
-            <DateRangeSelector />
+            <DateRangeSelector onChange={handleDateRangeChange} />
             <Button variant="outline" onClick={() => toast.success("Data admin berhasil diexport.")}>
               <DownloadIcon />
               Export Data
             </Button>
-            <Button onClick={openAdd}>
+            <Button onClick={() => setAddOpen(true)}>
               <PlusIcon />
               Tambah Admin
             </Button>
@@ -281,28 +359,21 @@ export default function AdminManagementPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           label="Total Admin"
-          value={counts.total}
-          delta="+12%"
-          hint="dari bulan lalu"
+          value={stats.total_admin}
           icon={UserCogIcon}
-          onClick={() => setStatusFilter("all")}
+          onClick={() => handleStatusFilterChange("all")}
         />
         <StatCard
           label="Active Admin"
-          value={counts.active}
-          delta="+14%"
-          hint="dari bulan lalu"
+          value={stats.active_admin}
           icon={UserIcon}
-          onClick={() => setStatusFilter("ACTIVE")}
+          onClick={() => handleStatusFilterChange("ACTIVE")}
         />
         <StatCard
           label="Suspended Admin"
-          value={counts.suspended}
-          delta="+5%"
-          deltaTone="negative"
-          hint="dari bulan lalu"
+          value={stats.suspended_admin}
           icon={BanIcon}
-          onClick={() => setStatusFilter("SUSPENDED")}
+          onClick={() => handleStatusFilterChange("SUSPENDED")}
         />
       </div>
 
@@ -311,7 +382,7 @@ export default function AdminManagementPage() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <SearchInput value={search} onChange={setSearch} placeholder="Cari nama atau email..." />
             <div className="flex flex-wrap items-center gap-2">
-              <FilterDropdown label="Status" options={STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} />
+              <FilterDropdown label="Status" options={STATUS_OPTIONS} value={statusFilter} onChange={handleStatusFilterChange} />
               <Button variant="outline" size="sm" onClick={resetFilters}>
                 <RotateCcwIcon />
                 Reset
@@ -320,25 +391,42 @@ export default function AdminManagementPage() {
           </div>
 
           <ResourceTable
-            data={filtered}
+            data={admins}
             columns={columns}
             getRowId={(admin) => admin.id}
             onRowClick={openDetail}
             rowClassName={(admin) => (admin.id === selectedId ? "bg-primary/5" : undefined)}
-            selectedIds={selectedIds}
-            onToggleRow={(id, checked) =>
-              setSelectedIds((prev) => {
-                const next = new Set(prev)
-                if (checked) next.add(id)
-                else next.delete(id)
-                return next
-              })
-            }
-            onToggleAll={(checked) => setSelectedIds(checked ? new Set(filtered.map((a) => a.id)) : new Set())}
+            isLoading={isLoading}
+            error={error}
             itemLabel="admin"
-            pageSize={10}
+            pageSize={PAGE_LIMIT}
+            pageSizeOptions={[PAGE_LIMIT]}
             emptyTitle="Tidak ada admin ditemukan."
           />
+
+          {!isLoading && !error && totalPages > 1 && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Halaman {apiPage} dari {totalPages}</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={apiPage <= 1}
+                  onClick={() => setApiPage((p) => Math.max(1, p - 1))}
+                >
+                  Sebelumnya
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={apiPage >= totalPages}
+                  onClick={() => setApiPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Selanjutnya
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {selected && (
@@ -363,140 +451,60 @@ export default function AdminManagementPage() {
               </Button>
             </div>
 
-            <div className="p-4">
-              <Tabs defaultValue="informasi">
-                <TabsList className="w-full">
-                  <TabsTrigger value="informasi">Informasi</TabsTrigger>
-                  <TabsTrigger value="bisnis">Bisnis</TabsTrigger>
-                  <TabsTrigger value="aktivitas">Aktivitas</TabsTrigger>
-                  <TabsTrigger value="keamanan">Keamanan</TabsTrigger>
-                </TabsList>
+            <div className="flex flex-col gap-4 p-4">
+              <div className="flex flex-col gap-3 text-sm">
+                <InfoRow icon={UserIcon} label="Nama Lengkap" value={selected.name} />
+                <InfoRow icon={MailIcon} label="Email" value={selected.email} />
+                <InfoRow icon={ShieldIcon} label="Role" value={<StatusBadge status="ACTIVE" label={selected.role} />} />
+                <InfoRow
+                  icon={BuildingIcon}
+                  label="Jumlah Bisnis"
+                  value={selected.business_count > 0 ? String(selected.business_count) : "-"}
+                />
+                <InfoRow icon={CalendarIcon} label="Tanggal Bergabung" value={formatDate(selected.created_at)} />
+                <InfoRow
+                  icon={ClockIcon}
+                  label="Terakhir Login"
+                  value={selected.last_login_at ? formatDateTime(selected.last_login_at) : "Belum pernah login"}
+                />
+                <InfoRow icon={ShieldIcon} label="Status" value={<StatusBadge status={selected.status} />} />
+              </div>
 
-                <TabsContent value="informasi" className="mt-4 flex flex-col gap-4">
-                  <div className="flex flex-col gap-3 text-sm">
-                    <InfoRow icon={UserIcon} label="Nama Lengkap" value={selected.name} />
-                    <InfoRow icon={MailIcon} label="Email" value={selected.email} />
-                    <InfoRow icon={PhoneIcon} label="No. Telepon" value={selected.phone} />
-                    <InfoRow
-                      icon={ShieldIcon}
-                      label="Role"
-                      value={
-                        accountRole(selected) === "ADMIN_BISNIS" ? (
-                          <StatusBadge status="ACTIVE" label="Admin Bisnis" />
-                        ) : (
-                          <StatusBadge status="gray" label="Customer" />
-                        )
-                      }
-                    />
-                    <InfoRow
-                      icon={BuildingIcon}
-                      label="Jumlah Bisnis"
-                      value={selected.businesses.length > 0 ? String(selected.businesses.length) : "-"}
-                    />
-                    <InfoRow icon={CalendarIcon} label="Tanggal Bergabung" value={formatDate(selected.joinedAt)} />
-                    <InfoRow icon={ClockIcon} label="Terakhir Login" value={formatDateTime(selected.lastLoginAt)} />
-                    <InfoRow icon={ShieldIcon} label="Status" value={<StatusBadge status={selected.status} />} />
-                  </div>
-
-                  <div>
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground uppercase">
-                        Catatan Internal
-                      </span>
-                      {!editingNote && (
-                        <Button variant="ghost" size="icon-sm" onClick={() => setEditingNote(true)}>
-                          <PencilIcon className="size-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                    {editingNote ? (
-                      <div className="flex flex-col gap-2">
-                        <Textarea
-                          value={noteDraft}
-                          onChange={(e) => setNoteDraft(e.target.value)}
-                          rows={3}
-                          placeholder="Tulis catatan internal tentang admin ini..."
-                        />
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" onClick={() => setEditingNote(false)}>
-                            Batal
-                          </Button>
-                          <Button size="sm" onClick={saveNote}>
-                            Simpan
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="rounded-lg bg-secondary p-3 text-sm text-foreground/90">
-                        {selected.note || "Belum ada catatan internal."}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-2 pt-1">
-                    {selected.status === "SUSPENDED" ? (
-                      <Button
-                        variant="outline"
-                        onClick={() => setConfirmTarget({ admin: selected, action: "ACTIVATE" })}
-                      >
-                        Activate Admin
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        className="border-destructive/40 text-destructive hover:bg-destructive/10"
-                        onClick={() => setConfirmTarget({ admin: selected, action: "SUSPEND" })}
-                      >
-                        <BanIcon />
-                        Suspend Admin
-                      </Button>
-                    )}
-                    <Button variant="outline" onClick={() => openEdit(selected)}>
-                      <PencilIcon />
-                      Edit Akun
-                    </Button>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="bisnis" className="mt-4 flex flex-col gap-2">
-                  {selected.businesses.length === 0 && (
-                    <p className="py-6 text-center text-sm text-muted-foreground">
-                      Admin ini belum mengelola bisnis apa pun.
-                    </p>
-                  )}
-                  {selected.businesses.map((business) => (
-                    <Link
-                      key={business.businessId}
-                      href={`/admin/businesses/${business.businessId}`}
-                      className="flex items-center justify-between rounded-lg border border-border p-2.5 text-sm hover:bg-muted"
-                    >
-                      <span className="font-medium text-foreground">{business.businessName}</span>
-                      <StatusBadge status={business.role} />
-                    </Link>
-                  ))}
-                </TabsContent>
-
-                <TabsContent value="aktivitas" className="mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Login terakhir {formatDateTime(selected.lastLoginAt)} dari perangkat yang dikenal.
-                  </p>
-                </TabsContent>
-
-                <TabsContent value="keamanan" className="mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Two-factor authentication belum diaktifkan.
-                  </p>
-                </TabsContent>
-              </Tabs>
+              <div className="flex flex-col gap-2 pt-1">
+                {selected.status === "SUSPENDED" ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirmTarget({ admin: selected, action: "ACTIVATE" })}
+                  >
+                    Activate Admin
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                    onClick={() => setConfirmTarget({ admin: selected, action: "SUSPEND" })}
+                  >
+                    <BanIcon />
+                    Suspend Admin
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                  onClick={() => setConfirmTarget({ admin: selected, action: "DELETE" })}
+                >
+                  Hapus Admin
+                </Button>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      <Dialog open={!!formDialog} onOpenChange={(open) => !open && setFormDialog(null)}>
+      <Dialog open={addOpen} onOpenChange={(open) => !submitting && setAddOpen(open)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{formDialog === "ADD" ? "Tambah Admin" : "Edit Akun"}</DialogTitle>
+            <DialogTitle>Tambah Admin</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4">
             <Field>
@@ -517,51 +525,22 @@ export default function AdminManagementPage() {
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="admin-phone">No. Telepon</FieldLabel>
+              <FieldLabel htmlFor="admin-password">Password</FieldLabel>
               <Input
-                id="admin-phone"
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                id="admin-password"
+                type="password"
+                placeholder="Minimal 6 karakter"
+                value={form.password}
+                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
               />
             </Field>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFormDialog(null)}>
+            <Button variant="outline" onClick={() => setAddOpen(false)} disabled={submitting}>
               Batal
             </Button>
-            <Button
-              onClick={() => {
-                if (!form.name.trim() || !form.email.trim()) {
-                  toast.error("Nama dan email wajib diisi.")
-                  return
-                }
-                if (formDialog === "ADD") {
-                  const newAdmin: AdminAccount = {
-                    id: `u-admin-${Date.now()}`,
-                    name: form.name,
-                    email: form.email,
-                    phone: form.phone,
-                    status: "PENDING",
-                    joinedAt: new Date().toISOString().slice(0, 10),
-                    lastLoginAt: new Date().toISOString(),
-                    businesses: [],
-                  }
-                  setAdmins((prev) => [newAdmin, ...prev])
-                  toast.success("Admin berhasil ditambahkan.")
-                } else if (selected) {
-                  setAdmins((prev) =>
-                    prev.map((a) =>
-                      a.id === selected.id
-                        ? { ...a, name: form.name, email: form.email, phone: form.phone }
-                        : a
-                    )
-                  )
-                  toast.success("Akun admin berhasil diperbarui.")
-                }
-                setFormDialog(null)
-              }}
-            >
-              Simpan
+            <Button onClick={handleAddAdmin} disabled={submitting}>
+              {submitting ? "Menyimpan..." : "Simpan"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -573,29 +552,26 @@ export default function AdminManagementPage() {
         title={
           confirmTarget?.action === "SUSPEND"
             ? `Suspend ${confirmTarget?.admin.name}?`
-            : `Aktifkan kembali ${confirmTarget?.admin.name}?`
+            : confirmTarget?.action === "DELETE"
+              ? `Hapus ${confirmTarget?.admin.name}?`
+              : `Aktifkan kembali ${confirmTarget?.admin.name}?`
         }
         description={
           confirmTarget?.action === "SUSPEND"
             ? "Admin tidak akan bisa mengakses dashboard bisnis manapun selama status suspended."
-            : undefined
+            : confirmTarget?.action === "DELETE"
+              ? "Akun admin akan dihapus permanen dan tidak dapat dikembalikan."
+              : undefined
         }
-        confirmLabel={confirmTarget?.action === "SUSPEND" ? "Suspend" : "Activate"}
-        variant={confirmTarget?.action === "SUSPEND" ? "destructive" : "default"}
-        onConfirm={() => {
-          setAdmins((prev) =>
-            prev.map((a) =>
-              a.id === confirmTarget?.admin.id
-                ? { ...a, status: confirmTarget.action === "SUSPEND" ? "SUSPENDED" : "ACTIVE" }
-                : a
-            )
-          )
-          toast.success(
-            confirmTarget?.action === "SUSPEND"
-              ? `${confirmTarget.admin.name} berhasil di-suspend.`
-              : `${confirmTarget?.admin.name} berhasil diaktifkan kembali.`
-          )
-        }}
+        confirmLabel={
+          confirmTarget?.action === "SUSPEND"
+            ? "Suspend"
+            : confirmTarget?.action === "DELETE"
+              ? "Hapus"
+              : "Activate"
+        }
+        variant={confirmTarget?.action === "ACTIVATE" ? "default" : "destructive"}
+        onConfirm={handleConfirm}
       />
     </div>
   )
