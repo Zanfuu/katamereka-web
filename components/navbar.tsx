@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/lib/auth-context";
+import { getBusinessUrl } from "@/lib/domain";
 import {
   MessageSquare,
   ChevronDown,
@@ -25,7 +26,11 @@ import {
   Store
 } from "lucide-react";
 
-export default function Navbar() {
+interface NavbarProps {
+  isBusinessPage?: boolean;
+}
+
+export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProps = {}) {
   const pathname = usePathname();
   const { user, isLoggedIn, logout } = useAuth();
 
@@ -33,11 +38,14 @@ export default function Navbar() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [businessUrl, setBusinessUrl] = useState("/bisnis");
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
+    setBusinessUrl(getBusinessUrl());
+
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setProfileDropdownOpen(false);
@@ -72,13 +80,19 @@ export default function Navbar() {
     };
   }, [mobileMenuOpen]);
 
+  const isBusinessView =
+    forceBusinessView ||
+    pathname.startsWith("/bisnis") ||
+    pathname.startsWith("/untuk-bisnis") ||
+    (mounted && typeof window !== "undefined" && window.location.hostname.startsWith("business."));
+
   const isBusinessUser = mounted && isLoggedIn && user && user.role === "bisnis";
 
   return (
     <header
       className={`sticky top-0 z-50 transition-all duration-300 border-b ${
         isScrolled
-          ? "bg-white/80 backdrop-blur-md shadow-md border-slate-200/80"
+          ? "bg-white/85 backdrop-blur-md shadow-md border-slate-200/80"
           : "bg-white/95 backdrop-blur-sm border-slate-200/80 shadow-xs"
       }`}
       style={{ backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}
@@ -86,19 +100,66 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
         
         {/* Logo */}
-        <Link href={isBusinessUser ? "/untuk-bisnis" : "/"} className="flex items-center gap-2.5 group flex-shrink-0">
+        <Link href={isBusinessView ? "/bisnis" : "/"} className="flex items-center gap-2.5 group flex-shrink-0">
           <div className="w-10 h-10 rounded-full overflow-hidden shadow-md shadow-[#008767]/20 group-hover:scale-105 transition-transform flex-shrink-0 bg-[#008767]">
             <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
           </div>
-          <span className="text-2xl font-bold text-slate-900 tracking-tight">
-            Kata<span className="text-[#008767]">mereka</span>
-          </span>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
+            <span className="text-2xl font-bold text-slate-900 tracking-tight leading-none">
+              Kata<span className="text-[#008767]">mereka</span>
+            </span>
+            {isBusinessView && (
+              <span className="text-[11px] font-extrabold bg-[#008767] text-white px-2.5 py-0.5 rounded-full uppercase tracking-wider self-start sm:self-auto shadow-2xs">
+                Untuk Bisnis
+              </span>
+            )}
+          </div>
         </Link>
 
         {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-          {isBusinessUser ? (
-            /* Business Account Specific Navbar Items */
+        <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-600">
+          {isBusinessView ? (
+            /* Business Landing Header Nav Items */
+            <>
+              <Link
+                href="/bisnis#solusi"
+                className="transition-colors hover:text-[#008767] flex items-center gap-1"
+              >
+                <span>Solusi</span>
+                <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+              </Link>
+
+              <Link
+                href="/bisnis#produk"
+                className="transition-colors hover:text-[#008767] flex items-center gap-1"
+              >
+                <span>Produk</span>
+                <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+              </Link>
+
+              <Link
+                href="/bisnis#harga"
+                className="transition-colors hover:text-[#008767]"
+              >
+                Harga
+              </Link>
+
+              <Link
+                href="/bantuan"
+                className="transition-colors hover:text-[#008767]"
+              >
+                Bantuan
+              </Link>
+
+              <Link
+                href="/tentang-kami"
+                className="transition-colors hover:text-[#008767]"
+              >
+                Tentang Kami
+              </Link>
+            </>
+          ) : isBusinessUser ? (
+            /* Logged in Business User Navigation */
             <>
               <Link
                 href="/bisnis"
@@ -137,7 +198,7 @@ export default function Navbar() {
               </Link>
             </>
           ) : (
-            /* Standard Customer / Guest Navbar Items */
+            /* Standard Customer Navbar Items */
             <>
               <Link
                 href="/"
@@ -211,7 +272,7 @@ export default function Navbar() {
               {/* Profile Avatar Button */}
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2 p-1 rounded-full hover:bg-slate-100 transition-colors border border-slate-200/80"
+                className="flex items-center gap-2 p-1 rounded-full hover:bg-slate-100 transition-colors border border-slate-200/80 cursor-pointer"
               >
                 <div className="w-10 h-10 rounded-full bg-[#008767] text-white flex items-center justify-center font-bold text-sm shadow-sm">
                   {user.initials}
@@ -297,19 +358,36 @@ export default function Navbar() {
                 </div>
               )}
             </div>
-          ) : (
-            <div className="hidden sm:flex items-center gap-2.5">
+          ) : isBusinessView ? (
+            /* Business Landing Header Buttons: Log in | Create free account */
+            <div className="hidden sm:flex items-center gap-3">
               <Link
-                href="/login"
-                className="px-4 py-2 rounded-xl text-slate-700 hover:text-[#008767] font-semibold text-sm transition-colors"
+                href="/login?role=bisnis&redirect=/dashboard"
+                className="px-4 py-2 rounded-xl text-slate-700 hover:text-[#008767] font-bold text-sm transition-colors"
               >
-                Masuk
+                Log in
               </Link>
               <Link
-                href="/signup"
-                className="px-4 py-2 rounded-xl bg-[#008767] hover:bg-[#007458] text-white font-semibold text-sm shadow-md shadow-[#008767]/20 transition-all hover:scale-105"
+                href="/signup?role=bisnis"
+                className="px-5 py-2.5 rounded-xl bg-[#008767] hover:bg-[#007055] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all hover:scale-105"
               >
-                Daftar
+                Create free account
+              </Link>
+            </div>
+          ) : (
+            /* Main Customer Site Header Buttons: Login | For Business */
+            <div className="hidden sm:flex items-center gap-3">
+              <Link
+                href="/login"
+                className="px-4 py-2 rounded-xl text-slate-700 hover:text-[#008767] font-bold text-sm transition-colors"
+              >
+                Login
+              </Link>
+              <Link
+                href={businessUrl}
+                className="px-5 py-2.5 rounded-xl bg-[#008767] hover:bg-[#007055] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all hover:scale-105"
+              >
+                For Business
               </Link>
             </div>
           )}
@@ -490,6 +568,23 @@ export default function Navbar() {
                   <span>Keluar</span>
                 </button>
               </div>
+            ) : isBusinessView ? (
+              <div className="pt-4 border-t border-slate-100 space-y-2.5 mt-3">
+                <Link
+                  href="/login?role=bisnis&redirect=/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full block text-center py-2.5 rounded-xl border border-slate-200 text-slate-800 font-bold text-sm hover:bg-slate-50 transition-colors"
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/signup?role=bisnis"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full block text-center py-2.5 rounded-xl bg-[#008767] hover:bg-[#007055] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all"
+                >
+                  Create free account
+                </Link>
+              </div>
             ) : (
               <div className="pt-4 border-t border-slate-100 space-y-2.5 mt-3">
                 <Link
@@ -497,14 +592,14 @@ export default function Navbar() {
                   onClick={() => setMobileMenuOpen(false)}
                   className="w-full block text-center py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors"
                 >
-                  Masuk
+                  Login
                 </Link>
                 <Link
-                  href="/signup"
+                  href={businessUrl}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="w-full block text-center py-2.5 rounded-xl bg-[#008767] hover:bg-[#007458] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all"
+                  className="w-full block text-center py-2.5 rounded-xl bg-[#008767] hover:bg-[#007055] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all"
                 >
-                  Daftar
+                  For Business
                 </Link>
               </div>
             )}

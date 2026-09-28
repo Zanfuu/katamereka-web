@@ -10,7 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectPath = searchParams.get("redirect") || "/bisnis";
+  const redirectParam = searchParams.get("redirect");
+  const roleParam = searchParams.get("role");
 
   const { login, changePassword } = useAuth();
 
@@ -51,8 +52,21 @@ function LoginFormContent() {
     if (res.success) {
       setIsLoading(false);
       setSuccess(true);
+
+      // Determine target redirect path based on user role / business context
+      const userRole = res.user?.role || roleParam;
+      const isBusinessContext =
+        userRole === "bisnis" ||
+        roleParam === "bisnis" ||
+        (typeof window !== "undefined" && window.location.hostname.startsWith("business."));
+
+      let targetPath = redirectParam;
+      if (!targetPath) {
+        targetPath = isBusinessContext ? "/dashboard" : "/";
+      }
+
       setTimeout(() => {
-        router.push(redirectPath);
+        router.push(targetPath);
       }, 800);
     } else {
       setIsLoading(false);
