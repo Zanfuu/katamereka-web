@@ -620,7 +620,7 @@ export default function BusinessProfilePage() {
                   </p>
                 )}
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Kelola profil bisnis Anda, balas review, dan jangkau lebih banyak pelanggan.
+                  Masuk untuk klaim bisnis ini, kelola profil, dan balas review pelanggan.
                 </p>
                 <button
                   type="button"
