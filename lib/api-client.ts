@@ -25,6 +25,7 @@ export interface BusinessQueryParams {
   city?: string;
   province?: string;
   category?: string;
+  sort?: string;
   page?: number;
   limit?: number;
 }
@@ -86,6 +87,9 @@ export interface ApiBusinessDetail {
   externalReviewsCount?: number;
   rating?: string | number;
   reviews_count?: number;
+  description?: string;
+  logo_url?: string;
+  cover_url?: string;
   status: string;
   externalSyncedAt?: string;
   createdAt?: string;
@@ -138,6 +142,7 @@ export async function fetchBusinesses(
   if (params.city) query.append("city", params.city);
   if (params.province) query.append("province", params.province);
   if (params.category) query.append("category", params.category);
+  if (params.sort) query.append("sort", params.sort);
   if (params.page) query.append("page", params.page.toString());
   if (params.limit) query.append("limit", params.limit.toString());
 
@@ -469,20 +474,28 @@ export function mapApiBusinessToUiModel(item: ApiBusinessListItem): Business {
     .substring(0, 2)
     .toUpperCase();
 
+  let rawCat = item.category || "Bisnis";
+  let formattedCategory = rawCat;
+  if (rawCat.includes("accommodation") || rawCat.includes("hotel") || rawCat.includes("guest_house") || rawCat.includes("hostel")) {
+    formattedCategory = "Hotel & Akomodasi";
+  } else {
+    formattedCategory = rawCat.replace(/^(service|building)\./, "").replace(/_/g, " ");
+  }
+
   return {
     id: item.id,
     slug: item.slug,
     name: item.name,
-    category: item.category.replace(/^(service|building)\./, "").replace(/_/g, " "),
-    location: item.city ? `${item.city}, ${item.province}` : item.address,
-    address: item.address,
+    category: formattedCategory,
+    location: item.city ? `${item.city}, ${item.province || ""}`.trim() : item.address || "-",
+    address: item.address || "-",
     rating: ratingNum,
-    reviewCount: item.reviews_count,
-    reviewCountFormatted: `${item.reviews_count} ulasan`,
-    description: `Layanan ${item.name} terpercaya di ${item.city || "Indonesia"} dengan ulasan pelanggan nyata.`,
+    reviewCount: item.reviews_count || 0,
+    reviewCountFormatted: item.reviews_count ? `${item.reviews_count} ulasan` : "0 ulasan",
+    description: "-",
     badge: ratingNum >= 4.5 ? "Terverifikasi" : "Pilihan Pengguna",
     initials,
     color: "bg-emerald-100 text-emerald-900 border-emerald-200",
-    features: ["WiFi Gratis", "Parkir", "AC", "Terverifikasi"],
+    features: [],
   };
 }

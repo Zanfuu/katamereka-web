@@ -36,29 +36,10 @@ export default function BusinessesPage() {
   const [selectedRating, setSelectedRating] = useState("Semua Rating");
   const [sortBy, setSortBy] = useState("Terpopuler");
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
-  const [currentPage, setCurrentPage] = useState(1);
   const [apiBusinesses, setApiBusinesses] = useState<Business[]>([]);
-
-  useEffect(() => {
-    async function loadApiBusinesses() {
-      try {
-        const res = await fetchBusinesses({
-          search: searchQuery.trim() || undefined,
-          city: selectedLocation === "Semua Lokasi" ? undefined : selectedLocation,
-          category: selectedCategory === "Semua Kategori" ? undefined : selectedCategory,
-          page: currentPage,
-          limit: 20,
-        });
-
-        if (res && res.data && res.data.length > 0) {
-          setApiBusinesses(res.data.map(mapApiBusinessToUiModel));
-        }
-      } catch (err) {
-        // Fallback to local filtering
-      }
-    }
-    loadApiBusinesses();
-  }, [searchQuery, selectedCategory, selectedLocation, currentPage]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Filter Categories
   const categories = [
@@ -95,12 +76,44 @@ export default function BusinessesPage() {
     { label: "1+ Bintang", min: 1 }
   ];
 
+  useEffect(() => {
+    async function loadApiBusinesses() {
+      try {
+        const sortParam =
+          sortBy === "Rating Tertinggi"
+            ? "rating"
+            : sortBy === "Ulasan Terbanyak"
+            ? "reviews"
+            : "popular";
+
+        const res = await fetchBusinesses({
+          search: searchQuery.trim() || undefined,
+          city: selectedLocation === "Semua Lokasi" ? undefined : selectedLocation,
+          category: selectedCategory === "Semua Kategori" ? undefined : selectedCategory,
+          sort: sortParam,
+          page: currentPage,
+          limit: 12,
+        });
+
+        if (res && res.data) {
+          setApiBusinesses(res.data.map(mapApiBusinessToUiModel));
+          setTotalCount(res.pagination?.total || res.data.length);
+          setTotalPages(res.pagination?.total_pages || 1);
+        }
+      } catch (err) {
+        console.warn("Error fetching API businesses:", err);
+      }
+    }
+    loadApiBusinesses();
+  }, [searchQuery, selectedCategory, selectedLocation, selectedRating, sortBy, currentPage]);
+
   const resetFilters = () => {
     setSearchQuery("");
     setSelectedCategory("Semua Kategori");
     setSelectedLocation("Semua Lokasi");
     setSelectedRating("Semua Rating");
     setSortBy("Terpopuler");
+    setCurrentPage(1);
   };
 
   const toggleFavorite = (id: string, e: React.MouseEvent) => {
@@ -108,36 +121,16 @@ export default function BusinessesPage() {
     setFavorites((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // Filtered & Sorted Businesses
+  // Filtered & Sorted Businesses from API
   const filteredBusinesses = useMemo(() => {
-    return businesses.filter((biz) => {
-      // Search
-      const matchSearch =
-        searchQuery === "" ||
-        biz.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        biz.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        biz.location.toLowerCase().includes(searchQuery.toLowerCase());
-
-      // Category
-      const matchCategory =
-        selectedCategory === "Semua Kategori" ||
-        biz.category.toLowerCase().includes(selectedCategory.toLowerCase());
-
-      // Location
-      const matchLocation =
-        selectedLocation === "Semua Lokasi" ||
-        biz.location.toLowerCase().includes(selectedLocation.toLowerCase());
-
-      // Rating
+    return apiBusinesses.filter((biz) => {
       const minRating =
         selectedRating === "Semua Rating"
           ? 0
           : parseInt(selectedRating.replace(/[^0-9]/g, "")) || 0;
-      const matchRating = biz.rating >= minRating;
-
-      return matchSearch && matchCategory && matchLocation && matchRating;
+      return biz.rating >= minRating;
     });
-  }, [searchQuery, selectedCategory, selectedLocation, selectedRating]);
+  }, [apiBusinesses, selectedRating]);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -473,11 +466,12 @@ export default function BusinessesPage() {
               <div className="flex items-center justify-center gap-1.5 pt-6 text-xs font-semibold">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-[#008767] hover:text-[#008767] flex items-center justify-center transition-colors"
+                  disabled={currentPage === 1}
+                  className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-[#008767] hover:text-[#008767] flex items-center justify-center transition-colors disabled:opacity-40"
                 >
                   ‹
                 </button>
-                {[1, 2, 3, 4, 5].map((page) => (
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1).map((page) => (
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
@@ -490,16 +484,25 @@ export default function BusinessesPage() {
                     {page}
                   </button>
                 ))}
-                <span className="px-1 text-slate-400">...</span>
+                {totalPages > 5 && (
+                  <>
+                    <span className="px-1 text-slate-400">...</span>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      className={`w-8 h-8 rounded-lg font-semibold transition-all ${
+                        currentPage === totalPages
+                          ? "bg-[#008767] text-white shadow-xs"
+                          : "bg-white border border-slate-200 text-slate-600 hover:border-[#008767] hover:text-[#008767]"
+                      }`}
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
                 <button
-                  onClick={() => setCurrentPage(42)}
-                  className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-[#008767] hover:text-[#008767] transition-colors"
-                >
-                  42
-                </button>
-                <button
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-[#008767] hover:text-[#008767] flex items-center justify-center transition-colors"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-[#008767] hover:text-[#008767] flex items-center justify-center transition-colors disabled:opacity-40"
                 >
                   ›
                 </button>
