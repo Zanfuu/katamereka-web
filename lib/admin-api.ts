@@ -179,3 +179,103 @@ export async function deleteCustomer(id: string): Promise<{ message: string }> {
   });
   return handle(res);
 }
+
+// --- Business (Add Business CRUD) ---
+// Expects api_service's admin-businesses module (SUPER_ADMIN/ADMIN JWT):
+//  - GET    /admin/businesses
+//  - POST   /admin/businesses
+//  - PATCH  /admin/businesses/:id
+//  - DELETE /admin/businesses/:id
+
+export type PlatformBusinessStatus = "PENDING" | "ACTIVE" | "CLAIMED" | "SUSPENDED" | "INACTIVE";
+
+export interface BusinessListItem {
+  id: string;
+  name: string;
+  slug: string;
+  category: string | null;
+  address: string | null;
+  city: string | null;
+  province: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  description: string | null;
+  status: PlatformBusinessStatus;
+  average_rating: number | null;
+  review_count: number;
+  created_at: string;
+}
+
+export interface BusinessListResponse {
+  data: BusinessListItem[];
+  stats: { total_business: number; active_business: number; pending_business: number };
+  pagination: ApiPagination;
+}
+
+export interface BusinessQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: PlatformBusinessStatus;
+}
+
+export interface BusinessPayload {
+  name: string;
+  slug: string;
+  category?: string;
+  address?: string;
+  city?: string;
+  province?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  description?: string;
+  status?: PlatformBusinessStatus;
+}
+
+export async function fetchBusinesses(params: BusinessQueryParams = {}): Promise<BusinessListResponse> {
+  const qs = new URLSearchParams();
+  if (params.page) qs.append("page", String(params.page));
+  if (params.limit) qs.append("limit", String(params.limit));
+  if (params.search) qs.append("search", params.search);
+  if (params.status) qs.append("status", params.status);
+  const s = qs.toString();
+  const res = await fetch(`${API_BASE_URL}/admin/businesses${s ? `?${s}` : ""}`, {
+    method: "GET",
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  return handle<BusinessListResponse>(res);
+}
+
+export async function createBusiness(
+  payload: BusinessPayload
+): Promise<{ message: string; data: BusinessListItem }> {
+  const res = await fetch(`${API_BASE_URL}/admin/businesses`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return handle(res);
+}
+
+export async function updateBusiness(
+  id: string,
+  payload: Partial<BusinessPayload>
+): Promise<{ message: string; data: BusinessListItem }> {
+  const res = await fetch(`${API_BASE_URL}/admin/businesses/${id}`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return handle(res);
+}
+
+export async function deleteBusiness(id: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE_URL}/admin/businesses/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return handle(res);
+}
