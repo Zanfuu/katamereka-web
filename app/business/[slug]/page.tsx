@@ -132,8 +132,12 @@ export default function BusinessProfilePage() {
     content: string;
     status: string;
     createdAt: string;
+    created_at?: string;
+    userId?: string;
+    user_id?: string;
     user?: { id?: string; name?: string; initials?: string };
     helpfulCount?: number;
+    helpful_count?: number;
   }
   const [businessReviews, setBusinessReviews] = useState<BusinessReview[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
@@ -336,7 +340,9 @@ export default function BusinessProfilePage() {
 
   // Check if current logged-in user already wrote a review for this business
   const myReview = user?.id
-    ? businessReviews.find((r) => r.user?.id === user?.id || r.userId === user?.id)
+    ? businessReviews.find(
+        (r) => r.user?.id === user?.id || r.userId === user?.id || r.user_id === user?.id
+      )
     : null;
   const hasReviewed = Boolean(myReview);
 
