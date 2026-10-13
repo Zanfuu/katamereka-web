@@ -334,6 +334,12 @@ export default function BusinessProfilePage() {
       .toUpperCase()
     : "KM";
 
+  // Check if current logged-in user already wrote a review for this business
+  const myReview = user?.id
+    ? businessReviews.find((r) => r.user?.id === user?.id || r.userId === user?.id)
+    : null;
+  const hasReviewed = Boolean(myReview);
+
   // Dynamic review count from API (reviewCount, reviewsCount, reviews_count, externalReviewsCount)
   const rawReviewCount =
     (apiDetail as any)?.reviewCount ??
@@ -661,16 +667,16 @@ export default function BusinessProfilePage() {
         </div>
 
         {/* Overlapping Profile Card */}
-        <div className="relative -mt-12 sm:-mt-16 mx-3 sm:mx-6 bg-white rounded-3xl border border-slate-200/80 shadow-md p-5 sm:p-7">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+        <div className="relative -mt-10 sm:-mt-16 mx-2 sm:mx-6 bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md p-4 sm:p-7">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-5">
             {/* Left: Avatar + Title + Category + Address */}
-            <div className="flex items-start sm:items-center gap-4 sm:gap-5 min-w-0">
+            <div className="flex items-start sm:items-center gap-3.5 sm:gap-5 min-w-0">
               <div
                 onClick={() => {
                   const targetImg = logoUrl || coverUrl || placeImageUrl;
                   if (targetImg) setPreviewPhotoModalUrl(targetImg);
                 }}
-                className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-2xl border-4 border-white shadow-sm overflow-hidden bg-slate-100 flex-shrink-0 cursor-pointer relative group"
+                className="w-16 h-16 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-2xl border-2 sm:border-4 border-white shadow-sm overflow-hidden bg-slate-100 flex-shrink-0 cursor-pointer relative group"
               >
                 {logoUrl || coverUrl || placeImageUrl ? (
                   <img
@@ -679,19 +685,19 @@ export default function BusinessProfilePage() {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
                 ) : (
-                  <div className="w-full h-full bg-emerald-50 flex items-center justify-center text-[#008767] font-bold text-2xl">
+                  <div className="w-full h-full bg-emerald-50 flex items-center justify-center text-[#008767] font-bold text-xl sm:text-2xl">
                     {initials}
                   </div>
                 )}
               </div>
 
-              <div className="space-y-2 min-w-0">
+              <div className="space-y-1.5 sm:space-y-2 min-w-0 flex-1">
                 {/* Business Title + Verified Icon */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#0f172a] tracking-tight truncate">
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <h1 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-[#0f172a] tracking-tight line-clamp-2 sm:truncate">
                     {apiDetail?.name || "-"}
                   </h1>
-                  <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 fill-[#008767] text-white flex-shrink-0" />
+                  <CheckCircle2 className="w-4 h-4 sm:w-6 sm:h-6 fill-[#008767] text-white flex-shrink-0" />
                 </div>
 
                 {/* Location with Pin (Clickable to Google Maps) */}
@@ -699,7 +705,7 @@ export default function BusinessProfilePage() {
                   <img
                     src="/icons/header-location.png"
                     alt="Lokasi bisnis"
-                    className="w-4 h-4 object-contain flex-shrink-0"
+                    className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain flex-shrink-0"
                   />
                   {fullAddress !== "-" || locationStr !== "-" ? (
                     <a
@@ -721,26 +727,30 @@ export default function BusinessProfilePage() {
             </div>
 
             {/* Right Action Buttons */}
-            <div className="flex items-center gap-2.5 flex-shrink-0 self-start md:self-center">
+            <div className="flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
               <Link
                 href={`/review?business=${slug}`}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#008767] hover:bg-[#007458] text-white text-xs sm:text-sm font-bold shadow-xs transition-colors"
+                className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 h-10 sm:h-11 rounded-full text-xs sm:text-sm font-bold shadow-xs whitespace-nowrap transition-colors flex-1 sm:flex-initial text-center ${
+                  hasReviewed
+                    ? "bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-[#008767]"
+                    : "bg-[#008767] hover:bg-[#007458] text-white"
+                }`}
               >
-                <Edit3 className="w-4 h-4" />
-                <span>Tulis Review</span>
+                <Edit3 className="w-4 h-4 shrink-0" />
+                <span>{hasReviewed ? "Edit Review" : "Tulis Review"}</span>
               </Link>
 
               <button
                 type="button"
                 onClick={handleToggleSave}
                 disabled={savingFavorite}
-                className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs sm:text-sm font-semibold border transition-colors ${isSaved
+                className={`inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 h-10 sm:h-11 rounded-full text-xs sm:text-sm font-semibold border whitespace-nowrap transition-colors flex-initial shrink-0 text-center ${isSaved
                     ? "bg-emerald-50 border-emerald-300 text-[#008767]"
                     : "border-slate-200 text-slate-700 hover:bg-slate-50"
                   }`}
               >
                 <Bookmark
-                  className={`w-4 h-4 ${isSaved ? "fill-[#008767] text-[#008767]" : "text-slate-600"}`}
+                  className={`w-4 h-4 shrink-0 ${isSaved ? "fill-[#008767] text-[#008767]" : "text-slate-600"}`}
                 />
                 <span>Favorit</span>
               </button>
@@ -760,17 +770,17 @@ export default function BusinessProfilePage() {
                     toast.success("Tautan bisnis berhasil disalin!");
                   }
                 }}
-                className="p-2.5 rounded-full border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+                className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center justify-center shrink-0"
                 title="Bagikan Profil Bisnis"
               >
-                <Share2 className="w-4 h-4" />
+                <Share2 className="w-4 h-4 shrink-0" />
               </button>
             </div>
           </div>
 
           {/* Integrated Bottom Tabs */}
-          <div className="mt-6 border-t border-slate-100 pt-2 -mb-2 sm:-mb-3">
-            <nav className="flex items-center justify-between sm:justify-start sm:gap-8 w-full">
+          <div className="mt-4 sm:mt-6 border-t border-slate-100 pt-1 sm:pt-2 -mb-2 sm:-mb-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <nav className="flex items-center justify-between sm:justify-start sm:gap-8 min-w-full">
               {[
                 { id: "profil", label: "Profil" },
                 { id: "review", label: `Review (${actualReviewCount})` },
@@ -889,8 +899,8 @@ export default function BusinessProfilePage() {
                 </div>
 
                 {/* Card 3: Ulasan Pelanggan */}
-                <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-xs space-y-6">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-7 shadow-xs space-y-4 sm:space-y-6">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3 sm:pb-4">
                     <div>
                       <h3 className="font-bold text-slate-900 text-base sm:text-lg">
                         Ulasan Pelanggan
@@ -928,6 +938,7 @@ export default function BusinessProfilePage() {
                         <ReviewCard
                           key={rev.id}
                           review={rev}
+                          businessSlug={slug}
                           currentUserId={user?.id}
                           onDelete={(id) => setConfirmDeleteId(id)}
                           isDeleting={deletingReviewId === rev.id}
@@ -958,10 +969,10 @@ export default function BusinessProfilePage() {
                       <div className="pt-1">
                         <Link
                           href={`/review?business=${slug}`}
-                          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#008767] hover:bg-[#007458] text-white text-xs sm:text-sm font-bold shadow-xs transition-colors"
+                          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#008767] hover:bg-[#007458] text-white text-xs sm:text-sm font-bold shadow-xs whitespace-nowrap transition-colors"
                         >
-                          <Edit3 className="w-4 h-4" />
-                          <span>Tulis Ulasan Sekarang</span>
+                          <Edit3 className="w-4 h-4 shrink-0" />
+                          <span>{hasReviewed ? "Edit Ulasan Saya" : "Tulis Ulasan Sekarang"}</span>
                         </Link>
                       </div>
                     </div>
@@ -972,10 +983,10 @@ export default function BusinessProfilePage() {
 
             {/* TAB REVIEW */}
             {activeTab === "review" && (
-              <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-8 shadow-xs space-y-4 sm:space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                   <div>
-                    <h3 className="font-bold text-slate-900 text-lg sm:text-xl">
+                    <h3 className="font-bold text-slate-900 text-base sm:text-xl">
                       Semua Ulasan Pelanggan
                     </h3>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -991,10 +1002,10 @@ export default function BusinessProfilePage() {
                   </div>
                   <Link
                     href={`/review?business=${slug}`}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#008767] text-white text-xs font-semibold"
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl bg-[#008767] hover:bg-[#007458] text-white text-xs font-semibold self-start sm:self-auto transition-colors whitespace-nowrap shrink-0"
                   >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>Tulis Ulasan</span>
+                    <Edit3 className="w-3.5 h-3.5 shrink-0" />
+                    <span>{hasReviewed ? "Edit Ulasan" : "Tulis Ulasan"}</span>
                   </Link>
                 </div>
 
@@ -1008,6 +1019,7 @@ export default function BusinessProfilePage() {
                       <ReviewCard
                         key={rev.id}
                         review={rev}
+                        businessSlug={slug}
                         currentUserId={user?.id}
                         onDelete={(id) => setConfirmDeleteId(id)}
                         isDeleting={deletingReviewId === rev.id}
@@ -1049,9 +1061,9 @@ export default function BusinessProfilePage() {
               );
 
               return (
-                <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6">
+                <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-8 shadow-xs space-y-4 sm:space-y-6">
                   <div>
-                    <h3 className="font-bold text-slate-900 text-lg sm:text-xl">
+                    <h3 className="font-bold text-slate-900 text-base sm:text-xl">
                       Galeri Foto {apiDetail?.name || "-"}
                     </h3>
                   </div>
@@ -1097,12 +1109,12 @@ export default function BusinessProfilePage() {
 
             {/* TAB INFO */}
             {activeTab === "info" && (
-              <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6">
-                <h3 className="font-bold text-slate-900 text-lg sm:text-xl">
+              <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-8 shadow-xs space-y-4 sm:space-y-6">
+                <h3 className="font-bold text-slate-900 text-base sm:text-xl">
                   Informasi Lengkap {apiDetail?.name || "-"}
                 </h3>
                 <div className="space-y-4 text-sm text-slate-700 leading-relaxed">
-                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4 text-xs sm:text-sm">
+                  <div className="p-3.5 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5 sm:space-y-4 text-xs sm:text-sm">
                     <div className="flex items-start gap-3">
                       <img
                         src="/icons/header-location.png"
@@ -1201,7 +1213,7 @@ export default function BusinessProfilePage() {
             </div>
 
             {/* CARD 2: Informasi Lainnya */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4 text-xs sm:text-sm">
+            <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-6 shadow-xs space-y-3.5 text-xs sm:text-sm">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm sm:text-base">
                 <Store className="w-4 h-4 text-[#008767]" />
                 <span>Informasi Lainnya</span>
@@ -1275,7 +1287,7 @@ export default function BusinessProfilePage() {
             </div>
 
             {/* CARD 3: Jam Operasional (List hari dengan data -) */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-3.5">
+            <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-6 shadow-xs space-y-3 text-xs sm:text-sm">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm sm:text-base">
                 <img
                   src="/icons/header-clock.png"
@@ -1331,7 +1343,7 @@ export default function BusinessProfilePage() {
 
             {/* CARD 4: Apakah Anda pemilik bisnis ini? */}
             {user?.role === "bisnis" ? (
-              <div className="bg-[#f0faf7] border border-[#008767]/20 rounded-3xl p-6 shadow-xs space-y-3">
+              <div className="bg-[#f0faf7] border border-[#008767]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                   <LayoutDashboard className="w-5 h-5 text-[#008767]" />
                   <span>Dashboard Akun Bisnis</span>
@@ -1347,7 +1359,7 @@ export default function BusinessProfilePage() {
                 </Link>
               </div>
             ) : apiDetail?.status === "CLAIMED" ? null : !isLoggedIn ? (
-              <div className="bg-[#f0faf7] border border-[#008767]/20 rounded-3xl p-6 shadow-xs space-y-3">
+              <div className="bg-[#f0faf7] border border-[#008767]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                   <ShieldCheck className="w-5 h-5 text-[#008767]" />
                   <span>Apakah Anda pemilik bisnis ini?</span>
@@ -1363,7 +1375,7 @@ export default function BusinessProfilePage() {
                 </Link>
               </div>
             ) : claimStatus === "PENDING" ? (
-              <div className="bg-gradient-to-r from-amber-50 via-amber-50/80 to-orange-50 rounded-3xl border border-amber-200 p-6 shadow-xs space-y-2">
+              <div className="bg-gradient-to-r from-amber-50 via-amber-50/80 to-orange-50 rounded-2xl sm:rounded-3xl border border-amber-200 p-4 sm:p-6 shadow-xs space-y-2">
                 <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
                   <ShieldCheck className="w-5 h-5 text-amber-700" />
                   <span>Klaim Sedang Ditinjau</span>
@@ -1373,7 +1385,7 @@ export default function BusinessProfilePage() {
                 </p>
               </div>
             ) : (
-              <div className="bg-[#f0faf7] border border-[#008767]/20 rounded-3xl p-6 shadow-xs space-y-3">
+              <div className="bg-[#f0faf7] border border-[#008767]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                   <ShieldCheck className="w-5 h-5 text-[#008767]" />
                   <span>Apakah Anda pemilik bisnis ini?</span>
@@ -1573,12 +1585,13 @@ interface ReviewCardProps {
     helpfulCount?: number;
     helpful_count?: number;
   };
+  businessSlug?: string;
   currentUserId?: string;
   onDelete?: (id: string) => void;
   isDeleting?: boolean;
 }
 
-function ReviewCard({ review, currentUserId, onDelete, isDeleting }: ReviewCardProps) {
+function ReviewCard({ review, businessSlug, currentUserId, onDelete, isDeleting }: ReviewCardProps) {
   const rating = typeof review.rating === "number" ? review.rating : parseFloat(String(review.rating ?? 0));
   const safeRating = isNaN(rating) ? 0 : Math.min(5, Math.max(0, rating));
   const initials = review.user?.initials || review.user?.name?.split(" ").map((w: string) => w[0]).join("").substring(0, 2).toUpperCase() || "U";
@@ -1623,15 +1636,33 @@ function ReviewCard({ review, currentUserId, onDelete, isDeleting }: ReviewCardP
   const dateValue = review.createdAt || (review as any).created_at || (review as any).createdAt;
 
   return (
-    <div className="bg-slate-50/60 rounded-2xl border border-slate-200/80 p-4 sm:p-5 space-y-3 hover:border-[#008767]/30 transition-colors">
+    <div className="bg-slate-50/60 rounded-xl sm:rounded-2xl border border-slate-200/80 p-3.5 sm:p-5 space-y-3 hover:border-[#008767]/30 transition-colors">
       {/* Header row */}
       <div className="flex items-start gap-3">
         {/* User avatar */}
-        <div className="w-10 h-10 rounded-full bg-[#008767] text-white flex-shrink-0 flex items-center justify-center font-bold text-sm shadow-xs">
+        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#008767] text-white flex-shrink-0 flex items-center justify-center font-bold text-xs sm:text-sm shadow-xs">
           {initials}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-slate-900 text-sm">{displayName}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-bold text-slate-900 text-sm truncate" title={displayName}>
+              {displayName}
+            </p>
+            {/* Rating Stars (5.0 text hidden on mobile, shown on larger screens) */}
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star
+                  key={i}
+                  className={`w-3.5 h-3.5 ${
+                    i < safeRating ? "text-amber-400 fill-amber-400" : "text-slate-200 fill-slate-200"
+                  }`}
+                />
+              ))}
+              <span className="hidden sm:inline text-xs font-bold text-slate-700 ml-1">
+                {safeRating.toFixed(1)}
+              </span>
+            </div>
+          </div>
           <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5">
             <img
               src="/icons/header-calendar.png"
@@ -1641,28 +1672,18 @@ function ReviewCard({ review, currentUserId, onDelete, isDeleting }: ReviewCardP
             <span>{relativeDate(dateValue)}</span>
           </div>
         </div>
-        {/* Rating */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Star
-              key={i}
-              className={`w-3.5 h-3.5 ${i < safeRating ? "text-amber-400 fill-amber-400" : "text-slate-200 fill-slate-200"}`}
-            />
-          ))}
-          <span className="text-xs font-bold text-slate-700 ml-1">{safeRating.toFixed(1)}</span>
-        </div>
       </div>
 
       {/* Review body */}
       {review.title && (
-        <p className="font-semibold text-slate-800 text-sm">"{review.title}"</p>
+        <p className="font-semibold text-slate-800 text-sm break-words">"{review.title}"</p>
       )}
       {review.content && (
-        <p className="text-sm text-slate-600 leading-relaxed">{review.content}</p>
+        <p className="text-sm text-slate-600 leading-relaxed break-words">{review.content}</p>
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs flex-wrap gap-2">
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* Helpful Button UI */}
           <button
@@ -1690,16 +1711,30 @@ function ReviewCard({ review, currentUserId, onDelete, isDeleting }: ReviewCardP
           ) : null}
         </div>
 
-        {isOwnReview && onDelete && (
-          <button
-            onClick={() => onDelete(review.id)}
-            disabled={isDeleting}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors text-xs font-medium cursor-pointer"
-            title="Hapus Ulasan Saya"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Hapus</span>
-          </button>
+        {isOwnReview && (
+          <div className="flex items-center gap-2">
+            {businessSlug && (
+              <Link
+                href={`/review?business=${businessSlug}`}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[#008767] hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-colors text-xs font-medium cursor-pointer"
+                title="Edit Ulasan Saya"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Edit</span>
+              </Link>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => onDelete(review.id)}
+                disabled={isDeleting}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors text-xs font-medium cursor-pointer"
+                title="Hapus Ulasan Saya"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Hapus</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

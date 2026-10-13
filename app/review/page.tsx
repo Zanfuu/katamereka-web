@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import Navbar from "@/components/navbar";
 import { getBusinessBySlug, businesses, Business } from "@/lib/mock-data";
 import { fetchBusinessBySlug, mapApiBusinessToUiModel, API_BASE_URL } from "@/lib/api-client";
@@ -26,7 +27,8 @@ import {
   User as UserIcon,
   KeyRound,
   LogIn,
-  UserPlus
+  UserPlus,
+  Edit3
 } from "lucide-react";
 
 function WriteReviewContent() {
@@ -65,6 +67,10 @@ function WriteReviewContent() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
+  // Existing review detection (1 review per account per business)
+  const [existingReview, setExistingReview] = useState<any | null>(null);
+  const [checkingExisting, setCheckingExisting] = useState<boolean>(false);
+
   // Fetch real business data from API whenever slug changes
   useEffect(() => {
     if (slugParam) {
@@ -84,6 +90,54 @@ function WriteReviewContent() {
         });
     }
   }, [slugParam]);
+
+  // Check if logged-in user already has a review for this business
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    if (!token || !isLoggedIn) {
+      setExistingReview(null);
+      return;
+    }
+
+    const targetId = realBusinessId || business?.id;
+    if (!targetId && !slugParam) return;
+
+    let isMounted = true;
+    setCheckingExisting(true);
+
+    fetch(`${API_BASE_URL}/my-reviews`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        if (!isMounted) return;
+        const myReviews = res?.data || [];
+        const match = myReviews.find(
+          (r: any) =>
+            (targetId && (r.business?.id === targetId || r.businessId === targetId)) ||
+            (slugParam && r.business?.slug === slugParam)
+        );
+        if (match) {
+          setExistingReview(match);
+          if (match.rating) setRating(match.rating);
+          if (match.title) setTitle(match.title);
+          if (match.content) setContent(match.content);
+        } else {
+          setExistingReview(null);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setExistingReview(null);
+      })
+      .finally(() => {
+        if (isMounted) setCheckingExisting(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoggedIn, realBusinessId, business?.id, slugParam]);
 
   const handleInlineAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,6 +249,35 @@ function WriteReviewContent() {
         return;
       }
 
+      // If user already has a review, update it via PATCH /reviews/:id
+      if (existingReview?.id) {
+        const res = await fetch(`${API_BASE_URL}/reviews/${existingReview.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            rating,
+            title: title.trim(),
+            content: content.trim(),
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          setErrorMessage(data?.message || "Gagal memperbarui ulasan. Silakan coba lagi.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        toast.success("Ulasan Anda berhasil diperbarui!");
+        router.push(`/business/${business.slug}`);
+        return;
+      }
+
+      // Otherwise create a new review via POST /businesses/:id/reviews
       const res = await fetch(`${API_BASE_URL}/businesses/${targetId}/reviews`, {
         method: "POST",
         headers: {
@@ -211,7 +294,14 @@ function WriteReviewContent() {
       const data = await res.json();
 
       if (!res.ok) {
-        setErrorMessage(data?.message || "Gagal mengirim ulasan. Silakan coba lagi.");
+        if (res.status === 409) {
+          setErrorMessage(
+            data?.message ||
+              "Anda sudah pernah memberikan ulasan untuk bisnis ini. Silakan muat ulang halaman untuk memperbarui ulasan Anda."
+          );
+        } else {
+          setErrorMessage(data?.message || "Gagal mengirim ulasan. Silakan coba lagi.");
+        }
         setIsSubmitting(false);
         return;
       }
@@ -271,10 +361,12 @@ function WriteReviewContent() {
             <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1">
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-serif">
-                  Tulis Ulasan Bisnis
+                  {existingReview ? "Perbarui Ulasan Bisnis" : "Tulis Ulasan Bisnis"}
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-500 max-w-2xl leading-relaxed">
-                  Bagikan pengalaman jujurmu untuk membantu calon pelanggan lain dalam membuat keputusan yang lebih baik.
+                  {existingReview
+                    ? "Ubah penilaian bintang atau perbarui cerita pengalamanmu tentang bisnis ini."
+                    : "Bagikan pengalaman jujurmu untuk membantu calon pelanggan lain dalam membuat keputusan yang lebih baik."}
                 </p>
               </div>
 
@@ -510,6 +602,21 @@ function WriteReviewContent() {
                     </div>
                   </div>
 
+                  {/* EXISTING REVIEW NOTIFICATION BANNER */}
+                  {existingReview && (
+                    <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/80 flex items-start gap-3 text-amber-900 text-xs animate-in fade-in">
+                      <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="flex-1 space-y-1">
+                        <p className="font-bold text-sm text-amber-950">
+                          Kamu Sudah Pernah Memberikan Ulasan untuk Bisnis Ini
+                        </p>
+                        <p className="text-amber-800 leading-relaxed">
+                          Setiap akun dibatasi <strong>1 ulasan per bisnis</strong>. Ulasanmu sebelumnya telah otomatis dimuat di bawah ini. Kamu dapat mengubah nilai rating bintang atau memperbarui isi ceritamu.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* ERROR ALERT IF ANY */}
                   {errorMessage && (
                     <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-700 text-xs font-medium">
@@ -691,17 +798,17 @@ function WriteReviewContent() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-[#008767] hover:bg-[#007458] text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+                      className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-[#008767] hover:bg-[#007458] text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {isSubmitting ? (
                         <>
                           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          <span>Mengirim Ulasan...</span>
+                          <span>{existingReview ? "Menyimpan Perubahan..." : "Mengirim Ulasan..."}</span>
                         </>
                       ) : (
                         <>
                           <Check className="w-4 h-4" />
-                          <span>Kirim Ulasan Sekarang</span>
+                          <span>{existingReview ? "Simpan Perubahan Ulasan" : "Kirim Ulasan Sekarang"}</span>
                         </>
                       )}
                     </button>
