@@ -451,6 +451,7 @@ function SignupFormContent() {
                 <GoogleLoginButton
                   roleHint={role}
                   text="signup_with"
+                  shape="rounded-full"
                   onSuccess={(loggedUser) => {
                     setSuccess(true);
                     const destination = role === "bisnis" || loggedUser?.role === "bisnis" ? "/bisnis" : "/";

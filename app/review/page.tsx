@@ -724,6 +724,7 @@ function WriteReviewContent() {
                       <GoogleLoginButton
                         roleHint="customer"
                         text="signin_with"
+                        shape="rounded-2xl"
                         onSuccess={(loggedUser) => {
                           setModalTitle("Berhasil Masuk! 🎉");
                           setModalMessage(
@@ -873,6 +874,7 @@ function WriteReviewContent() {
                       <GoogleLoginButton
                         roleHint="customer"
                         text="signup_with"
+                        shape="rounded-2xl"
                         onSuccess={(loggedUser) => {
                           setModalTitle("Pendaftaran Berhasil! 🎉");
                           setModalMessage(

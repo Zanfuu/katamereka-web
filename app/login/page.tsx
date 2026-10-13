@@ -271,6 +271,7 @@ function LoginFormContent() {
           <GoogleLoginButton
             roleHint={isBisnis || selectedRole === "bisnis" ? "bisnis" : "customer"}
             text="signin_with"
+            shape="rounded-xl"
             onSuccess={(loggedUser) => {
               setSuccess(true);
               const isFinalBisnis = isBisnis || selectedRole === "bisnis" || loggedUser?.role === "bisnis";
