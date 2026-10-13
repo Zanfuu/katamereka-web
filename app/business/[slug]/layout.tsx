@@ -22,18 +22,19 @@ function cleanCategory(raw: string): string {
  * generateMetadata() and the layout body below both need this business's
  * data. cache() (React's per-request memoization) makes them share one
  * fetch instead of issuing two separate requests that could disagree if the
- * backend is flaky mid-request — that mismatch is exactly how the metadata
- * (title/description) could end up describing a different business than the
- * JSON-LD schema on the same page.
- *
- * Returns null when the slug has no matching business, or when the API
- * returned a business whose slug doesn't match — callers must call
- * notFound() rather than render anything.
+ * backend is flaky mid-request.
  */
 const getBusiness = cache(async (slug: string) => {
-  const res = await fetchBusinessBySlug(slug);
-  if (!res || !res.data || res.data.slug !== slug) return null;
-  return res.data;
+  const decoded = decodeURIComponent(slug).trim();
+  try {
+    const res = await fetchBusinessBySlug(decoded);
+    if (res?.data) return res.data;
+  } catch {}
+  try {
+    const res = await fetchBusinessBySlug(slug);
+    if (res?.data) return res.data;
+  } catch {}
+  return null;
 });
 
 export async function generateMetadata({

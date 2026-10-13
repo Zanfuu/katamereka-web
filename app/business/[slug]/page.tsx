@@ -921,12 +921,12 @@ export default function BusinessProfilePage() {
                       </div>
                     </div>
                     {businessReviews.length > 0 && (
-                      <button
-                        onClick={() => setActiveTab("review")}
+                      <Link
+                        href={`/business/${slug}/reviews`}
                         className="text-xs font-semibold text-[#008767] hover:underline"
                       >
                         Lihat semua →
-                      </button>
+                      </Link>
                     )}
                   </div>
 
@@ -947,12 +947,12 @@ export default function BusinessProfilePage() {
                         />
                       ))}
                       {businessReviews.length > 3 && (
-                        <button
-                          onClick={() => setActiveTab("review")}
-                          className="w-full py-3 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-600 hover:border-[#008767] hover:text-[#008767] transition-colors"
+                        <Link
+                          href={`/business/${slug}/reviews`}
+                          className="block text-center w-full py-3 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-600 hover:border-[#008767] hover:text-[#008767] transition-colors"
                         >
                           Lihat {businessReviews.length - 3} ulasan lainnya →
-                        </button>
+                        </Link>
                       )}
                     </div>
                   ) : (
