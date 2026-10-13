@@ -1,12 +1,12 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Navbar from "@/components/navbar";
 import { getBusinessBySlug, businesses, Business } from "@/lib/mock-data";
-import { fetchBusinessBySlug, mapApiBusinessToUiModel, API_BASE_URL } from "@/lib/api-client";
+import { fetchBusinessBySlug, mapApiBusinessToUiModel, API_BASE_URL, sendOtpApi } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import {
   Star,
@@ -28,7 +28,11 @@ import {
   KeyRound,
   LogIn,
   UserPlus,
-  Edit3
+  Edit3,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  ArrowRight
 } from "lucide-react";
 
 function WriteReviewContent() {
@@ -44,11 +48,29 @@ function WriteReviewContent() {
 
   // Inline Auth states for non-logged-in users
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authRegisterStep, setAuthRegisterStep] = useState<"form" | "otp">("form");
   const [authEmail, setAuthEmail] = useState<string>("");
   const [authPassword, setAuthPassword] = useState<string>("");
+  const [authConfirmPassword, setAuthConfirmPassword] = useState<string>("");
   const [authUsername, setAuthUsername] = useState<string>("");
+  const [showAuthPassword, setShowAuthPassword] = useState<boolean>(false);
+  const [showAuthConfirmPassword, setShowAuthConfirmPassword] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string>("");
   const [isAuthProcessing, setIsAuthProcessing] = useState<boolean>(false);
+  const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
+  const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [resendMessage, setResendMessage] = useState<string>("");
+
+  // 6-digit OTP state boxes
+  const [authOtpDigits, setAuthOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
+  const authOtpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Countdown before "Kirim Ulang OTP" can be pressed again
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   // Shadcn Dialog Modal state
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
@@ -139,7 +161,68 @@ function WriteReviewContent() {
     };
   }, [isLoggedIn, realBusinessId, business?.id, slugParam]);
 
-  const handleInlineAuthSubmit = (e: React.FormEvent) => {
+  // Handler for OTP input box change
+  const handleAuthOtpChange = (index: number, value: string) => {
+    const digit = value.replace(/\D/g, "").slice(-1);
+    const newOtp = [...authOtpDigits];
+    newOtp[index] = digit;
+    setAuthOtpDigits(newOtp);
+
+    // Auto-focus next input box
+    if (digit && index < 5) {
+      authOtpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  // Handler for OTP backspace navigation
+  const handleAuthOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace") {
+      if (!authOtpDigits[index] && index > 0) {
+        authOtpRefs.current[index - 1]?.focus();
+      }
+    }
+  };
+
+  // Handler for pasting 6-digit OTP code
+  const handleAuthOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (pastedData) {
+      const newOtp = [...authOtpDigits];
+      for (let i = 0; i < 6; i++) {
+        newOtp[i] = pastedData[i] || "";
+      }
+      setAuthOtpDigits(newOtp);
+      const focusIndex = Math.min(pastedData.length, 5);
+      authOtpRefs.current[focusIndex]?.focus();
+    }
+  };
+
+  // Resend OTP code handler
+  const handleResendAuthOtp = async () => {
+    if (resendCooldown > 0 || isSendingOtp) return;
+    setAuthError("");
+
+    setIsSendingOtp(true);
+    const res = await sendOtpApi({ email: authEmail.trim(), type: "REGISTRATION" });
+    setIsSendingOtp(false);
+
+    if (!res.success) {
+      setAuthError(res.message);
+      return;
+    }
+
+    setResendMessage("Kode OTP baru telah dikirim ke email Anda.");
+    setAuthOtpDigits(["", "", "", "", "", ""]);
+    setResendCooldown(60);
+    authOtpRefs.current[0]?.focus();
+    setTimeout(() => {
+      setResendMessage("");
+    }, 4000);
+  };
+
+  // Login handler
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError("");
 
@@ -153,42 +236,94 @@ function WriteReviewContent() {
       return;
     }
 
-    let finalUsername = authUsername.trim();
-    if (authMode === "register" && !finalUsername) {
-      const emailPrefix = authEmail.split("@")[0] || "user";
-      finalUsername = emailPrefix.toLowerCase().replace(/[^a-z0-9_]/g, "");
-      if (!finalUsername) finalUsername = "user_" + Math.floor(Math.random() * 1000);
+    setIsAuthProcessing(true);
+    const resLogin = await login(authEmail.trim(), authPassword);
+    setIsAuthProcessing(false);
+
+    if (resLogin.success) {
+      setModalTitle("Berhasil Masuk! 🎉");
+      setModalMessage(
+        "Selamat datang kembali! Akun kamu berhasil terverifikasi. Sekarang kamu dapat melanjutkan menulis ulasan."
+      );
+      setShowSuccessModal(true);
+    } else {
+      setAuthError(resLogin.message || "Gagal masuk. Periksa kembali email dan password kamu.");
+    }
+  };
+
+  // Step 1 Registration Form Submission (Send OTP & Proceed to Step 2)
+  const handleProceedToOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError("");
+
+    if (!authUsername.trim()) {
+      setAuthError("Username wajib diisi.");
+      return;
+    }
+
+    if (!authEmail.trim() || !authEmail.includes("@")) {
+      setAuthError("Masukkan alamat email yang valid.");
+      return;
+    }
+
+    if (!authPassword || authPassword.length < 6) {
+      setAuthError("Kata sandi minimal harus 6 karakter.");
+      return;
+    }
+
+    if (authPassword !== authConfirmPassword) {
+      setAuthError("Konfirmasi kata sandi tidak cocok dengan kata sandi Anda.");
+      return;
+    }
+
+    setIsSendingOtp(true);
+    const res = await sendOtpApi({ email: authEmail.trim(), type: "REGISTRATION" });
+    setIsSendingOtp(false);
+
+    if (!res.success) {
+      setAuthError(res.message || "Gagal mengirimkan kode OTP. Silakan periksa kembali email Anda.");
+      return;
+    }
+
+    setAuthError("");
+    setAuthOtpDigits(["", "", "", "", "", ""]);
+    setResendCooldown(60);
+    setAuthRegisterStep("otp");
+    setTimeout(() => {
+      authOtpRefs.current[0]?.focus();
+    }, 80);
+  };
+
+  // Step 2 Registration Submission (Verify OTP & Register)
+  const handleVerifyOtpAndRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError("");
+
+    const fullOtp = authOtpDigits.join("");
+    if (fullOtp.length !== 6) {
+      setAuthError("Kode OTP harus lengkap 6 digit angka.");
+      return;
     }
 
     setIsAuthProcessing(true);
+    const resSignup = await signup(
+      authUsername.trim(),
+      authEmail.trim(),
+      authPassword,
+      "customer",
+      fullOtp
+    );
+    setIsAuthProcessing(false);
 
-    setTimeout(async () => {
-      setIsAuthProcessing(false);
-      if (authMode === "register") {
-        const resSignup = await signup(finalUsername, authEmail, authPassword, "customer");
-        if (resSignup.success) {
-          await login(authEmail, authPassword);
-          setModalTitle("Pendaftaran Berhasil! 🎉");
-          setModalMessage(
-            `Selamat datang, @${finalUsername.toLowerCase()}! Akun kamu berhasil dibuat. Sekarang kamu dapat melanjutkan menulis ulasan.`
-          );
-          setShowSuccessModal(true);
-        } else {
-          setAuthError(resSignup.message || "Gagal mendaftar. Pastikan data yang dimasukkan benar.");
-        }
-      } else {
-        const resLogin = await login(authEmail, authPassword);
-        if (resLogin.success) {
-          setModalTitle("Berhasil Masuk! 🎉");
-          setModalMessage(
-            "Selamat datang kembali! Akun kamu berhasil terverifikasi. Sekarang kamu dapat melanjutkan menulis ulasan."
-          );
-          setShowSuccessModal(true);
-        } else {
-          setAuthError(resLogin.message || "Gagal masuk. Periksa kembali email dan password kamu.");
-        }
-      }
-    }, 600);
+    if (resSignup.success) {
+      setModalTitle("Pendaftaran Berhasil! 🎉");
+      setModalMessage(
+        `Selamat datang, @${authUsername.trim().toLowerCase()}! Akun kamu berhasil dibuat dan diverifikasi. Sekarang kamu dapat melanjutkan menulis ulasan.`
+      );
+      setShowSuccessModal(true);
+    } else {
+      setAuthError(resSignup.message || "Gagal memproses pendaftaran. Silakan periksa kembali kode OTP Anda.");
+    }
   };
 
   const handleSelectBusiness = (newSlug: string) => {
@@ -429,79 +564,182 @@ function WriteReviewContent() {
               {/* CARD 2: INLINE AUTH PROMPT (If not logged in) OR REVIEW FORM (If logged in) */}
               {!isLoggedIn ? (
                 <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6">
-                  {/* Lock Header */}
+                  {/* Header */}
                   <div className="text-center space-y-2 pb-4 border-b border-slate-100">
                     <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 text-[#008767] flex items-center justify-center mx-auto shadow-2xs">
-                      <Lock className="w-6 h-6" />
+                      {authMode === "register" && authRegisterStep === "otp" ? (
+                        <KeyRound className="w-6 h-6" />
+                      ) : (
+                        <Lock className="w-6 h-6" />
+                      )}
                     </div>
                     <h2 className="text-xl font-extrabold text-slate-900">
-                      Masuk untuk Menulis Ulasan
+                      {authMode === "login"
+                        ? "Masuk untuk Menulis Ulasan"
+                        : authRegisterStep === "otp"
+                        ? "Verifikasi Kode OTP"
+                        : "Daftar Akun untuk Menulis Ulasan"}
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-                      Kamu harus memiliki akun Katamereka untuk memberikan ulasan jujur dan membantu calon pengunjung lainnya.
+                      {authMode === "login"
+                        ? "Kamu harus memiliki akun Katamereka untuk memberikan ulasan jujur dan membantu calon pengunjung lainnya."
+                        : authRegisterStep === "otp"
+                        ? `Masukkan kode OTP 6-digit yang telah dikirimkan ke email ${authEmail}.`
+                        : "Lengkapi pendaftaran di bawah ini untuk mulai memberikan ulasan jujur bagi komunitas Katamereka."}
                     </p>
                   </div>
 
-                  {/* Mode Selector Tabs (Masuk vs Daftar) */}
-                  <div className="flex rounded-2xl bg-slate-100 p-1.5 font-semibold text-xs border border-slate-200/60">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setAuthMode("login");
-                        setAuthError("");
-                      }}
-                      className={`flex-1 py-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer select-none ${
-                        authMode === "login"
-                          ? "bg-white text-[#008767] shadow-md font-extrabold ring-1 ring-slate-200/80"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-                      }`}
-                    >
-                      <LogIn className="w-4 h-4" />
-                      <span>Masuk (Login)</span>
-                    </button>
+                  {/* Mode Selector Tabs (Masuk vs Daftar) - Disembunyikan saat input OTP */}
+                  {!(authMode === "register" && authRegisterStep === "otp") && (
+                    <div className="flex rounded-2xl bg-slate-100 p-1.5 font-semibold text-xs border border-slate-200/60">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setAuthMode("login");
+                          setAuthRegisterStep("form");
+                          setAuthError("");
+                          setResendMessage("");
+                        }}
+                        className={`flex-1 py-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer select-none ${
+                          authMode === "login"
+                            ? "bg-white text-[#008767] shadow-md font-extrabold ring-1 ring-slate-200/80"
+                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                        }`}
+                      >
+                        <LogIn className="w-4 h-4" />
+                        <span>Masuk (Login)</span>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setAuthMode("register");
-                        setAuthError("");
-                      }}
-                      className={`flex-1 py-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer select-none ${
-                        authMode === "register"
-                          ? "bg-[#008767] text-white shadow-md font-extrabold ring-1 ring-[#007458]"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-                      }`}
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      <span>Daftar Akun</span>
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setAuthMode("register");
+                          setAuthRegisterStep("form");
+                          setAuthError("");
+                          setResendMessage("");
+                        }}
+                        className={`flex-1 py-3 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer select-none ${
+                          authMode === "register"
+                            ? "bg-[#008767] text-white shadow-md font-extrabold ring-1 ring-[#007458]"
+                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                        }`}
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Daftar Akun</span>
+                      </button>
+                    </div>
+                  )}
 
                   {/* Auth Error Alert */}
                   {authError && (
-                    <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-center gap-2.5 text-rose-700 text-xs font-medium">
+                    <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-center gap-2.5 text-rose-700 text-xs font-medium animate-fadeIn">
                       <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
                       <span>{authError}</span>
                     </div>
                   )}
 
-                  {/* Auth Form */}
-                  <form onSubmit={handleInlineAuthSubmit} className="space-y-4">
-                    {/* Register Username field */}
-                    {authMode === "register" && (
-                      <div className="space-y-1.5 animate-fadeIn">
-                        <div className="flex justify-between items-center">
-                          <label className="block text-xs font-bold text-slate-800">
-                            Username <span className="text-slate-400 font-normal">(Opsional)</span>
-                          </label>
-                          <span className="text-[10px] text-slate-400">Otomatis jika kosong</span>
+                  {/* Resend Notice */}
+                  {resendMessage && (
+                    <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-emerald-800 text-xs font-medium animate-fadeIn">
+                      <CheckCircle2 className="w-4 h-4 text-[#008767] shrink-0" />
+                      <span>{resendMessage}</span>
+                    </div>
+                  )}
+
+                  {/* 1. LOGIN FORM */}
+                  {authMode === "login" && (
+                    <form onSubmit={handleLoginSubmit} className="space-y-4">
+                      {/* Email field */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-800">
+                          Email <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                          <input
+                            type="email"
+                            required
+                            value={authEmail}
+                            onChange={(e) => setAuthEmail(e.target.value)}
+                            placeholder="nama@email.com"
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-[#008767] focus:ring-2 focus:ring-[#008767]/20 transition-all bg-slate-50/50"
+                          />
                         </div>
+                      </div>
+
+                      {/* Password field */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-800">
+                          Password <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                          <input
+                            type={showAuthPassword ? "text" : "password"}
+                            required
+                            value={authPassword}
+                            onChange={(e) => setAuthPassword(e.target.value)}
+                            placeholder="••••••••"
+                            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-[#008767] focus:ring-2 focus:ring-[#008767]/20 transition-all bg-slate-50/50"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowAuthPassword(!showAuthPassword)}
+                            className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600"
+                          >
+                            {showAuthPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Submit button */}
+                      <button
+                        type="submit"
+                        disabled={isAuthProcessing}
+                        className="w-full py-3.5 rounded-2xl bg-[#008767] hover:bg-[#007458] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-70 mt-3 cursor-pointer"
+                      >
+                        {isAuthProcessing ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Memproses Masuk...</span>
+                          </>
+                        ) : (
+                          <span>Masuk & Lanjutkan Review</span>
+                        )}
+                      </button>
+
+                      <div className="pt-2 text-center text-xs text-slate-500">
+                        <span>Belum punya akun? </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthMode("register");
+                            setAuthRegisterStep("form");
+                            setAuthError("");
+                          }}
+                          className="font-bold text-[#008767] hover:underline cursor-pointer"
+                        >
+                          Daftar Akun Baru
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* 2. REGISTER STEP 1: FORM LENGKAP */}
+                  {authMode === "register" && authRegisterStep === "form" && (
+                    <form onSubmit={handleProceedToOtp} className="space-y-4">
+                      {/* Username field */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-800">
+                          Username <span className="text-rose-500">*</span>
+                        </label>
                         <div className="relative">
                           <UserIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                           <input
                             type="text"
+                            required
                             value={authUsername}
                             onChange={(e) => setAuthUsername(e.target.value)}
                             placeholder="Contoh: dewi_lestari"
@@ -509,72 +747,202 @@ function WriteReviewContent() {
                           />
                         </div>
                       </div>
-                    )}
 
-                    {/* Email field */}
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-bold text-slate-800">
-                        Email <span className="text-rose-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                        <input
-                          type="email"
-                          required
-                          value={authEmail}
-                          onChange={(e) => setAuthEmail(e.target.value)}
-                          placeholder="nama@email.com"
-                          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-[#008767] focus:ring-2 focus:ring-[#008767]/20 transition-all bg-slate-50/50"
-                        />
+                      {/* Email field */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-800">
+                          Email <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                          <input
+                            type="email"
+                            required
+                            value={authEmail}
+                            onChange={(e) => setAuthEmail(e.target.value)}
+                            placeholder="nama@email.com"
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-[#008767] focus:ring-2 focus:ring-[#008767]/20 transition-all bg-slate-50/50"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Password field */}
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-bold text-slate-800">
-                        Password <span className="text-rose-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                        <input
-                          type="password"
-                          required
-                          value={authPassword}
-                          onChange={(e) => setAuthPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-[#008767] focus:ring-2 focus:ring-[#008767]/20 transition-all bg-slate-50/50"
-                        />
+                      {/* Kata Sandi */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-800">
+                          Kata Sandi <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                          <input
+                            type={showAuthPassword ? "text" : "password"}
+                            required
+                            value={authPassword}
+                            onChange={(e) => setAuthPassword(e.target.value)}
+                            placeholder="Minimal 6 karakter"
+                            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-[#008767] focus:ring-2 focus:ring-[#008767]/20 transition-all bg-slate-50/50"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowAuthPassword(!showAuthPassword)}
+                            className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600"
+                          >
+                            {showAuthPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-slate-400">Minimal 6 karakter</p>
                       </div>
-                      <p className="text-[11px] text-slate-400">Minimal 6 karakter</p>
-                    </div>
 
-                    {/* Submit button */}
-                    <button
-                      type="submit"
-                      disabled={isAuthProcessing}
-                      className="w-full py-3.5 rounded-2xl bg-[#008767] hover:bg-[#007458] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-70 mt-3 cursor-pointer"
-                    >
-                      {isAuthProcessing ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          <span>{authMode === "login" ? "Memproses Masuk..." : "Mendaftarkan..."}</span>
-                        </>
-                      ) : (
-                        <span>{authMode === "login" ? "Masuk & Lanjutkan Review" : "Daftar & Lanjutkan Review"}</span>
-                      )}
-                    </button>
-                  </form>
+                      {/* Konfirmasi Kata Sandi */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-800">
+                          Konfirmasi Kata Sandi <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                          <input
+                            type={showAuthConfirmPassword ? "text" : "password"}
+                            required
+                            value={authConfirmPassword}
+                            onChange={(e) => setAuthConfirmPassword(e.target.value)}
+                            placeholder="Ulangi kata sandi"
+                            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-[#008767] focus:ring-2 focus:ring-[#008767]/20 transition-all bg-slate-50/50"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowAuthConfirmPassword(!showAuthConfirmPassword)}
+                            className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600"
+                          >
+                            {showAuthConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
 
-                  {/* Direct Link to Full Registration */}
-                  <div className="pt-3 border-t border-slate-100 text-center">
-                    <Link
-                      href={`/signup?redirect=/review?business=${slugParam}`}
-                      className="text-xs text-slate-500 hover:text-[#008767] font-semibold transition-colors inline-flex items-center gap-1 group"
-                    >
-                      <span>Ingin opsi pendaftaran lengkap?</span>
-                      <span className="text-[#008767] underline group-hover:no-underline">Buka Halaman Register →</span>
-                    </Link>
-                  </div>
+                      {/* Proceed to OTP button */}
+                      <button
+                        type="submit"
+                        disabled={isSendingOtp}
+                        className="w-full py-3.5 rounded-2xl bg-[#008767] hover:bg-[#007458] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-70 mt-3 cursor-pointer"
+                      >
+                        {isSendingOtp ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Mengirim Kode OTP...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Daftar & Kirim Kode OTP</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+
+                      <div className="pt-2 text-center text-xs text-slate-500">
+                        <span>Sudah punya akun? </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthMode("login");
+                            setAuthError("");
+                          }}
+                          className="font-bold text-[#008767] hover:underline cursor-pointer"
+                        >
+                          Masuk di sini
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* 3. REGISTER STEP 2: VERIFIKASI KODE OTP */}
+                  {authMode === "register" && authRegisterStep === "otp" && (
+                    <form onSubmit={handleVerifyOtpAndRegister} className="space-y-5 animate-fadeIn">
+                      <div className="p-3 bg-emerald-50/80 rounded-2xl border border-emerald-100 flex items-start gap-2.5 text-xs text-emerald-900">
+                        <Info className="w-4 h-4 text-[#008767] shrink-0 mt-0.5" />
+                        <div>
+                          <span>Kode verifikasi 6 digit telah dikirim ke </span>
+                          <strong className="font-bold text-slate-900">{authEmail}</strong>.
+                          <span> Silakan cek kotak masuk atau folder spam email kamu.</span>
+                        </div>
+                      </div>
+
+                      {/* 6 INDIVIDUAL OTP DIGIT BOXES */}
+                      <div className="flex items-center justify-center gap-2 sm:gap-2.5 my-3">
+                        {authOtpDigits.map((digit, index) => (
+                          <input
+                            key={index}
+                            ref={(el) => {
+                              authOtpRefs.current[index] = el;
+                            }}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={digit}
+                            onChange={(e) => handleAuthOtpChange(index, e.target.value)}
+                            onKeyDown={(e) => handleAuthOtpKeyDown(index, e)}
+                            onPaste={handleAuthOtpPaste}
+                            className="w-10 h-13 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-extrabold font-mono text-slate-900 bg-slate-50/90 border border-slate-200 focus:border-[#008767] focus:bg-white focus:ring-2 focus:ring-[#008767]/20 rounded-2xl outline-none transition-all shadow-xs"
+                          />
+                        ))}
+                      </div>
+
+                      <p className="text-xs text-slate-400 text-center font-medium">
+                        Pastikan Kode OTP Sesuai
+                      </p>
+
+                      {/* Resend OTP */}
+                      <div className="flex items-center justify-between text-xs pt-1 pb-1">
+                        <span className="text-slate-500">Tidak menerima kode?</span>
+                        <button
+                          type="button"
+                          onClick={handleResendAuthOtp}
+                          disabled={resendCooldown > 0 || isSendingOtp}
+                          className="inline-flex items-center gap-1.5 font-bold text-[#008767] hover:underline cursor-pointer disabled:text-slate-400 disabled:no-underline disabled:cursor-not-allowed"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${isSendingOtp ? "animate-spin" : ""}`} />
+                          <span>
+                            {isSendingOtp
+                              ? "Mengirim..."
+                              : resendCooldown > 0
+                              ? `Kirim Ulang (${resendCooldown}s)`
+                              : "Kirim Ulang OTP"}
+                          </span>
+                        </button>
+                      </div>
+
+                      {/* Verify Button */}
+                      <button
+                        type="submit"
+                        disabled={isAuthProcessing}
+                        className="w-full py-3.5 rounded-2xl bg-[#008767] hover:bg-[#007458] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-70 mt-3 cursor-pointer"
+                      >
+                        {isAuthProcessing ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Memverifikasi OTP...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Verifikasi & Selesaikan Pendaftaran</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+
+                      {/* Back to Form Button */}
+                      <div className="text-center pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthRegisterStep("form");
+                            setAuthError("");
+                          }}
+                          className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          <span>Ubah Email atau Data Pendaftaran</span>
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-8">
