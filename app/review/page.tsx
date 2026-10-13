@@ -8,6 +8,7 @@ import Navbar from "@/components/navbar";
 import { getBusinessBySlug, businesses, Business } from "@/lib/mock-data";
 import { fetchBusinessBySlug, mapApiBusinessToUiModel, API_BASE_URL, sendOtpApi } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import GoogleLoginButton from "@/components/google-login-button";
 import {
   Star,
   UploadCloud,
@@ -710,6 +711,29 @@ function WriteReviewContent() {
                         )}
                       </button>
 
+                      {/* Separator */}
+                      <div className="relative my-3 flex items-center justify-center">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-slate-200/80" />
+                        </div>
+                        <span className="relative bg-white px-3 text-[11px] uppercase tracking-wider text-slate-400 font-bold">
+                          atau masuk dengan
+                        </span>
+                      </div>
+
+                      <GoogleLoginButton
+                        roleHint="customer"
+                        text="signin_with"
+                        onSuccess={(loggedUser) => {
+                          setModalTitle("Berhasil Masuk! 🎉");
+                          setModalMessage(
+                            `Selamat datang kembali, @${loggedUser?.username || "pengguna"}! Akun kamu berhasil terverifikasi. Sekarang kamu dapat melanjutkan menulis ulasan.`
+                          );
+                          setShowSuccessModal(true);
+                        }}
+                        onError={(msg) => setAuthError(msg)}
+                      />
+
                       <div className="pt-2 text-center text-xs text-slate-500">
                         <span>Belum punya akun? </span>
                         <button
@@ -835,6 +859,29 @@ function WriteReviewContent() {
                           </>
                         )}
                       </button>
+
+                      {/* Separator */}
+                      <div className="relative my-3 flex items-center justify-center">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-slate-200/80" />
+                        </div>
+                        <span className="relative bg-white px-3 text-[11px] uppercase tracking-wider text-slate-400 font-bold">
+                          atau daftar dengan
+                        </span>
+                      </div>
+
+                      <GoogleLoginButton
+                        roleHint="customer"
+                        text="signup_with"
+                        onSuccess={(loggedUser) => {
+                          setModalTitle("Pendaftaran Berhasil! 🎉");
+                          setModalMessage(
+                            `Selamat datang, @${loggedUser?.username || "pengguna"}! Akun kamu berhasil dibuat dan diverifikasi. Sekarang kamu dapat melanjutkan menulis ulasan.`
+                          );
+                          setShowSuccessModal(true);
+                        }}
+                        onError={(msg) => setAuthError(msg)}
+                      />
 
                       <div className="pt-2 text-center text-xs text-slate-500">
                         <span>Sudah punya akun? </span>

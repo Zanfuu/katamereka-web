@@ -37,6 +37,7 @@ interface AuthContextType {
   user: UserProfile | null;
   isLoggedIn: boolean;
   login: (email: string, pass: string, hintRole?: UserRole) => Promise<AuthResponse>;
+  loginWithGoogle: (idToken: string, hintRole?: UserRole) => Promise<AuthResponse>;
   signup: (name: string, email: string, pass: string, role?: UserRole, otp?: string) => Promise<AuthResponse>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<AuthResponse>;
   getUsers: () => Promise<{ success: boolean; message: string; data?: any[] }>;
@@ -63,6 +64,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoggedIn: false,
   login: async () => ({ success: false, message: "" }),
+  loginWithGoogle: async () => ({ success: false, message: "" }),
   signup: async () => ({ success: false, message: "" }),
   changePassword: async () => ({ success: false, message: "" }),
   getUsers: async () => ({ success: false, message: "" }),
@@ -340,6 +342,86 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const loginWithGoogle = async (
+    idToken: string,
+    hintRole?: UserRole
+  ): Promise<AuthResponse> => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        let errorMsg = "Gagal login dengan akun Google";
+        if (data.message) {
+          errorMsg = Array.isArray(data.message) ? data.message.join(". ") : String(data.message);
+        }
+        return { success: false, message: errorMsg };
+      }
+
+      const returnedUser = data.user || {};
+      const returnedEmail = returnedUser.email || "";
+      const lowerEmail = returnedEmail.toLowerCase().trim();
+
+      const { role: userRole, platformRole, businessRole } = resolveUserRole(
+        returnedUser,
+        hintRole,
+        null,
+        lowerEmail
+      );
+
+      const userName = returnedUser.name || lowerEmail.split("@")[0];
+      const initials = userName
+        .split(" ")
+        .map((w: string) => w[0])
+        .join("")
+        .substring(0, 2)
+        .toUpperCase();
+
+      const loadedUser: UserProfile = {
+        id: returnedUser.id || "",
+        name: userName,
+        username: lowerEmail.split("@")[0].toLowerCase().replace(/\s+/g, ""),
+        email: returnedEmail || lowerEmail,
+        initials: initials || "-",
+        joinedDate: "Okt 2026",
+        verified: true,
+        role: userRole,
+        platformRole,
+        businessRole,
+        status: returnedUser.status || "ACTIVE",
+        accessToken: data.accessToken,
+        reviewCount: 0,
+        helpfulCount: 0,
+        businessCount: userRole === "bisnis" ? 1 : 0,
+      };
+
+      setUser(loadedUser);
+      setIsLoggedIn(true);
+      setSessionCookie(data.accessToken);
+
+      localStorage.setItem("accessToken", data.accessToken);
+      localStorage.setItem("katamereka_active_user", JSON.stringify(loadedUser));
+
+      if (typeof window !== "undefined" && (window as any).google?.accounts?.id?.disableAutoSelect) {
+        (window as any).google.accounts.id.disableAutoSelect();
+      }
+
+      return {
+        success: true,
+        message: data.message || "Login dengan Google berhasil",
+        user: loadedUser,
+        accessToken: data.accessToken,
+      };
+    } catch (e) {
+      return { success: false, message: "Terjadi kesalahan koneksi ke server" };
+    }
+  };
+
   const signup = async (
     name: string,
     email: string,
@@ -501,6 +583,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // ignore
     }
     if (typeof window !== "undefined") {
+      if ((window as any).google?.accounts?.id?.disableAutoSelect) {
+        (window as any).google.accounts.id.disableAutoSelect();
+      }
       window.location.href = "/";
     }
   };
@@ -511,6 +596,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         user: user || (isLoggedIn ? null : emptyDefaultUser),
         isLoggedIn,
         login,
+        loginWithGoogle,
         signup,
         changePassword,
         getUsers,
