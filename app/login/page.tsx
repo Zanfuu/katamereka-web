@@ -33,6 +33,9 @@ function LoginFormContent() {
   const [changePassError, setChangePassError] = useState("");
   const [changePassSuccess, setChangePassSuccess] = useState("");
 
+  const isBusinessSubdomain = typeof window !== "undefined" && window.location.hostname.startsWith("business.");
+  const [selectedRole, setSelectedRole] = useState<"customer" | "bisnis">(isBisnis || isBusinessSubdomain ? "bisnis" : "customer");
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -49,22 +52,16 @@ function LoginFormContent() {
 
     setIsLoading(true);
 
-    const res = await login(email, password);
+    const isBisnisAccount = isBisnis || isBusinessSubdomain || selectedRole === "bisnis";
+    const res = await login(email, password, isBisnisAccount ? "bisnis" : undefined);
     if (res.success) {
       setIsLoading(false);
       setSuccess(true);
 
-      // Land on the site home by default — a business account always has
-      // the "Dashboard" button in the navbar (see navbar.tsx isBusinessUser)
-      // rather than being dropped straight into /dashboard. Only an explicit
-      // redirect param (from a forced-login bounce) overrides this.
-      const targetPath = redirectParam || "/";
+      const isFinalBisnis = isBisnisAccount || res.user?.role === "bisnis";
+      const targetPath = redirectParam || (isFinalBisnis ? "/bisnis" : "/");
 
       setTimeout(() => {
-        // Hard navigation, not router.push: the client router cached the
-        // pre-login redirect-to-login outcome for this path, and a soft
-        // nav would replay that stale cache instead of re-checking the
-        // fresh cookie against middleware.
         window.location.href = targetPath;
       }, 800);
     } else {

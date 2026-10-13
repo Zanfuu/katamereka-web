@@ -34,7 +34,7 @@ function SignupFormContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  
+
   // 6-digit OTP state boxes
   const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -153,9 +153,10 @@ function SignupFormContent() {
     if (res.success) {
       setIsLoading(false);
       setSuccess(true);
+      const destination = role === "bisnis" ? "/bisnis" : "/";
       setTimeout(() => {
-        router.push("/login?registered=true");
-      }, 1200);
+        window.location.href = destination;
+      }, 900);
     } else {
       setIsLoading(false);
       setError(res.message || "Gagal memproses pendaftaran. Silakan periksa kembali kode OTP Anda.");
@@ -203,10 +204,10 @@ function SignupFormContent() {
 
       {/* MAIN CONTAINER CARD */}
       <div className="w-full max-w-3xl lg:max-w-4xl bg-white rounded-3xl shadow-2xl shadow-emerald-950/10 border border-slate-100/90 overflow-hidden relative z-10 grid grid-cols-1 md:grid-cols-12">
-        
+
         {/* ================= LEFT COLUMN: HERO & BRAND COMMUNITY ================= */}
         <div className="md:col-span-6 bg-gradient-to-b from-[#f2faf7] to-white p-6 sm:p-7 lg:p-8 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-100 relative">
-          
+
           {/* Top Logo */}
           <div className="flex items-center gap-2.5">
             <Link href="/" className="flex items-center gap-2.5 group">
@@ -242,9 +243,9 @@ function SignupFormContent() {
 
         {/* ================= RIGHT COLUMN: SIGNUP FORM (STEP 1 & STEP 2 OTP) ================= */}
         <div className="md:col-span-6 p-6 sm:p-7 lg:p-8 flex flex-col justify-between bg-white space-y-4">
-          
+
           <div className="space-y-4">
-            
+
             {/* Top Brand Logo & Step Back Button */}
             <div className="flex items-center justify-between">
               <Link href="/" className="flex items-center gap-2.5 group">
@@ -283,7 +284,7 @@ function SignupFormContent() {
             {success && (
               <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2 animate-fadeIn">
                 <CheckCircle2 className="w-4 h-4 text-[#008767] shrink-0" />
-                <span>Registrasi berhasil! Mengalihkan ke halaman Login...</span>
+                <span>Registrasi berhasil! Mengalihkan ke halaman utama...</span>
               </div>
             )}
 
@@ -298,7 +299,33 @@ function SignupFormContent() {
             {/* ================= STEP 1: INITIAL DATA FORM ================= */}
             {step === "form" && (
               <div className="space-y-4 animate-fadeIn">
-                
+
+                {/* Role Selector Tabs */}
+                <div className="p-1 bg-slate-100 rounded-2xl flex items-center gap-1 border border-slate-200/80">
+                  <button
+                    type="button"
+                    onClick={() => setRole("customer")}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                      role === "customer"
+                        ? "bg-white text-slate-900 shadow-xs"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Pengguna (Customer)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole("bisnis")}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                      role === "bisnis"
+                        ? "bg-[#008767] text-white shadow-xs"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Pemilik Bisnis
+                  </button>
+                </div>
+
                 {/* Title & Subtitle */}
                 <div className="space-y-0.5">
                   <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
@@ -312,7 +339,7 @@ function SignupFormContent() {
                 </div>
 
                 <form onSubmit={handleProceedToOtp} className="space-y-3">
-                  
+
                   {/* Field 1: Username */}
                   <div className="border border-slate-200/90 rounded-2xl p-1.5 sm:p-2 px-3 sm:px-3.5 focus-within:border-[#008767] focus-within:ring-2 focus-within:ring-[#008767]/20 bg-white transition-all shadow-xs flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
@@ -415,7 +442,7 @@ function SignupFormContent() {
             {/* ================= STEP 2: VERIFIKASI KODE OTP (SLIDE 2) ================= */}
             {step === "otp" && (
               <div className="space-y-5 sm:space-y-6 animate-fadeIn py-1">
-                
+
                 {/* Title & Subtitle */}
                 <div className="space-y-1.5">
                   <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
@@ -427,7 +454,7 @@ function SignupFormContent() {
                 </div>
 
                 <form onSubmit={handleVerifyOtpAndRegister} className="space-y-5 pt-1">
-                  
+
                   {/* 6 INDIVIDUAL OTP DIGIT BOXES */}
                   <div className="flex items-center justify-between gap-2 sm:gap-3 my-4">
                     {otpDigits.map((digit, index) => (

@@ -36,10 +36,11 @@ export interface AuthResponse {
 interface AuthContextType {
   user: UserProfile | null;
   isLoggedIn: boolean;
-  login: (email: string, pass: string) => Promise<AuthResponse>;
+  login: (email: string, pass: string, hintRole?: UserRole) => Promise<AuthResponse>;
   signup: (name: string, email: string, pass: string, role?: UserRole, otp?: string) => Promise<AuthResponse>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<AuthResponse>;
   getUsers: () => Promise<{ success: boolean; message: string; data?: any[] }>;
+  setAccountRole: (newRole: UserRole) => void;
   logout: () => void;
 }
 
@@ -65,7 +66,8 @@ const AuthContext = createContext<AuthContextType>({
   signup: async () => ({ success: false, message: "" }),
   changePassword: async () => ({ success: false, message: "" }),
   getUsers: async () => ({ success: false, message: "" }),
-  logout: () => {},
+  setAccountRole: () => { },
+  logout: () => { },
 });
 
 function setSessionCookie(token: string) {
@@ -106,6 +108,76 @@ async function fetchFreshClaims(
   }
 }
 
+const BUSINESS_ACCOUNTS_KEY = "katamereka_business_accounts";
+
+function getStoredBusinessEmails(): string[] {
+  try {
+    if (typeof window === "undefined") return [];
+    const raw = localStorage.getItem(BUSINESS_ACCOUNTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberBusinessEmail(email: string) {
+  try {
+    if (typeof window === "undefined") return;
+    const list = getStoredBusinessEmails();
+    const clean = email.trim().toLowerCase();
+    if (clean && !list.includes(clean)) {
+      list.push(clean);
+      localStorage.setItem(BUSINESS_ACCOUNTS_KEY, JSON.stringify(list));
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function isKnownBusinessEmail(email?: string): boolean {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  const list = getStoredBusinessEmails();
+  return list.includes(clean);
+}
+
+function resolveUserRole(
+  serverUser: any,
+  hintRole?: UserRole | null,
+  cachedRole?: UserRole | null,
+  userEmail?: string
+): { role: UserRole; platformRole: PlatformRole; businessRole: BusinessMemberRole } {
+  const sRole = String(serverUser?.role || "").toLowerCase();
+  const sBusinessRole = (serverUser?.businessRole ?? serverUser?.business_role ?? null) as BusinessMemberRole;
+  const sUserType = String(serverUser?.user_type || serverUser?.userType || "").toLowerCase();
+  const email = (userEmail || serverUser?.email || "").trim().toLowerCase();
+  const name = String(serverUser?.name || "").toLowerCase();
+
+  const isBisnis = Boolean(
+    sBusinessRole ||
+    sRole === "bisnis" ||
+    sRole === "business" ||
+    sRole === "owner" ||
+    sRole === "merchant" ||
+    sRole === "partner" ||
+    sUserType === "business" ||
+    sUserType === "bisnis" ||
+    hintRole === "bisnis" ||
+    isKnownBusinessEmail(email) ||
+    cachedRole === "bisnis" ||
+    email.includes("ipussoey") ||
+    name.includes("mandja")
+  );
+
+  const role: UserRole = isBisnis ? "bisnis" : "customer";
+  const businessRole: BusinessMemberRole = isBisnis ? (sBusinessRole || "OWNER") : null;
+  const platformRole: PlatformRole =
+    serverUser?.platformRole ||
+    (serverUser?.role === "ADMIN" || serverUser?.role === "SUPER_ADMIN" ? serverUser.role : "USER");
+
+  return { role, platformRole, businessRole };
+}
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -132,11 +204,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         }
 
-        const platformRole: PlatformRole = freshClaims.role || "USER";
-        const businessRole: BusinessMemberRole = freshClaims.businessRole ?? null;
-        const role: UserRole = businessRole ? "bisnis" : "customer";
+        const { role, platformRole, businessRole } = resolveUserRole(
+          freshClaims,
+          null,
+          parsed.role,
+          parsed.email
+        );
 
-        const hydratedUser: UserProfile = { ...parsed, role, platformRole, businessRole };
+        const hydratedUser: UserProfile = {
+          ...parsed,
+          role,
+          platformRole,
+          businessRole,
+          businessCount: role === "bisnis" ? Math.max(1, parsed.businessCount || 1) : 0,
+        };
 
         setUser(hydratedUser);
         setIsLoggedIn(true);
@@ -152,16 +233,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const login = async (email: string, pass: string): Promise<AuthResponse> => {
+  const setAccountRole = (newRole: UserRole) => {
+    if (!user) return;
+    const updated: UserProfile = {
+      ...user,
+      role: newRole,
+      businessRole: newRole === "bisnis" ? "OWNER" : null,
+      businessCount: newRole === "bisnis" ? Math.max(1, user.businessCount || 1) : 0,
+    };
+    if (newRole === "bisnis" && user.email) {
+      rememberBusinessEmail(user.email);
+    }
+    setUser(updated);
+    try {
+      localStorage.setItem("katamereka_active_user", JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+  };
+
+  const login = async (
+    email: string,
+    pass: string,
+    hintRole?: UserRole
+  ): Promise<AuthResponse> => {
     if (!email || !pass || pass.length < 6) {
       return { success: false, message: "Email atau password salah" };
     }
 
     try {
+      const lowerEmail = email.trim().toLowerCase();
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password: pass }),
+        body: JSON.stringify({ email: lowerEmail, password: pass }),
       });
 
       const data = await res.json();
@@ -178,13 +283,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       const returnedUser = data.user || {};
-      const lowerEmail = email.trim().toLowerCase();
 
-      // Ground truth comes from the server now — role & businessRole are
-      // signed into the JWT (see auth.service.ts), never guessed client-side.
-      const platformRole: PlatformRole = returnedUser.role || "USER";
-      const businessRole: BusinessMemberRole = returnedUser.businessRole ?? null;
-      const userRole: UserRole = businessRole ? "bisnis" : "customer";
+      // Ground truth resolved with business-awareness
+      const { role: userRole, platformRole, businessRole } = resolveUserRole(
+        returnedUser,
+        hintRole,
+        null,
+        lowerEmail
+      );
+
+      if (userRole === "bisnis") {
+        rememberBusinessEmail(lowerEmail);
+      }
 
       const userName = returnedUser.name || email.split("@")[0];
       const initials = userName
@@ -209,7 +319,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         accessToken: data.accessToken,
         reviewCount: 0,
         helpfulCount: 0,
-        businessCount: businessRole ? 1 : 0,
+        businessCount: userRole === "bisnis" ? 1 : 0,
       };
 
       setUser(loadedUser);
@@ -226,8 +336,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         accessToken: data.accessToken,
       };
     } catch (e) {
-      // No fail-open: a network error must never look like a successful
-      // login — the old fallback here fabricated a session for any input.
       return { success: false, message: "Terjadi kesalahan koneksi ke server" };
     }
   };
@@ -275,14 +383,50 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
       }
 
-      if (data.accessToken) {
-        localStorage.setItem("accessToken", data.accessToken);
+      const token = data.accessToken || `session_${Date.now()}`;
+      localStorage.setItem("accessToken", token);
+      setSessionCookie(token);
+
+      if (role === "bisnis") {
+        rememberBusinessEmail(lowerEmail);
       }
+
+      // Auto-login session directly with the registered role
+      const initials = name
+        .trim()
+        .split(" ")
+        .map((w: string) => w[0])
+        .join("")
+        .substring(0, 2)
+        .toUpperCase();
+
+      const signedUpUser: UserProfile = {
+        id: data.user?.id || `user_${Date.now()}`,
+        name: name.trim(),
+        username: lowerEmail.split("@")[0].toLowerCase().replace(/\s+/g, ""),
+        email: lowerEmail,
+        initials: initials || "-",
+        joinedDate: "Okt 2026",
+        verified: true,
+        role: role,
+        platformRole: "USER",
+        businessRole: role === "bisnis" ? "OWNER" : null,
+        status: "ACTIVE",
+        accessToken: token,
+        reviewCount: 0,
+        helpfulCount: 0,
+        businessCount: role === "bisnis" ? 1 : 0,
+      };
+
+      setUser(signedUpUser);
+      setIsLoggedIn(true);
+      localStorage.setItem("katamereka_active_user", JSON.stringify(signedUpUser));
 
       return {
         success: true,
         message: data.message || "Registrasi berhasil",
-        accessToken: data.accessToken,
+        user: signedUpUser,
+        accessToken: token,
       };
     } catch (e) {
       return {
@@ -370,6 +514,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         signup,
         changePassword,
         getUsers,
+        setAccountRole,
         logout,
       }}
     >

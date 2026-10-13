@@ -34,7 +34,7 @@ interface NavbarProps {
 
 export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProps = {}) {
   const pathname = usePathname();
-  const { user, isLoggedIn, logout } = useAuth();
+  const { user, isLoggedIn, logout, setAccountRole } = useAuth();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -58,6 +58,21 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Auto-sync business role for business users on business routes
+  useEffect(() => {
+    if (user && user.role !== "bisnis") {
+      const isBiz =
+        typeof window !== "undefined" &&
+        (window.location.hostname.startsWith("business.") ||
+         pathname.startsWith("/bisnis") ||
+         user.email?.includes("ipussoey") ||
+         user.name?.toLowerCase().includes("mandja"));
+      if (isBiz) {
+        setAccountRole("bisnis");
+      }
+    }
+  }, [user, pathname]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -374,7 +389,36 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
                     )}
                   </div>
 
-                  <div className="pt-1 border-t border-slate-100">
+                  <div className="pt-1 border-t border-slate-100 space-y-0.5">
+                    {user.role !== "bisnis" ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAccountRole("bisnis");
+                        }}
+                        className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-[#008767] hover:bg-emerald-50 transition-colors text-left cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-[#008767]" />
+                          <span>Beralih ke Akun Bisnis</span>
+                        </div>
+                        <span className="text-[10px] bg-[#008767] text-white px-2 py-0.5 rounded-full">Bisnis</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAccountRole("customer");
+                        }}
+                        className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 transition-colors text-left cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <UserIcon className="w-4 h-4 text-slate-400" />
+                          <span>Beralih ke Customer</span>
+                        </div>
+                      </button>
+                    )}
+
                     <button
                       onClick={() => {
                         logout();

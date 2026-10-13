@@ -341,8 +341,8 @@ export default function BusinessProfilePage() {
   // Check if current logged-in user already wrote a review for this business
   const myReview = user?.id
     ? businessReviews.find(
-        (r) => r.user?.id === user?.id || r.userId === user?.id || r.user_id === user?.id
-      )
+      (r) => r.user?.id === user?.id || r.userId === user?.id || r.user_id === user?.id
+    )
     : null;
   const hasReviewed = Boolean(myReview);
 
@@ -736,11 +736,10 @@ export default function BusinessProfilePage() {
             <div className="flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
               <Link
                 href={`/review?business=${slug}`}
-                className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 h-10 sm:h-11 rounded-full text-xs sm:text-sm font-bold shadow-xs whitespace-nowrap transition-colors flex-1 sm:flex-initial text-center ${
-                  hasReviewed
+                className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 h-10 sm:h-11 rounded-full text-xs sm:text-sm font-bold shadow-xs whitespace-nowrap transition-colors flex-1 sm:flex-initial text-center ${hasReviewed
                     ? "bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-[#008767]"
                     : "bg-[#008767] hover:bg-[#007458] text-white"
-                }`}
+                  }`}
               >
                 <Edit3 className="w-4 h-4 shrink-0" />
                 <span>{hasReviewed ? "Edit Review" : "Tulis Review"}</span>
@@ -751,8 +750,8 @@ export default function BusinessProfilePage() {
                 onClick={handleToggleSave}
                 disabled={savingFavorite}
                 className={`inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 h-10 sm:h-11 rounded-full text-xs sm:text-sm font-semibold border whitespace-nowrap transition-colors flex-initial shrink-0 text-center ${isSaved
-                    ? "bg-emerald-50 border-emerald-300 text-[#008767]"
-                    : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                  ? "bg-emerald-50 border-emerald-300 text-[#008767]"
+                  : "border-slate-200 text-slate-700 hover:bg-slate-50"
                   }`}
               >
                 <Bookmark
@@ -799,11 +798,10 @@ export default function BusinessProfilePage() {
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`relative py-3 sm:py-2.5 px-2 sm:px-1 flex-1 sm:flex-initial text-center text-xs sm:text-sm font-bold transition-all cursor-pointer select-none ${
-                      isActive
+                    className={`relative py-3 sm:py-2.5 px-2 sm:px-1 flex-1 sm:flex-initial text-center text-xs sm:text-sm font-bold transition-all cursor-pointer select-none ${isActive
                         ? "text-[#008767]"
                         : "text-slate-500 hover:text-slate-800"
-                    }`}
+                      }`}
                   >
                     <span className="block">{tab.label}</span>
                     {isActive && (
@@ -839,9 +837,8 @@ export default function BusinessProfilePage() {
                     </h3>
                     <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 transition-transform flex-shrink-0">
                       <ChevronDown
-                        className={`w-4 h-4 transition-transform duration-300 ${
-                          isTentangOpen ? "rotate-180 text-[#008767]" : ""
-                        }`}
+                        className={`w-4 h-4 transition-transform duration-300 ${isTentangOpen ? "rotate-180 text-[#008767]" : ""
+                          }`}
                       />
                     </div>
                   </button>
@@ -876,9 +873,8 @@ export default function BusinessProfilePage() {
                     </div>
                     <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 transition-transform flex-shrink-0">
                       <ChevronDown
-                        className={`w-4 h-4 transition-transform duration-300 ${
-                          isFasilitasOpen ? "rotate-180 text-[#008767]" : ""
-                        }`}
+                        className={`w-4 h-4 transition-transform duration-300 ${isFasilitasOpen ? "rotate-180 text-[#008767]" : ""
+                          }`}
                       />
                     </div>
                   </button>
@@ -1323,8 +1319,8 @@ export default function BusinessProfilePage() {
                         <div
                           key={day.name}
                           className={`flex items-center justify-between py-1 px-2 rounded-lg transition-colors ${isToday
-                              ? "bg-emerald-50/70 font-bold text-slate-900"
-                              : "text-slate-600"
+                            ? "bg-emerald-50/70 font-bold text-slate-900"
+                            : "text-slate-600"
                             }`}
                         >
                           <div className="flex items-center gap-2">
@@ -1659,9 +1655,8 @@ function ReviewCard({ review, businessSlug, currentUserId, onDelete, isDeleting 
               {Array.from({ length: 5 }).map((_, i) => (
                 <Star
                   key={i}
-                  className={`w-3.5 h-3.5 ${
-                    i < safeRating ? "text-amber-400 fill-amber-400" : "text-slate-200 fill-slate-200"
-                  }`}
+                  className={`w-3.5 h-3.5 ${i < safeRating ? "text-amber-400 fill-amber-400" : "text-slate-200 fill-slate-200"
+                    }`}
                 />
               ))}
               <span className="hidden sm:inline text-xs font-bold text-slate-700 ml-1">
@@ -1696,8 +1691,8 @@ function ReviewCard({ review, businessSlug, currentUserId, onDelete, isDeleting 
             type="button"
             onClick={toggleHelpful}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer ${isHelpful
-                ? "bg-emerald-50 text-[#008767] border-emerald-200"
-                : "bg-white text-slate-600 border-slate-200/80 hover:border-[#008767]/40 hover:text-[#008767]"
+              ? "bg-emerald-50 text-[#008767] border-emerald-200"
+              : "bg-white text-slate-600 border-slate-200/80 hover:border-[#008767]/40 hover:text-[#008767]"
               }`}
             title="Tandai ulasan ini bermanfaat"
           >
