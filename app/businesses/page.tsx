@@ -885,7 +885,7 @@ export default function BusinessesPage() {
 
           {/* Bottom Footer Bar */}
           <div className="pt-8 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-            <p>© 2025 Katamereka. Semua hak dilindungi.</p>
+            <p>© {new Date().getFullYear()} Katamereka. Semua hak dilindungi.</p>
             <button
               onClick={scrollToTop}
               className="inline-flex items-center gap-1.5 font-semibold text-slate-600 hover:text-[#008767] transition-colors"

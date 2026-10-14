@@ -75,7 +75,7 @@ export default async function KategoriPage({ params }: PageProps) {
       <footer className="bg-white border-t border-slate-200/80 pt-12 pb-8 text-slate-600 text-sm mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-            <p>© 2025 Katamereka. Semua hak dilindungi.</p>
+            <p>© {new Date().getFullYear()} Katamereka. Semua hak dilindungi.</p>
             <Link href="/" className="font-semibold text-[#008767] hover:underline">
               Kembali ke Utama
             </Link>

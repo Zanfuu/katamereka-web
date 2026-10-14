@@ -413,7 +413,7 @@ export default function BisnisLandingPage() {
             </nav>
           </div>
           <div className="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
-            <p>© 2025 Katamereka. Semua hak dilindungi.</p>
+            <p>© {new Date().getFullYear()} Katamereka. Semua hak dilindungi.</p>
             <div className="flex items-center gap-4">
               <Link href="/bantuan" className="hover:text-slate-600 transition-colors">Kebijakan Privasi</Link>
               <Link href="/bantuan" className="hover:text-slate-600 transition-colors">Syarat & Ketentuan</Link>

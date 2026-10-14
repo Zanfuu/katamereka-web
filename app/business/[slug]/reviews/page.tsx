@@ -616,7 +616,7 @@ export default function BusinessReviewsPage() {
       {/* ================= FOOTER ================= */}
       <footer className="bg-white border-t border-slate-200/80 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4 text-xs text-slate-400">
-          <p>© 2026 Katamereka. Semua hak dilindungi.</p>
+          <p>© {new Date().getFullYear()} Katamereka. Semua hak dilindungi.</p>
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             className="inline-flex items-center gap-1.5 font-semibold text-slate-600 hover:text-[#008767] cursor-pointer"
