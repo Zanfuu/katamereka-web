@@ -369,8 +369,8 @@ export default function LandingPage({ initialCategoryFacets, initialCityFacets, 
             {/* Left Column: Heading, Description & Centered Large Illustration */}
             <div className="lg:col-span-5 space-y-4 text-center lg:text-left flex flex-col items-center lg:items-start">
               <div className="w-full">
-                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.2]">
-                  Apa yang sedang<br className="hidden sm:block" /> kamu cari?
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                  Apa yang sedang kamu cari?
                 </h2>
               </div>
               <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-md">
@@ -378,7 +378,7 @@ export default function LandingPage({ initialCategoryFacets, initialCityFacets, 
               </p>
 
               {/* Illustration image shifted slightly left for optical alignment directly below title */}
-              <div className="pt-4 sm:pt-6 w-full flex justify-center items-center -ml-3 sm:-ml-20">
+              <div className="hidden sm:flex pt-4 sm:pt-6 w-full justify-center items-center -ml-3 sm:-ml-20">
                 <img
                   src="/ilus-search.png"
                   alt="Cari Sesuai Kebutuhan"
@@ -389,7 +389,7 @@ export default function LandingPage({ initialCategoryFacets, initialCityFacets, 
 
             {/* Right Column: Dynamic 2x3 Category Cards Grid (Top 6 categories by count) */}
             <div className="lg:col-span-7 space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-5">
+              <div className="grid grid-cols-3 gap-2.5 sm:gap-5">
                 {(() => {
                   const top6Facets = (categoryFacets || [])
                     .filter((catItem) => isRealBusinessCategory(catItem.category))
@@ -417,18 +417,18 @@ export default function LandingPage({ initialCategoryFacets, initialCityFacets, 
                     <Link
                       key={idx}
                       href={item.href}
-                      className="group bg-white rounded-2xl border border-slate-200/80 p-5 hover:border-[#008767]/40 hover:shadow-lg transition-all flex flex-col justify-between space-y-4 min-h-[140px]"
+                      className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200/80 p-3 sm:p-5 hover:border-[#008767]/40 hover:shadow-lg transition-all flex flex-col justify-between space-y-2.5 sm:space-y-4 min-h-[120px] sm:min-h-[140px]"
                     >
-                      <div className={`w-11 h-11 rounded-full flex items-center justify-center ${item.bgColor}`}>
-                        <IconComponent className="w-5.5 h-5.5" />
+                      <div className={`w-8 h-8 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 ${item.bgColor}`}>
+                        <IconComponent className="w-4 h-4 sm:w-5.5 sm:h-5.5" />
                       </div>
 
-                      <div className="space-y-3">
-                        <h3 className="font-bold text-slate-900 text-sm group-hover:text-[#008767] transition-colors">
+                      <div className="space-y-2 sm:space-y-3">
+                        <h3 className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-[#008767] transition-colors line-clamp-2 leading-tight">
                           {item.title}
                         </h3>
-                        <div className="w-7 h-7 rounded-full bg-[#e8f6f2] text-[#008767] flex items-center justify-center text-xs font-bold group-hover:bg-[#008767] group-hover:text-white transition-colors">
-                          <ArrowRight className="w-3.5 h-3.5" />
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#e8f6f2] text-[#008767] flex items-center justify-center text-xs font-bold group-hover:bg-[#008767] group-hover:text-white transition-colors">
+                          <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         </div>
                       </div>
                     </Link>
