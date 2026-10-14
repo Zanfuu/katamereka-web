@@ -15,11 +15,11 @@ ENV NODE_ENV=production
 ARG API_URL=https://api.katamereka.id
 ARG NEXT_PUBLIC_API_URL=https://api.katamereka.id
 ARG NEXT_PUBLIC_SITE_URL=https://katamereka.id
-ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID=4365266507-2gh2oo3qqf6o8k9fdgigtde68fag3ce.apps.googleusercontent.com
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID=4365266507-2gh2oo3qqf6o8k9fdgigtdde68fag3ce.apps.googleusercontent.com
 ENV API_URL=https://api.katamereka.id
 ENV NEXT_PUBLIC_API_URL=https://api.katamereka.id
 ENV NEXT_PUBLIC_SITE_URL=https://katamereka.id
-ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=4365266507-2gh2oo3qqf6o8k9fdgigtde68fag3ce.apps.googleusercontent.com
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=4365266507-2gh2oo3qqf6o8k9fdgigtdde68fag3ce.apps.googleusercontent.com
 
 RUN npm run build
 
@@ -34,7 +34,7 @@ ENV PORT=3000
 ENV API_URL=https://api.katamereka.id
 ENV NEXT_PUBLIC_API_URL=https://api.katamereka.id
 ENV NEXT_PUBLIC_SITE_URL=https://katamereka.id
-ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=4365266507-2gh2oo3qqf6o8k9fdgigtde68fag3ce.apps.googleusercontent.com
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=4365266507-2gh2oo3qqf6o8k9fdgigtdde68fag3ce.apps.googleusercontent.com
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/public ./public

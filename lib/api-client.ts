@@ -25,7 +25,7 @@ export const SITE_URL =
 
 export const GOOGLE_CLIENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-  "4365266507-2gh2oo3qqf6o8k9fdgigtde68fag3ce.apps.googleusercontent.com";
+  "4365266507-2gh2oo3qqf6o8k9fdgigtdde68fag3ce.apps.googleusercontent.com";
 
 /**
  * 🔐 Login with Google Account (Verify Google ID Token)
