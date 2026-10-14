@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Star,
   ChevronDown,
+  Check,
   Search,
   MapPin,
   CheckCircle2,
@@ -41,8 +42,30 @@ export default function CategoryClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState("Semua Lokasi");
   const [sortBy, setSortBy] = useState("Terpopuler");
+  const [openCityDropdown, setOpenCityDropdown] = useState(false);
+  const [openSortDropdown, setOpenSortDropdown] = useState(false);
+  const cityDropdownRef = useRef<HTMLDivElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent | TouchEvent) => {
+      if (cityDropdownRef.current && !cityDropdownRef.current.contains(e.target as Node)) {
+        setOpenCityDropdown(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) {
+        setOpenSortDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleGlobalClick);
+    document.addEventListener("touchstart", handleGlobalClick);
+    return () => {
+      document.removeEventListener("mousedown", handleGlobalClick);
+      document.removeEventListener("touchstart", handleGlobalClick);
+    };
+  }, []);
 
   const uiBusinesses = useMemo(() => {
     return (initialBusinesses || []).map(mapApiBusinessToUiModel);
@@ -58,6 +81,7 @@ export default function CategoryClient({
       const matchCity =
         selectedCity === "Semua" ||
         selectedCity === "Semua Lokasi" ||
+        selectedCity === "Lokasi" ||
         b.location.toLowerCase().includes(selectedCity.toLowerCase()) ||
         (b.address || "").toLowerCase().includes(selectedCity.toLowerCase());
 
@@ -165,44 +189,128 @@ export default function CategoryClient({
       </div>
 
       {/* ── LOCATION FILTER & SORT DROPDOWN BAR ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:px-6 sm:py-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+      <div className="relative z-30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-white p-3 sm:px-6 sm:py-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
         {/* Count / Info */}
         <p className="text-xs sm:text-sm font-medium text-slate-600">
           Menampilkan <span className="font-bold text-slate-900">{sortedBusinesses.length}</span> {formatCategoryUnitLabel(categoryName)}
         </p>
 
-        {/* Dropdowns Container */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Location Filter Dropdown */}
-          <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
-            <MapPin className="w-3.5 h-3.5 text-slate-400" />
-            <span className="font-medium text-slate-500">Lokasi:</span>
-            <select
-              value={selectedCity}
-              onChange={(e) => setSelectedCity(e.target.value)}
-              className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer pr-1"
+        {/* Dropdowns Container (1 Row Horizontal Bersebelahan 50%-50% & Palette Katamereka) */}
+        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:items-center sm:gap-2.5">
+          {/* Custom Location Dropdown */}
+          <div ref={cityDropdownRef} className={`relative w-full sm:w-auto min-w-0 ${openCityDropdown ? "z-50" : "z-10"}`}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenCityDropdown((prev) => !prev);
+                setOpenSortDropdown(false);
+              }}
+              className={`w-full sm:w-auto flex items-center justify-between gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                openCityDropdown || (selectedCity !== "Semua" && selectedCity !== "Semua Lokasi" && selectedCity !== "Lokasi")
+                  ? "bg-[#e8f6f2] border-[#008767] text-[#008767]"
+                  : "bg-white border-slate-200 text-slate-700 hover:border-[#008767]/50"
+              }`}
             >
-              {availableCities.map((city) => (
-                <option key={city} value={city}>
-                  {city}
-                </option>
-              ))}
-            </select>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <MapPin className="w-3.5 h-3.5 text-[#008767] shrink-0" />
+                <span className="truncate">
+                  {selectedCity === "Semua" || selectedCity === "Semua Lokasi" || selectedCity === "Lokasi"
+                    ? "Lokasi"
+                    : selectedCity}
+                </span>
+              </div>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
+                  openCityDropdown ? "rotate-180 text-[#008767]" : ""
+                }`}
+              />
+            </button>
+
+            {openCityDropdown && (
+              <div className="absolute left-0 mt-2 w-56 sm:w-64 max-h-60 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/60 p-1.5 z-50">
+                {availableCities.map((city) => {
+                  const isDefaultCity = city === "Semua Lokasi" || city === "Semua" || city === "Lokasi";
+                  const isSelected =
+                    selectedCity === city ||
+                    ((selectedCity === "Semua Lokasi" || selectedCity === "Semua" || selectedCity === "Lokasi") && isDefaultCity);
+                  const displayLabel = isDefaultCity ? "Lokasi" : city;
+                  return (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedCity(city);
+                        setOpenCityDropdown(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                        isSelected
+                          ? "bg-[#008767] text-white font-bold"
+                          : "text-slate-700 hover:bg-[#e8f6f2] hover:text-[#008767]"
+                      }`}
+                    >
+                      <span className="truncate pr-2">{displayLabel}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Sort Dropdown */}
-          <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
-            <span className="font-medium text-slate-500">Urutkan:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer pr-1"
+          {/* Custom Sort Dropdown */}
+          <div ref={sortDropdownRef} className={`relative w-full sm:w-auto min-w-0 ${openSortDropdown ? "z-50" : "z-10"}`}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenSortDropdown((prev) => !prev);
+                setOpenCityDropdown(false);
+              }}
+              className={`w-full sm:w-auto flex items-center justify-between gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                openSortDropdown
+                  ? "bg-[#e8f6f2] border-[#008767] text-[#008767]"
+                  : "bg-white border-slate-200 text-slate-700 hover:border-[#008767]/50"
+              }`}
             >
-              <option value="Terpopuler">Terpopuler</option>
-              <option value="Rating Tertinggi">Rating Tertinggi</option>
-              <option value="Ulasan Terbanyak">Ulasan Terbanyak</option>
-            </select>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#008767] shrink-0" />
+                <span className="truncate">{sortBy}</span>
+              </div>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
+                  openSortDropdown ? "rotate-180 text-[#008767]" : ""
+                }`}
+              />
+            </button>
+
+            {openSortDropdown && (
+              <div className="absolute right-0 mt-2 w-48 sm:w-52 max-h-60 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/60 p-1.5 z-50">
+                {["Terpopuler", "Rating Tertinggi", "Ulasan Terbanyak"].map((opt) => {
+                  const isSelected = sortBy === opt;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSortBy(opt);
+                        setOpenSortDropdown(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                        isSelected
+                          ? "bg-[#008767] text-white font-bold"
+                          : "text-slate-700 hover:bg-[#e8f6f2] hover:text-[#008767]"
+                      }`}
+                    >
+                      <span>{opt}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -230,7 +338,7 @@ export default function CategoryClient({
 
                 {/* Card Info */}
                 <div className="space-y-2">
-                  <h3 className="font-bold text-slate-900 text-base group-hover:text-[#008767] transition-colors line-clamp-1">
+                  <h3 className="font-bold text-slate-900 text-base group-hover:text-[#008767] transition-colors line-clamp-2 leading-snug">
                     {biz.name}
                   </h3>
 

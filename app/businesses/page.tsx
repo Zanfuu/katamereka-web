@@ -2,13 +2,14 @@
 
 // Directory Catalog Page
 import Link from "next/link";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Business } from "@/lib/mock-data";
 import { fetchBusinesses, fetchCategoryFacets, mapApiBusinessToUiModel, fetchBusinessPlaceImage } from "@/lib/api-client";
 import { categoryDisplayName, isRealBusinessCategory } from "@/lib/slug";
 import {
   Search,
   ChevronDown,
+  Check,
   Star,
   Heart,
   Bookmark,
@@ -43,6 +44,46 @@ export default function BusinessesPage() {
   const [togglingFavId, setTogglingFavId] = useState<string | null>(null);
   const [apiBusinesses, setApiBusinesses] = useState<Business[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [openCategoryDropdown, setOpenCategoryDropdown] = useState(false);
+  const [openLocationDropdown, setOpenLocationDropdown] = useState(false);
+  const [openSortDropdown, setOpenSortDropdown] = useState(false);
+
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const locationDropdownRef = useRef<HTMLDivElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+  const paginationContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
+        setOpenCategoryDropdown(false);
+      }
+      if (locationDropdownRef.current && !locationDropdownRef.current.contains(e.target as Node)) {
+        setOpenLocationDropdown(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) {
+        setOpenSortDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Safely scroll ONLY the pagination container horizontally without scrolling the entire window
+  useEffect(() => {
+    if (paginationContainerRef.current) {
+      const activeButton = paginationContainerRef.current.querySelector(
+        `[data-page="${currentPage}"]`
+      ) as HTMLElement | null;
+      if (activeButton) {
+        const container = paginationContainerRef.current;
+        const scrollTarget =
+          activeButton.offsetLeft - container.offsetWidth / 2 + activeButton.offsetWidth / 2;
+        container.scrollTo({ left: scrollTarget, behavior: "smooth" });
+      }
+    }
+  }, [currentPage]);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [fetchedCategories, setFetchedCategories] = useState<string[]>([]);
@@ -354,8 +395,8 @@ export default function BusinessesPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
-            {/* ================= LEFT SIDEBAR FILTER ================= */}
-            <aside className="lg:col-span-3 bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-6 sticky top-24">
+            {/* ================= LEFT SIDEBAR FILTER (Desktop Only) ================= */}
+            <aside className="hidden lg:block lg:col-span-3 bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-6 lg:sticky lg:top-24">
               {/* Filter Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-slate-900 text-sm">Filter Pencarian</h3>
@@ -449,54 +490,162 @@ export default function BusinessesPage() {
             {/* ================= RIGHT BUSINESS CARDS GRID ================= */}
             <main className="lg:col-span-9 space-y-6">
               {/* Results Top Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white px-5 py-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 bg-white px-3 sm:px-5 py-2.5 sm:py-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
                 <p className="text-xs sm:text-sm font-medium text-slate-600">
                   Menampilkan <span className="font-bold text-slate-900">{filteredBusinesses.length}</span> bisnis
                 </p>
 
-                <div className="flex flex-wrap items-center gap-2.5">
-                  {/* Category Filter Dropdown */}
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => {
-                      setSelectedCategory(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-[#008767] cursor-pointer"
-                  >
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5 w-full sm:w-auto sm:flex sm:items-center">
+                  {/* Custom Category Filter Dropdown */}
+                  <div ref={categoryDropdownRef} className="relative w-full sm:w-auto min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenCategoryDropdown((prev) => !prev);
+                        setOpenLocationDropdown(false);
+                        setOpenSortDropdown(false);
+                      }}
+                      className={`w-full sm:w-auto flex items-center justify-between gap-1 px-1.5 xs:px-2 sm:px-3 py-1.5 rounded-xl border text-[11px] sm:text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                        openCategoryDropdown || selectedCategory !== "Semua Kategori"
+                          ? "bg-[#e8f6f2] border-[#008767] text-[#008767]"
+                          : "bg-white border-slate-200 text-slate-700 hover:border-[#008767]/50"
+                      }`}
+                    >
+                      <span className="truncate">{selectedCategory === "Semua Kategori" ? "Kategori" : selectedCategory}</span>
+                      <ChevronDown className={`w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${openCategoryDropdown ? "rotate-180 text-[#008767]" : ""}`} />
+                    </button>
 
-                  {/* Location Filter Dropdown */}
-                  <select
-                    value={selectedLocation}
-                    onChange={(e) => {
-                      setSelectedLocation(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-[#008767] cursor-pointer"
-                  >
-                    {locations.map((loc) => (
-                      <option key={loc} value={loc}>
-                        {loc}
-                      </option>
-                    ))}
-                  </select>
+                    {openCategoryDropdown && (
+                      <div className="absolute left-0 mt-2 w-56 sm:w-64 max-h-60 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/60 p-1.5 z-50">
+                        <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
+                          Pilih Kategori
+                        </div>
+                        {categories.map((cat) => {
+                          const isSelected = selectedCategory === cat;
+                          const displayLabel = cat === "Semua Kategori" ? "Kategori (Semua)" : cat;
+                          return (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => {
+                                setSelectedCategory(cat);
+                                setCurrentPage(1);
+                                setOpenCategoryDropdown(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                                isSelected
+                                  ? "bg-[#008767] text-white font-bold"
+                                  : "text-slate-700 hover:bg-[#e8f6f2] hover:text-[#008767]"
+                              }`}
+                            >
+                              <span className="truncate pr-2">{displayLabel}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
 
-                  {/* Sort Dropdown */}
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-[#008767] cursor-pointer"
-                  >
-                    <option value="Terpopuler">Terpopuler</option>
-                    <option value="Rating Tertinggi">Rating Tertinggi</option>
-                    <option value="Ulasan Terbanyak">Ulasan Terbanyak</option>
-                  </select>
+                  {/* Custom Location Filter Dropdown */}
+                  <div ref={locationDropdownRef} className="relative w-full sm:w-auto min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenLocationDropdown((prev) => !prev);
+                        setOpenCategoryDropdown(false);
+                        setOpenSortDropdown(false);
+                      }}
+                      className={`w-full sm:w-auto flex items-center justify-between gap-1 px-1.5 xs:px-2 sm:px-3 py-1.5 rounded-xl border text-[11px] sm:text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                        openLocationDropdown || selectedLocation !== "Semua Lokasi"
+                          ? "bg-[#e8f6f2] border-[#008767] text-[#008767]"
+                          : "bg-white border-slate-200 text-slate-700 hover:border-[#008767]/50"
+                      }`}
+                    >
+                      <span className="truncate">{selectedLocation === "Semua Lokasi" ? "Lokasi" : selectedLocation}</span>
+                      <ChevronDown className={`w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${openLocationDropdown ? "rotate-180 text-[#008767]" : ""}`} />
+                    </button>
+
+                    {openLocationDropdown && (
+                      <div className="absolute left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 mt-2 w-56 sm:w-64 max-h-60 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/60 p-1.5 z-50">
+                        <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
+                          Pilih Lokasi
+                        </div>
+                        {locations.map((loc) => {
+                          const isSelected = selectedLocation === loc;
+                          const displayLabel = loc === "Semua Lokasi" ? "Lokasi (Semua)" : loc;
+                          return (
+                            <button
+                              key={loc}
+                              type="button"
+                              onClick={() => {
+                                setSelectedLocation(loc);
+                                setCurrentPage(1);
+                                setOpenLocationDropdown(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                                isSelected
+                                  ? "bg-[#008767] text-white font-bold"
+                                  : "text-slate-700 hover:bg-[#e8f6f2] hover:text-[#008767]"
+                              }`}
+                            >
+                              <span className="truncate pr-2">{displayLabel}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Custom Sort Dropdown */}
+                  <div ref={sortDropdownRef} className="relative w-full sm:w-auto min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenSortDropdown((prev) => !prev);
+                        setOpenCategoryDropdown(false);
+                        setOpenLocationDropdown(false);
+                      }}
+                      className={`w-full sm:w-auto flex items-center justify-between gap-1 px-1.5 xs:px-2 sm:px-3 py-1.5 rounded-xl border text-[11px] sm:text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                        openSortDropdown
+                          ? "bg-[#e8f6f2] border-[#008767] text-[#008767]"
+                          : "bg-white border-slate-200 text-slate-700 hover:border-[#008767]/50"
+                      }`}
+                    >
+                      <span className="truncate">{sortBy}</span>
+                      <ChevronDown className={`w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${openSortDropdown ? "rotate-180 text-[#008767]" : ""}`} />
+                    </button>
+
+                    {openSortDropdown && (
+                      <div className="absolute right-0 mt-2 w-48 sm:w-52 bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/60 p-1.5 z-50">
+                        <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
+                          Urutkan
+                        </div>
+                        {["Terpopuler", "Rating Tertinggi", "Ulasan Terbanyak"].map((opt) => {
+                          const isSelected = sortBy === opt;
+                          return (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => {
+                                setSortBy(opt);
+                                setOpenSortDropdown(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                                isSelected
+                                  ? "bg-[#008767] text-white font-bold"
+                                  : "text-slate-700 hover:bg-[#e8f6f2] hover:text-[#008767]"
+                              }`}
+                            >
+                              <span>{opt}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -637,16 +786,15 @@ export default function BusinessesPage() {
                   ‹
                 </button>
 
-                {/* 5-Box Width Scrollable Container */}
-                <div className="flex items-center gap-1.5 overflow-x-auto max-w-[220px] py-1 px-1 no-scrollbar scroll-smooth">
+                {/* 5-Box Width Scrollable Container (Independent horizontal scroll) */}
+                <div
+                  ref={paginationContainerRef}
+                  className="flex items-center gap-1.5 overflow-x-auto max-w-[220px] py-1 px-1 no-scrollbar scroll-smooth"
+                >
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <button
                       key={page}
-                      ref={(el) => {
-                        if (currentPage === page && el) {
-                          el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-                        }
-                      }}
+                      data-page={page}
                       onClick={() => setCurrentPage(page)}
                       className={`w-9 h-9 rounded-xl font-bold shrink-0 transition-all ${
                         currentPage === page
