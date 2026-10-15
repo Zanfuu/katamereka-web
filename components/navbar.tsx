@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth, isKnownBusinessAccount } from "@/lib/auth-context";
+import { isBusinessHost } from "@/lib/site-config";
 import { getBusinessUrl } from "@/lib/domain";
 import { fetchCategoryFacets, ApiCategoryFacet } from "@/lib/api-client";
 import { slugify, categoryDisplayName } from "@/lib/slug";
@@ -90,9 +91,14 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
     forceBusinessView ||
     pathname.startsWith("/bisnis") ||
     pathname.startsWith("/untuk-bisnis") ||
-    (mounted && typeof window !== "undefined" && window.location.hostname.startsWith("business."));
+    (mounted && typeof window !== "undefined" && isBusinessHost(window.location.hostname));
 
-  const isBusinessUser = mounted && isLoggedIn && user && user.role === "bisnis";
+  const isBusinessUser =
+    mounted &&
+    isLoggedIn &&
+    user &&
+    (user.role === "bisnis" ||
+      (isBusinessView && isKnownBusinessAccount(user.email, user.username)));
 
   return (
     <header
@@ -318,12 +324,12 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
                       <p className="font-bold text-slate-900 text-sm truncate">{user.name}</p>
                       <span
                         className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                          user.role === "bisnis"
+                          user.role === "bisnis" || isBusinessUser
                             ? "bg-amber-100 text-amber-900 border border-amber-300"
                             : "bg-emerald-50 text-emerald-800 border border-emerald-200"
                         }`}
                       >
-                        {user.role === "bisnis" ? "Akun Bisnis" : "Customer"}
+                        {user.role === "bisnis" || isBusinessUser ? "Akun Bisnis" : "Customer"}
                       </span>
                     </div>
                     <p className="text-xs text-slate-400 font-medium">@{user.username}</p>
@@ -331,7 +337,7 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
 
                   <div className="py-1 text-xs font-semibold text-slate-700">
                     {/* Special Dashboard Link for Business Account */}
-                    {user.role === "bisnis" && (
+                    {(user.role === "bisnis" || isBusinessUser) && (
                       <Link
                         href="/dashboard"
                         onClick={() => setProfileDropdownOpen(false)}
@@ -344,7 +350,7 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
                       </Link>
                     )}
 
-                    {user.role === "bisnis" && (
+                    {(user.role === "bisnis" || isBusinessUser) && (
                       <Link
                         href="/business/sunny-cafe"
                         onClick={() => setProfileDropdownOpen(false)}

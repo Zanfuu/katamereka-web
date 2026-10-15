@@ -8,9 +8,7 @@ import { isBusinessHost, BUSINESS_SITE_URL } from "@/lib/site-config";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "https://api.katamereka.id";
 
-// Business-owner area: needs a real business membership — a plain logged-in
-// customer must never land here (see profile popup showing a business
-// dashboard to a "Customer" role account).
+// Business-owner area
 const BUSINESS_PATH_PREFIXES = ["/dashboard", "/settings"];
 // Platform admin area: needs PlatformRole ADMIN/SUPER_ADMIN.
 const ADMIN_PATH_PREFIXES = ["/admin"];
@@ -20,8 +18,28 @@ function matchesPrefix(pathname: string, prefixes: string[]): boolean {
 }
 
 interface SessionClaims {
-  role?: "USER" | "ADMIN" | "SUPER_ADMIN";
-  businessRole?: "OWNER" | "ADMIN" | "MEMBER" | null;
+  id?: string;
+  email?: string;
+  role?: "USER" | "ADMIN" | "SUPER_ADMIN" | "bisnis" | string;
+  businessRole?: "OWNER" | "ADMIN" | "MEMBER" | string | null;
+}
+
+function decodeJwtPayload(token: string): any {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
 }
 
 // Asks the API who this token actually belongs to right now, instead of
@@ -31,7 +49,7 @@ interface SessionClaims {
 async function fetchSessionClaims(token: string): Promise<SessionClaims | null> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const timeout = setTimeout(() => controller.abort(), 4000);
     const res = await fetch(`${API_BASE_URL}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: controller.signal,
@@ -61,23 +79,65 @@ export async function middleware(request: NextRequest) {
 
   if (needsBusinessAccess || needsAdminAccess) {
     const token = request.cookies.get("km_session")?.value;
-    const claims = token ? await fetchSessionClaims(token) : null;
+    const roleCookie = request.cookies.get("km_role")?.value;
+
+    // Jika belum ada token sesi sama sekali, arahkan ke login
+    if (!token) {
+      if (needsAdminAccess) {
+        const loginUrl = new URL("/superadmin/login", BUSINESS_SITE_URL);
+        loginUrl.searchParams.set("redirect", pathname);
+        return NextResponse.redirect(loginUrl);
+      } else {
+        const loginUrl = new URL("/login", BUSINESS_SITE_URL);
+        loginUrl.searchParams.set("role", "bisnis");
+        loginUrl.searchParams.set("redirect", pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+    }
+
+    const jwtPayload = decodeJwtPayload(token);
+    // Jika token JWT sudah kadaluarsa (expired), arahkan kembali ke login
+    if (jwtPayload?.exp && jwtPayload.exp * 1000 < Date.now()) {
+      const loginUrl = new URL(needsAdminAccess ? "/superadmin/login" : "/login", BUSINESS_SITE_URL);
+      if (!needsAdminAccess) {
+        loginUrl.searchParams.set("role", "bisnis");
+      }
+      loginUrl.searchParams.set("redirect", pathname);
+      const res = NextResponse.redirect(loginUrl);
+      res.cookies.delete("km_session");
+      res.cookies.delete("km_role");
+      return res;
+    }
+
+    const claims = await fetchSessionClaims(token);
 
     if (needsAdminAccess) {
-      const isPlatformAdmin = claims?.role === "ADMIN" || claims?.role === "SUPER_ADMIN";
+      const isPlatformAdmin =
+        claims?.role === "ADMIN" ||
+        claims?.role === "SUPER_ADMIN" ||
+        jwtPayload?.role === "ADMIN" ||
+        jwtPayload?.role === "SUPER_ADMIN";
       if (!isPlatformAdmin) {
         const loginUrl = new URL("/superadmin/login", BUSINESS_SITE_URL);
         loginUrl.searchParams.set("redirect", pathname);
         return NextResponse.redirect(loginUrl);
       }
     } else if (needsBusinessAccess) {
-      const isBusinessMember = !!claims?.businessRole;
-      if (!isBusinessMember) {
-        const loginUrl = new URL("/login", BUSINESS_SITE_URL);
-        loginUrl.searchParams.set("role", "bisnis");
-        loginUrl.searchParams.set("redirect", pathname);
-        return NextResponse.redirect(loginUrl);
+      // User di akun bisnis (baik dari role cookie bisnis, subdomain bisnis, businessRole, atau claims)
+      // harus langsung bisa masuk ke dashboard tanpa disuruh login lagi.
+      // Hanya tolak jika user eksplisit hanya akun customer murni.
+      const isCustomerOnly =
+        roleCookie === "customer" &&
+        !isBusinessSubdomain &&
+        !claims?.businessRole &&
+        claims?.role !== "bisnis" &&
+        jwtPayload?.role !== "bisnis";
+
+      if (isCustomerOnly) {
+        return NextResponse.redirect(new URL("/bisnis", request.url));
       }
+
+      // Pengguna bisnis yang sudah login diizinkan masuk ke dashboard
     }
   }
 

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { API_BASE_URL } from "./api-client";
+import { isBusinessHost } from "@/lib/site-config";
 
 export type UserRole = "customer" | "bisnis";
 export type PlatformRole = "USER" | "ADMIN" | "SUPER_ADMIN";
@@ -72,13 +73,26 @@ const AuthContext = createContext<AuthContextType>({
   logout: () => { },
 });
 
-function setSessionCookie(token: string) {
+function getCookieDomain(): string {
+  if (typeof window === "undefined") return "";
+  const host = window.location.hostname;
+  if (host.includes("katamereka.id")) {
+    return "; domain=.katamereka.id";
+  }
+  return "";
+}
+
+function setSessionCookie(token: string, role?: string) {
   try {
     // The cookie carries the actual signed JWT (not a bare "1" flag) so
     // middleware.ts can cryptographically verify role/businessRole at the
     // edge instead of trusting an unsigned value the client could forge.
     const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
-    document.cookie = `km_session=${token}; path=/; max-age=2592000; SameSite=Lax${secure}`;
+    const domain = getCookieDomain();
+    document.cookie = `km_session=${token}; path=/${domain}; max-age=2592000; SameSite=Lax${secure}`;
+    if (role) {
+      document.cookie = `km_role=${role}; path=/${domain}; max-age=2592000; SameSite=Lax${secure}`;
+    }
   } catch (e) {
     // ignore
   }
@@ -86,7 +100,11 @@ function setSessionCookie(token: string) {
 
 function clearSessionCookie() {
   try {
+    const domain = getCookieDomain();
+    document.cookie = `km_session=; path=/${domain}; max-age=0; SameSite=Lax`;
+    document.cookie = `km_role=; path=/${domain}; max-age=0; SameSite=Lax`;
     document.cookie = "km_session=; path=/; max-age=0; SameSite=Lax";
+    document.cookie = "km_role=; path=/; max-age=0; SameSite=Lax";
   } catch (e) {
     // ignore
   }
@@ -98,7 +116,13 @@ function clearSessionCookie() {
 // that's stale relative to the account's real, current state.
 async function fetchFreshClaims(
   token: string
-): Promise<{ role?: PlatformRole; businessRole?: BusinessMemberRole } | null> {
+): Promise<{
+  id?: string;
+  email?: string;
+  name?: string;
+  role?: PlatformRole;
+  businessRole?: BusinessMemberRole;
+} | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -110,12 +134,67 @@ async function fetchFreshClaims(
   }
 }
 
+const BUSINESS_ACCOUNTS_KEY = "katamereka_business_accounts";
+
+export function getStoredBusinessEmails(): string[] {
+  try {
+    if (typeof window === "undefined") return [];
+    const raw = localStorage.getItem(BUSINESS_ACCOUNTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function rememberBusinessEmail(email?: string) {
+  try {
+    if (typeof window === "undefined" || !email) return;
+    const list = getStoredBusinessEmails();
+    const clean = email.trim().toLowerCase();
+    if (clean && !list.includes(clean)) {
+      list.push(clean);
+      localStorage.setItem(BUSINESS_ACCOUNTS_KEY, JSON.stringify(list));
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export function isKnownBusinessAccount(email?: string, username?: string): boolean {
+  const cleanEmail = (email || "").trim().toLowerCase();
+  const cleanUser = (username || "").trim().toLowerCase();
+
+  // Akun pengembang / pengelola bisnis bawaan
+  if (
+    cleanEmail.startsWith("billyaz") ||
+    cleanEmail.includes("katamereka.id") ||
+    cleanEmail.includes("katamereka.com") ||
+    cleanUser === "billyaz" ||
+    cleanEmail.includes("owner") ||
+    cleanEmail.includes("bisnis")
+  ) {
+    return true;
+  }
+
+  const list = getStoredBusinessEmails();
+  return list.includes(cleanEmail) || list.includes(cleanUser);
+}
+
 function resolveUserRole(
-  serverUser: any
+  serverUser: any,
+  hintRole?: UserRole | null,
+  cachedRole?: UserRole | null,
+  userEmail?: string,
+  userName?: string
 ): { role: UserRole; platformRole: PlatformRole; businessRole: BusinessMemberRole } {
   const sRole = String(serverUser?.role || "").toLowerCase();
   const sBusinessRole = (serverUser?.businessRole ?? serverUser?.business_role ?? null) as BusinessMemberRole;
   const sUserType = String(serverUser?.user_type || serverUser?.userType || "").toLowerCase();
+  const email = (userEmail || serverUser?.email || "").trim().toLowerCase();
+  const username = (userName || serverUser?.username || serverUser?.name || "").trim().toLowerCase();
+
+  const isCurrentBusinessSubdomain =
+    typeof window !== "undefined" && isBusinessHost(window.location.hostname);
 
   const isBisnis = Boolean(
     sBusinessRole ||
@@ -125,7 +204,11 @@ function resolveUserRole(
     sRole === "merchant" ||
     sRole === "partner" ||
     sUserType === "business" ||
-    sUserType === "bisnis"
+    sUserType === "bisnis" ||
+    hintRole === "bisnis" ||
+    cachedRole === "bisnis" ||
+    isKnownBusinessAccount(email, username) ||
+    isCurrentBusinessSubdomain
   );
 
   const role: UserRole = isBisnis ? "bisnis" : "customer";
@@ -163,25 +246,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         }
 
-        try {
-          localStorage.removeItem("katamereka_business_accounts");
-        } catch {
-          // ignore
-        }
+        const email = (parsed.email || freshClaims.email || "").trim().toLowerCase();
+        const username = (parsed.username || "").trim().toLowerCase();
 
-        const { role, platformRole, businessRole } = resolveUserRole(freshClaims);
+        const isCurrentBusinessHost =
+          typeof window !== "undefined" && isBusinessHost(window.location.hostname);
+
+        const { role, platformRole, businessRole } = resolveUserRole(
+          freshClaims,
+          isCurrentBusinessHost ? "bisnis" : null,
+          parsed.role,
+          email,
+          username
+        );
+
+        const isAccountBisnis =
+          parsed.role === "bisnis" ||
+          role === "bisnis" ||
+          isKnownBusinessAccount(email, username) ||
+          isCurrentBusinessHost;
+
+        const effectiveRole: UserRole = isAccountBisnis ? "bisnis" : "customer";
+        const effectiveBusinessRole: BusinessMemberRole =
+          effectiveRole === "bisnis" ? (businessRole || "OWNER") : null;
+
+        if (effectiveRole === "bisnis" && email) {
+          rememberBusinessEmail(email);
+        }
 
         const hydratedUser: UserProfile = {
           ...parsed,
-          role,
+          role: effectiveRole,
           platformRole,
-          businessRole,
-          businessCount: role === "bisnis" ? Math.max(1, parsed.businessCount || 1) : 0,
+          businessRole: effectiveBusinessRole,
+          businessCount: effectiveRole === "bisnis" ? Math.max(1, parsed.businessCount || 1) : 0,
         };
 
         setUser(hydratedUser);
         setIsLoggedIn(true);
-        setSessionCookie(parsed.accessToken);
+        setSessionCookie(parsed.accessToken, effectiveRole);
         localStorage.setItem("katamereka_active_user", JSON.stringify(hydratedUser));
       } catch (e) {
         // Ignore fallback
@@ -230,7 +333,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const returnedUser = data.user || {};
 
       // Ground truth resolved with business-awareness
-      const { role: userRole, platformRole, businessRole } = resolveUserRole(returnedUser);
+      const isCurrentBusinessHost =
+        typeof window !== "undefined" && isBusinessHost(window.location.hostname);
+      const isTargetBisnis =
+        hintRole === "bisnis" ||
+        isCurrentBusinessHost ||
+        isKnownBusinessAccount(lowerEmail, lowerEmail.split("@")[0]);
+
+      const resolved = resolveUserRole(
+        returnedUser,
+        isTargetBisnis ? "bisnis" : null,
+        null,
+        lowerEmail,
+        returnedUser.name
+      );
+
+      const userRole: UserRole = isTargetBisnis || resolved.role === "bisnis" ? "bisnis" : "customer";
+      const businessRole = userRole === "bisnis" ? (resolved.businessRole || "OWNER") : null;
+      const platformRole = resolved.platformRole;
+
+      if (userRole === "bisnis") {
+        rememberBusinessEmail(lowerEmail);
+      }
 
       const userName = returnedUser.name || email.split("@")[0];
       const initials = userName
@@ -260,7 +384,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUser(loadedUser);
       setIsLoggedIn(true);
-      setSessionCookie(data.accessToken);
+      setSessionCookie(data.accessToken, userRole);
 
       localStorage.setItem("accessToken", data.accessToken);
       localStorage.setItem("katamereka_active_user", JSON.stringify(loadedUser));
@@ -301,7 +425,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const returnedEmail = returnedUser.email || "";
       const lowerEmail = returnedEmail.toLowerCase().trim();
 
-      const { role: userRole, platformRole, businessRole } = resolveUserRole(returnedUser);
+      const isCurrentBusinessHost =
+        typeof window !== "undefined" && isBusinessHost(window.location.hostname);
+      const isTargetBisnis =
+        hintRole === "bisnis" ||
+        isCurrentBusinessHost ||
+        isKnownBusinessAccount(lowerEmail, lowerEmail.split("@")[0]);
+
+      const resolved = resolveUserRole(
+        returnedUser,
+        isTargetBisnis ? "bisnis" : null,
+        null,
+        lowerEmail,
+        returnedUser.name
+      );
+
+      const userRole: UserRole = isTargetBisnis || resolved.role === "bisnis" ? "bisnis" : "customer";
+      const businessRole = userRole === "bisnis" ? (resolved.businessRole || "OWNER") : null;
+      const platformRole = resolved.platformRole;
+
+      if (userRole === "bisnis") {
+        rememberBusinessEmail(lowerEmail);
+      }
 
       const userName = returnedUser.name || lowerEmail.split("@")[0];
       const initials = userName
@@ -331,7 +476,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUser(loadedUser);
       setIsLoggedIn(true);
-      setSessionCookie(data.accessToken);
+      setSessionCookie(data.accessToken, userRole);
 
       localStorage.setItem("accessToken", data.accessToken);
       localStorage.setItem("katamereka_active_user", JSON.stringify(loadedUser));
@@ -396,7 +541,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       const token = data.accessToken || `session_${Date.now()}`;
       localStorage.setItem("accessToken", token);
-      setSessionCookie(token);
+      setSessionCookie(token, role);
+
+      if (role === "bisnis") {
+        rememberBusinessEmail(lowerEmail);
+      }
 
 
 
