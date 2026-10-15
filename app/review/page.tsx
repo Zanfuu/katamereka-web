@@ -81,14 +81,29 @@ function WriteReviewContent() {
   );
 
   // Form states
-  const [rating, setRating] = useState<number>(5);
+  const [rating, setRating] = useState<number>(0);
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [title, setTitle] = useState<string>("");
   const [content, setContent] = useState<string>("");
-  const [confirmed, setConfirmed] = useState<boolean>(true);
+  const [confirmed, setConfirmed] = useState<boolean>(false);
   const [photos, setPhotos] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [fieldErrors, setFieldErrors] = useState<{
+    rating?: string;
+    title?: string;
+    content?: string;
+    confirmed?: string;
+  }>({});
+
+  // Refs for auto-scrolling to invalid sections
+  const ratingSectionRef = useRef<HTMLDivElement>(null);
+  const titleSectionRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const contentSectionRef = useRef<HTMLDivElement>(null);
+  const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const confirmedSectionRef = useRef<HTMLDivElement>(null);
+  const errorBannerRef = useRef<HTMLDivElement>(null);
 
   // Existing review detection (1 review per account per business)
   const [existingReview, setExistingReview] = useState<any | null>(null);
@@ -146,6 +161,7 @@ function WriteReviewContent() {
           if (match.rating) setRating(match.rating);
           if (match.title) setTitle(match.title);
           if (match.content) setContent(match.content);
+          setConfirmed(true);
         } else {
           setExistingReview(null);
         }
@@ -343,27 +359,63 @@ function WriteReviewContent() {
     setPhotos(photos.filter((_, i) => i !== index));
   };
 
+  const scrollToField = (ref: React.RefObject<HTMLElement | null>) => {
+    if (ref.current) {
+      ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
+    setFieldErrors({});
 
+    // 1. Validasi Rating
     if (rating === 0) {
-      setErrorMessage("Silakan beri rating (bintang 1 - 5) untuk bisnis ini.");
+      const msg = "Silakan beri rating (bintang 1 - 5) untuk bisnis ini.";
+      setErrorMessage(msg);
+      setFieldErrors({ rating: msg });
+      toast.error(msg);
+      scrollToField(ratingSectionRef);
       return;
     }
 
+    // 2. Validasi Judul
     if (!title.trim()) {
-      setErrorMessage("Silakan isi judul ulasan Anda.");
+      const msg = "Silakan isi judul ulasan Anda.";
+      setErrorMessage(msg);
+      setFieldErrors({ title: msg });
+      toast.error(msg);
+      scrollToField(titleSectionRef);
+      setTimeout(() => {
+        titleInputRef.current?.focus({ preventScroll: true });
+      }, 300);
       return;
     }
 
+    // 3. Validasi Isi Ulasan (minimal 15 karakter)
     if (content.trim().length < 15) {
-      setErrorMessage("Ulasan terlalu singkat. Minimal 15 karakter untuk memberikan ulasan yang bermanfaat.");
+      const msg =
+        content.trim().length === 0
+          ? "Silakan tulis ulasan pengalaman Anda (minimal 15 karakter)."
+          : "Ulasan terlalu singkat. Minimal 15 karakter untuk memberikan ulasan yang bermanfaat.";
+      setErrorMessage(msg);
+      setFieldErrors({ content: msg });
+      toast.error(msg);
+      scrollToField(contentSectionRef);
+      setTimeout(() => {
+        contentTextareaRef.current?.focus({ preventScroll: true });
+      }, 300);
       return;
     }
 
+    // 4. Validasi Checkbox Konfirmasi
     if (!confirmed) {
-      setErrorMessage("Anda wajib mengonfirmasi bahwa ulasan ini berdasarkan pengalaman pribadi.");
+      const msg = "Anda wajib mengonfirmasi bahwa ulasan ini berdasarkan pengalaman pribadi.";
+      setErrorMessage(msg);
+      setFieldErrors({ confirmed: msg });
+      toast.error(msg);
+      scrollToField(confirmedSectionRef);
       return;
     }
 
@@ -376,12 +428,14 @@ function WriteReviewContent() {
       if (!token) {
         setErrorMessage("Anda harus login terlebih dahulu untuk mengirim ulasan.");
         setIsSubmitting(false);
+        scrollToField(errorBannerRef);
         return;
       }
 
       if (!targetId) {
         setErrorMessage("Data bisnis tidak ditemukan. Silakan refresh halaman.");
         setIsSubmitting(false);
+        scrollToField(errorBannerRef);
         return;
       }
 
@@ -405,6 +459,7 @@ function WriteReviewContent() {
         if (!res.ok) {
           setErrorMessage(data?.message || "Gagal memperbarui ulasan. Silakan coba lagi.");
           setIsSubmitting(false);
+          scrollToField(errorBannerRef);
           return;
         }
 
@@ -439,6 +494,7 @@ function WriteReviewContent() {
           setErrorMessage(data?.message || "Gagal mengirim ulasan. Silakan coba lagi.");
         }
         setIsSubmitting(false);
+        scrollToField(errorBannerRef);
         return;
       }
 
@@ -447,6 +503,7 @@ function WriteReviewContent() {
     } catch (err) {
       setErrorMessage("Terjadi kesalahan koneksi. Silakan periksa koneksi internet Anda.");
       setIsSubmitting(false);
+      scrollToField(errorBannerRef);
     }
   };
 
@@ -1036,7 +1093,10 @@ function WriteReviewContent() {
 
                   {/* ERROR ALERT IF ANY */}
                   {errorMessage && (
-                    <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-700 text-xs font-medium">
+                    <div
+                      ref={errorBannerRef}
+                      className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-700 text-xs font-medium animate-in fade-in"
+                    >
                       <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
                       <div className="flex-1">
                         <p className="font-bold text-sm text-rose-800 mb-0.5">Mohon lengkapi formulir</p>
@@ -1046,30 +1106,39 @@ function WriteReviewContent() {
                   )}
 
                   {/* ITEM 1: STAR RATING */}
-                  <div className="space-y-3 pb-6 border-b border-slate-100">
+                  <div ref={ratingSectionRef} className="space-y-3 pb-6 border-b border-slate-100">
                     <div>
                       <label className="block text-sm font-bold text-slate-900">
-                        Berapa nilai rating yang ingin kamu berikan? <span className="text-rose-500">*</span>
+                        Masukkan Rating Sesuai Dengan Pengalaman Kamu <span className="text-rose-500">*</span>
                       </label>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Pilih 1 sampai 5 bintang berdasarkan pengalaman keseluruhanmu.
-                      </p>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/60">
-                      <div className="flex items-center gap-1.5">
+                    <div
+                      className={`flex items-center p-3.5 sm:p-4 rounded-2xl transition-all ${
+                        fieldErrors.rating
+                          ? "bg-rose-50/40 border border-rose-300 ring-2 ring-rose-200"
+                          : "bg-slate-50/70 border border-slate-200/60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1 sm:gap-1.5">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <button
                             key={star}
                             type="button"
-                            onClick={() => setRating(star)}
+                            onClick={() => {
+                              setRating(star);
+                              if (fieldErrors.rating) {
+                                setFieldErrors((prev) => ({ ...prev, rating: undefined }));
+                                setErrorMessage("");
+                              }
+                            }}
                             onMouseEnter={() => setHoverRating(star)}
                             onMouseLeave={() => setHoverRating(0)}
-                            className="p-1 focus:outline-none transition-transform hover:scale-110 active:scale-95"
+                            className="p-1 focus:outline-none transition-transform hover:scale-110 active:scale-95 cursor-pointer"
                             aria-label={`Rating ${star} dari 5`}
                           >
                             <Star
-                              className={`w-9 h-9 sm:w-10 sm:h-10 transition-colors ${
+                              className={`w-8 h-8 sm:w-10 sm:h-10 transition-colors ${
                                 star <= displayRating
                                   ? "fill-amber-400 text-amber-400 drop-shadow-xs"
                                   : "fill-slate-200 text-slate-300"
@@ -1078,72 +1147,99 @@ function WriteReviewContent() {
                           </button>
                         ))}
                       </div>
-
-                      <div className="sm:border-l sm:border-slate-200 sm:pl-4">
-                        <span className="text-sm font-bold text-amber-700 block">
-                          {getRatingLabel(displayRating)}
-                        </span>
-                      </div>
                     </div>
+
+                    {fieldErrors.rating && (
+                      <p className="text-xs font-semibold text-rose-600 flex items-center gap-1.5 animate-in fade-in">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                        <span>{fieldErrors.rating}</span>
+                      </p>
+                    )}
                   </div>
 
                   {/* ITEM 2: REVIEW TITLE */}
-                  <div className="space-y-2">
+                  <div ref={titleSectionRef} className="space-y-2">
                     <label htmlFor="review-title" className="block text-sm font-bold text-slate-900">
                       Judul Ulasan <span className="text-rose-500">*</span>
                     </label>
-                    <p className="text-xs text-slate-500">
-                      Rangkum inti pengalamanmu dalam satu kalimat singkat dan jelas.
-                    </p>
                     <input
+                      ref={titleInputRef}
                       id="review-title"
                       type="text"
                       value={title}
-                      onChange={(e) => setTitle(e.target.value)}
+                      onChange={(e) => {
+                        setTitle(e.target.value);
+                        if (fieldErrors.title && e.target.value.trim()) {
+                          setFieldErrors((prev) => ({ ...prev, title: undefined }));
+                          setErrorMessage("");
+                        }
+                      }}
                       placeholder="Contoh: Tempatnya sangat nyaman, kopi enak, & pelayanan ramah!"
                       maxLength={100}
-                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:border-[#008767] focus:ring-2 focus:ring-[#008767]/20 transition-all font-medium placeholder:text-slate-400"
+                      className={`w-full px-4 py-3 rounded-2xl border text-sm focus:outline-none transition-all font-medium placeholder:text-slate-400 ${
+                        fieldErrors.title
+                          ? "border-rose-400 ring-2 ring-rose-200 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-200"
+                          : "border-slate-200 focus:border-[#008767] focus:ring-2 focus:ring-[#008767]/20"
+                      }`}
                     />
+                    {fieldErrors.title && (
+                      <p className="text-xs font-semibold text-rose-600 flex items-center gap-1.5 animate-in fade-in">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                        <span>{fieldErrors.title}</span>
+                      </p>
+                    )}
                   </div>
 
                   {/* ITEM 3: REVIEW CONTENT */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label htmlFor="review-content" className="block text-sm font-bold text-slate-900">
+                  <div ref={contentSectionRef} className="space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <label htmlFor="review-content" className="text-sm font-bold text-slate-900">
                         Ulasan Detail Pengalamanmu <span className="text-rose-500">*</span>
                       </label>
-                      <span className={`text-xs font-semibold ${content.length >= 15 ? "text-emerald-600" : "text-slate-400"}`}>
-                        {content.length} / 1000 karakter (min. 15)
+                      <span
+                        className={`text-[11px] font-medium ${
+                          content.length >= 15 ? "text-emerald-600 font-semibold" : "text-slate-500"
+                        }`}
+                      >
+                        (Minimal 15 karakter)
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500">
-                      Ceritakan hal-hal menarik seperti kualitas layanan, suasana, kebersihan, hingga harga.
-                    </p>
                     <textarea
+                      ref={contentTextareaRef}
                       id="review-content"
                       rows={6}
                       value={content}
-                      onChange={(e) => setContent(e.target.value)}
-                      placeholder="Contoh: Saya mengunjungi bisnis ini bersama teman-teman pada akhir pekan. Suasananya sangat hangat dan tenang, cocok untuk bekerja. Pelayanannya sangat cepat dan staf memberikan saran menu favorit yang sangat lezat..."
+                      onChange={(e) => {
+                        setContent(e.target.value);
+                        if (fieldErrors.content && e.target.value.trim().length >= 15) {
+                          setFieldErrors((prev) => ({ ...prev, content: undefined }));
+                          setErrorMessage("");
+                        }
+                      }}
                       maxLength={1000}
-                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:border-[#008767] focus:ring-2 focus:ring-[#008767]/20 transition-all font-medium placeholder:text-slate-400 leading-relaxed"
+                      className={`w-full px-4 py-3 rounded-2xl border text-sm focus:outline-none transition-all font-medium placeholder:text-slate-400 leading-relaxed ${
+                        fieldErrors.content
+                          ? "border-rose-400 ring-2 ring-rose-200 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-200"
+                          : "border-slate-200 focus:border-[#008767] focus:ring-2 focus:ring-[#008767]/20"
+                      }`}
                     />
+                    {fieldErrors.content && (
+                      <p className="text-xs font-semibold text-rose-600 flex items-center gap-1.5 animate-in fade-in">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                        <span>{fieldErrors.content}</span>
+                      </p>
+                    )}
                   </div>
 
                   {/* ITEM 4: UPLOAD PHOTOS */}
                   <div className="space-y-3 pb-4 border-b border-slate-100">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <label className="block text-sm font-bold text-slate-900">
-                          Unggah Foto <span className="text-slate-400 font-normal">(Opsional)</span>
-                        </label>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Tambahkan foto suasana, produk, atau fasilitas untuk melengkapi ulasanmu (maks. 4 foto).
-                        </p>
-                      </div>
-                      <span className="text-xs font-semibold text-slate-500">
-                        {photos.length} / 4 foto
-                      </span>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-900">
+                        Unggah Foto <span className="text-slate-400 font-normal">(Opsional)</span>
+                      </label>
+                      <p className="text-[11px] font-medium text-slate-500 mt-0.5">
+                        (Maksimal 4 foto)
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1185,12 +1281,25 @@ function WriteReviewContent() {
                   </div>
 
                   {/* ITEM 5: VERIFICATION CHECKBOX */}
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                  <div
+                    ref={confirmedSectionRef}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      fieldErrors.confirmed
+                        ? "bg-rose-50/60 border-rose-300 ring-2 ring-rose-200"
+                        : "bg-slate-50 border-slate-200/80"
+                    }`}
+                  >
                     <label className="flex items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={confirmed}
-                        onChange={(e) => setConfirmed(e.target.checked)}
+                        onChange={(e) => {
+                          setConfirmed(e.target.checked);
+                          if (fieldErrors.confirmed && e.target.checked) {
+                            setFieldErrors((prev) => ({ ...prev, confirmed: undefined }));
+                            setErrorMessage("");
+                          }
+                        }}
                         className="mt-1 w-4 h-4 text-[#008767] rounded border-slate-300 focus:ring-[#008767]"
                       />
                       <span className="text-xs text-slate-600 leading-relaxed">
@@ -1201,6 +1310,12 @@ function WriteReviewContent() {
                         Katamereka.
                       </span>
                     </label>
+                    {fieldErrors.confirmed && (
+                      <p className="text-xs font-semibold text-rose-600 flex items-center gap-1.5 mt-2 animate-in fade-in">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                        <span>{fieldErrors.confirmed}</span>
+                      </p>
+                    )}
                   </div>
 
                   {/* SUBMIT BUTTONS */}

@@ -83,7 +83,7 @@ function formatCategory(cat: string | null) {
 export default function ProfilePage() {
   const { user, isLoggedIn, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<"overview" | "settings">("overview");
-  const [contentTab, setContentTab] = useState<"reviews" | "saved" | "activity" | "history">("reviews");
+  const [contentTab, setContentTab] = useState<"saved" | "activity" | "history">("saved");
 
   // API data state
   const [reviews, setReviews] = useState<UserReview[]>([]);
@@ -161,7 +161,6 @@ export default function ProfilePage() {
   // Load correct data when tab changes
   useEffect(() => {
     if (!isLoggedIn) return;
-    if (contentTab === "reviews" && reviews.length === 0) loadReviews();
     if (contentTab === "saved" && favorites.length === 0) loadFavorites();
     if (contentTab === "history" && recentlyViewed.length === 0) loadHistory();
     if (contentTab === "activity" && logs.length === 0) loadLogs();
@@ -208,7 +207,7 @@ export default function ProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
           {/* ── LEFT SIDEBAR ── */}
-          <aside className="lg:col-span-3 space-y-6 sticky top-24">
+          <aside className="lg:col-span-3 space-y-4 sm:space-y-6 lg:sticky lg:top-24">
             {/* User card */}
             <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs text-center space-y-4">
               <div className="relative inline-block mx-auto">
@@ -252,7 +251,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Nav menu */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-3 shadow-xs space-y-1">
+            <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-2 sm:p-3 shadow-xs grid grid-cols-3 lg:grid-cols-1 gap-1.5 lg:gap-1">
               {[
                 { id: "overview", label: "Overview", icon: Home },
                 { id: "settings", label: "Pengaturan", icon: Settings },
@@ -263,16 +262,16 @@ export default function ProfilePage() {
                   <button
                     key={item.id}
                     onClick={() => setActiveTab(item.id as any)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-semibold transition-all ${isItemActive ? "bg-[#e8f6f2] text-[#008767] shadow-2xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+                    className={`w-full flex items-center justify-center lg:justify-start gap-1.5 sm:gap-2.5 lg:gap-3 px-2 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl text-[11px] sm:text-xs font-semibold transition-all cursor-pointer ${isItemActive ? "bg-[#e8f6f2] text-[#008767] shadow-2xs font-bold" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
                   >
-                    <IconComp className={`w-4 h-4 ${isItemActive ? "text-[#008767]" : "text-slate-400"}`} />
-                    <span>{item.label}</span>
+                    <IconComp className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isItemActive ? "text-[#008767]" : "text-slate-400"}`} />
+                    <span className="truncate">{item.label}</span>
                   </button>
                 );
               })}
-              <Link href="/saved" className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-semibold transition-all text-slate-600 hover:bg-slate-50 hover:text-[#008767]">
-                <Bookmark className="w-4 h-4 text-slate-400" />
-                <span>Bisnis Favorit</span>
+              <Link href="/saved" className="w-full flex items-center justify-center lg:justify-start gap-1.5 sm:gap-2.5 lg:gap-3 px-2 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl text-[11px] sm:text-xs font-semibold transition-all text-slate-600 hover:bg-slate-50 hover:text-[#008767]">
+                <Bookmark className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-slate-400" />
+                <span className="truncate">Favorit</span>
               </Link>
             </div>
           </aside>
@@ -319,61 +318,32 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* ── STATS + ACHIEVEMENTS ── */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
-                  <div className="md:col-span-8 bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#008767] flex items-center justify-center">
-                        <Activity className="w-4 h-4" />
-                      </div>
-                      <h3 className="font-bold text-slate-900 text-base">Ringkasan Aktivitas</h3>
+                {/* ── STATS ── */}
+                <div className="bg-white rounded-3xl border border-slate-200/80 p-4 sm:p-6 shadow-xs space-y-3 sm:space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#008767] flex items-center justify-center">
+                      <Activity className="w-4 h-4" />
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="bg-[#f0faf6] rounded-2xl p-4 border border-[#ccebe2] space-y-1">
-                        <div className="w-8 h-8 rounded-xl bg-[#008767] text-white flex items-center justify-center">
-                          <Star className="w-4 h-4 fill-white" />
-                        </div>
-                        <p className="text-xl font-extrabold text-slate-900 pt-1">{reviewCount}</p>
-                        <p className="text-xs font-bold text-slate-700">Review Ditulis</p>
-                      </div>
-                      <div className="bg-sky-50/70 rounded-2xl p-4 border border-sky-100 space-y-1">
-                        <div className="w-8 h-8 rounded-xl bg-sky-500 text-white flex items-center justify-center">
-                          <ThumbsUp className="w-4 h-4 fill-white" />
-                        </div>
-                        <p className="text-xl font-extrabold text-slate-900 pt-1">{helpfulCount}</p>
-                        <p className="text-xs font-bold text-slate-700">Helpful Votes</p>
-                      </div>
-                      <div className="bg-purple-50/70 rounded-2xl p-4 border border-purple-100 space-y-1">
-                        <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center">
-                          <Bookmark className="w-4 h-4" />
-                        </div>
-                        <p className="text-xl font-extrabold text-slate-900 pt-1">{savedCount}</p>
-                        <p className="text-xs font-bold text-slate-700">Bisnis Favorit</p>
-                      </div>
-                    </div>
+                    <h3 className="font-bold text-slate-900 text-sm sm:text-base">Ringkasan Aktivitas</h3>
                   </div>
-
-                  <div className="md:col-span-4 bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                        <Award className="w-4 h-4" />
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                    <div title="Review Ditulis" className="bg-[#f0faf6] rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border border-[#ccebe2] flex items-center justify-center gap-2 sm:gap-3">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-[#008767] text-white flex items-center justify-center shrink-0">
+                        <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-white" />
                       </div>
-                      <h3 className="font-bold text-slate-900 text-base">Pencapaian</h3>
+                      <p className="text-lg sm:text-2xl font-extrabold text-slate-900">{reviewCount}</p>
                     </div>
-                    <div className="space-y-3">
-                      {[
-                        { emoji: "🏅", title: "Reviewer Aktif", desc: reviewCount > 0 ? `${reviewCount} ulasan ditulis` : "Belum menulis review" },
-                        { emoji: "⭐", title: "Helper", desc: helpfulCount > 0 ? `${helpfulCount} pengguna terbantu` : "Belum ada helpful vote" },
-                        { emoji: "🔖", title: "Kolektor", desc: savedCount > 0 ? `${savedCount} bisnis favorit` : "Belum ada favorit" },
-                      ].map((badge) => (
-                        <div key={badge.title} className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center text-sm flex-shrink-0">{badge.emoji}</div>
-                          <div>
-                            <h4 className="font-bold text-slate-900 text-xs">{badge.title}</h4>
-                            <p className="text-[11px] text-slate-400">{badge.desc}</p>
-                          </div>
-                        </div>
-                      ))}
+                    <div title="Helpful Votes" className="bg-sky-50/70 rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border border-sky-100 flex items-center justify-center gap-2 sm:gap-3">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-sky-500 text-white flex items-center justify-center shrink-0">
+                        <ThumbsUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-white" />
+                      </div>
+                      <p className="text-lg sm:text-2xl font-extrabold text-slate-900">{helpfulCount}</p>
+                    </div>
+                    <div title="Bisnis Favorit" className="bg-purple-50/70 rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border border-purple-100 flex items-center justify-center gap-2 sm:gap-3">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0">
+                        <Bookmark className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      </div>
+                      <p className="text-lg sm:text-2xl font-extrabold text-slate-900">{savedCount}</p>
                     </div>
                   </div>
                 </div>
@@ -384,7 +354,6 @@ export default function ProfilePage() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-4 text-sm font-semibold overflow-x-auto">
                       {[
-                        { id: "reviews", label: "Review Saya", icon: Star },
                         { id: "saved", label: "Favorit", icon: Bookmark },
                         { id: "history", label: "Riwayat", icon: Eye },
                         { id: "activity", label: "Aktivitas", icon: Activity },
@@ -394,7 +363,7 @@ export default function ProfilePage() {
                           <button
                             key={tab.id}
                             onClick={() => setContentTab(tab.id as any)}
-                            className={`flex items-center gap-1.5 pb-3 border-b-2 transition-colors whitespace-nowrap ${contentTab === tab.id ? "border-[#008767] text-[#008767]" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+                            className={`flex items-center gap-1.5 pb-3 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${contentTab === tab.id ? "border-[#008767] text-[#008767]" : "border-transparent text-slate-500 hover:text-slate-800"}`}
                           >
                             <IconComp className="w-3.5 h-3.5" />
                             {tab.label}
@@ -406,69 +375,16 @@ export default function ProfilePage() {
                     {/* Refresh button */}
                     <button
                       onClick={() => {
-                        if (contentTab === "reviews") { setReviews([]); loadReviews(); }
                         if (contentTab === "saved") { setFavorites([]); loadFavorites(); }
                         if (contentTab === "history") { setRecentlyViewed([]); loadHistory(); }
                         if (contentTab === "activity") { setLogs([]); loadLogs(); }
                       }}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#008767] transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#008767] transition-colors cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       Refresh
                     </button>
                   </div>
-
-                  {/* ── TAB: Reviews ── */}
-                  {contentTab === "reviews" && (
-                    loadingReviews ? <LoadingSkeleton /> :
-                    reviews.length > 0 ? (
-                      <div className="space-y-4">
-                        {reviews.map((review) => (
-                          <div key={review.id} className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 hover:border-[#008767]/40 hover:shadow-md transition-all">
-                            <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
-                              <div className="flex items-start gap-3 flex-1 min-w-0">
-                                {/* Business initial avatar */}
-                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#008767] to-emerald-400 text-white flex-shrink-0 flex items-center justify-center font-bold text-lg">
-                                  {review.business.name.charAt(0).toUpperCase()}
-                                </div>
-                                <div className="space-y-1 min-w-0">
-                                  <span className="inline-block text-[11px] font-semibold text-[#008767] bg-[#e8f6f2] px-2.5 py-0.5 rounded-md">
-                                    {formatCategory(review.business.category)}
-                                  </span>
-                                  <Link href={`/business/${review.business.slug}`} className="block font-bold text-slate-900 text-sm hover:text-[#008767] transition-colors truncate">
-                                    {review.business.name}
-                                  </Link>
-                                  <p className="text-xs text-slate-400 flex items-center gap-1">
-                                    <MapPin className="w-3 h-3" />{review.business.city}
-                                  </p>
-                                  {review.title && <p className="text-xs font-semibold text-slate-700 pt-1">"{review.title}"</p>}
-                                  {review.content && <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{review.content}</p>}
-                                </div>
-                              </div>
-                              <div className="flex sm:flex-col items-center sm:items-end gap-3 sm:gap-1 flex-shrink-0">
-                                <StarRating rating={review.rating} />
-                                <span className="text-sm font-bold text-slate-800">{review.rating}/5</span>
-                                <StatusBadge status={review.status} />
-                                <p className="text-[10px] text-slate-400">{formatRelativeDate(review.createdAt)}</p>
-                                <div className="flex items-center gap-2 pt-1">
-                                  <button
-                                    onClick={() => setConfirmDeleteId(review.id)}
-                                    disabled={deletingReviewId === review.id}
-                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 py-0.5 rounded-md transition-colors disabled:opacity-50"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                    <span>Hapus</span>
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <EmptyState icon={MessageSquare} title="Belum ada review" desc="Anda belum menulis review untuk bisnis apapun. Bagikan pengalaman Anda!" cta="/businesses" ctaLabel="Jelajahi Bisnis" />
-                    )
-                  )}
 
                   {/* ── TAB: Favorites / Saved ── */}
                   {contentTab === "saved" && (
