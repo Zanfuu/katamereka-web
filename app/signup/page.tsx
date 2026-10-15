@@ -19,18 +19,20 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import GoogleLoginButton from "@/components/google-login-button";
+import { isBusinessHost } from "@/lib/site-config";
 
 function SignupFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialRole = (searchParams.get("role") as UserRole) || "customer";
-
   const { signup } = useAuth();
 
   // Page Step State: "form" (Step 1) | "otp" (Step 2)
   const [step, setStep] = useState<"form" | "otp">("form");
 
-  const [role, setRole] = useState<UserRole>(initialRole);
+  const isBusinessSubdomain =
+    typeof window !== "undefined" && isBusinessHost(window.location.hostname);
+  const roleParam = searchParams.get("role") as UserRole | null;
+  const role: UserRole = roleParam === "bisnis" || isBusinessSubdomain ? "bisnis" : "customer";
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -300,32 +302,6 @@ function SignupFormContent() {
             {/* ================= STEP 1: INITIAL DATA FORM ================= */}
             {step === "form" && (
               <div className="space-y-4 animate-fadeIn">
-
-                {/* Role Selector Tabs */}
-                <div className="p-1 bg-slate-100 rounded-2xl flex items-center gap-1 border border-slate-200/80">
-                  <button
-                    type="button"
-                    onClick={() => setRole("customer")}
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                      role === "customer"
-                        ? "bg-white text-slate-900 shadow-xs"
-                        : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    Pengguna (Customer)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole("bisnis")}
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                      role === "bisnis"
-                        ? "bg-[#008767] text-white shadow-xs"
-                        : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    Pemilik Bisnis
-                  </button>
-                </div>
 
                 {/* Title & Subtitle */}
                 <div className="space-y-0.5">

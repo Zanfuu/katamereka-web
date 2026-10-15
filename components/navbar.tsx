@@ -634,7 +634,7 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
             {/* Auth Actions / Profile Section */}
             {isLoggedIn && user ? (
               <div className="pt-3 border-t border-slate-100 space-y-2 mt-3">
-                {user.role === "bisnis" && (
+                {(user.role === "bisnis" || isBusinessUser) && (
                   <Link
                     href="/dashboard"
                     onClick={() => setMobileMenuOpen(false)}
