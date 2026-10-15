@@ -104,6 +104,8 @@ function WriteReviewContent() {
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
   const confirmedSectionRef = useRef<HTMLDivElement>(null);
   const errorBannerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isProcessingPhotos, setIsProcessingPhotos] = useState<boolean>(false);
 
   // Existing review detection (1 review per account per business)
   const [existingReview, setExistingReview] = useState<any | null>(null);
@@ -161,6 +163,7 @@ function WriteReviewContent() {
           if (match.rating) setRating(match.rating);
           if (match.title) setTitle(match.title);
           if (match.content) setContent(match.content);
+          if (Array.isArray(match.photos)) setPhotos(match.photos);
           setConfirmed(true);
         } else {
           setExistingReview(null);
@@ -353,10 +356,101 @@ function WriteReviewContent() {
     router.replace(`/review?business=${newSlug}`);
   };
 
-  const handleAddSamplePhoto = () => {};
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(event.target?.result as string);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.82);
+          resolve(compressedDataUrl);
+        };
+        img.onerror = () => {
+          resolve(event.target?.result as string);
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => {
+        resolve("");
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const availableSlots = 4 - photos.length;
+    if (availableSlots <= 0) {
+      toast.error("Maksimal 4 foto yang dapat diunggah.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    const filesToProcess = Array.from(files).slice(0, availableSlots);
+    if (files.length > availableSlots) {
+      toast.warning(`Hanya ${availableSlots} foto yang ditambahkan (maksimal 4 foto).`);
+    }
+
+    setIsProcessingPhotos(true);
+    try {
+      const newPhotoUrls: string[] = [];
+      for (const file of filesToProcess) {
+        if (!file.type.startsWith("image/")) {
+          toast.error(`File "${file.name}" bukan format gambar yang valid.`);
+          continue;
+        }
+        if (file.size > 15 * 1024 * 1024) {
+          toast.error(`Ukuran "${file.name}" melebihi 15MB.`);
+          continue;
+        }
+        const compressed = await compressImage(file);
+        if (compressed) {
+          newPhotoUrls.push(compressed);
+        }
+      }
+
+      if (newPhotoUrls.length > 0) {
+        setPhotos((prev) => [...prev, ...newPhotoUrls].slice(0, 4));
+        toast.success(`${newPhotoUrls.length} foto berhasil ditambahkan.`);
+      }
+    } catch {
+      toast.error("Gagal memproses foto. Silakan coba lagi.");
+    } finally {
+      setIsProcessingPhotos(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const handleRemovePhoto = (index: number) => {
-    setPhotos(photos.filter((_, i) => i !== index));
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
   const scrollToField = (ref: React.RefObject<HTMLElement | null>) => {
@@ -451,6 +545,7 @@ function WriteReviewContent() {
             rating,
             title: title.trim(),
             content: content.trim(),
+            photos,
           }),
         });
 
@@ -479,6 +574,7 @@ function WriteReviewContent() {
           rating,
           title: title.trim(),
           content: content.trim(),
+          photos,
         }),
       });
 
@@ -1242,6 +1338,15 @@ function WriteReviewContent() {
                       </p>
                     </div>
 
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handlePhotoSelect}
+                      accept="image/png, image/jpeg, image/jpg, image/webp"
+                      multiple
+                      className="hidden"
+                    />
+
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {/* Previews */}
                       {photos.map((url, idx) => (
@@ -1257,7 +1362,7 @@ function WriteReviewContent() {
                           <button
                             type="button"
                             onClick={() => handleRemovePhoto(idx)}
-                            className="absolute top-2 right-2 p-1 rounded-full bg-slate-900/70 text-white hover:bg-rose-600 transition-colors"
+                            className="absolute top-2 right-2 p-1 rounded-full bg-slate-900/70 text-white hover:bg-rose-600 transition-colors cursor-pointer"
                             title="Hapus foto"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -1269,11 +1374,18 @@ function WriteReviewContent() {
                       {photos.length < 4 && (
                         <button
                           type="button"
-                          onClick={handleAddSamplePhoto}
-                          className="flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-dashed border-slate-300 hover:border-[#008767] hover:bg-emerald-50/40 text-slate-500 hover:text-[#008767] transition-all aspect-video sm:aspect-square"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isProcessingPhotos}
+                          className="flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-dashed border-slate-300 hover:border-[#008767] hover:bg-emerald-50/40 text-slate-500 hover:text-[#008767] transition-all aspect-video sm:aspect-square cursor-pointer active:scale-95 disabled:opacity-60 disabled:cursor-wait"
                         >
-                          <Camera className="w-6 h-6 mb-1 text-slate-400 group-hover:text-[#008767]" />
-                          <span className="text-xs font-semibold text-center">Tambah Foto</span>
+                          {isProcessingPhotos ? (
+                            <div className="w-6 h-6 border-2 border-[#008767] border-t-transparent rounded-full animate-spin mb-1" />
+                          ) : (
+                            <Camera className="w-6 h-6 mb-1 text-slate-400 group-hover:text-[#008767]" />
+                          )}
+                          <span className="text-xs font-semibold text-center">
+                            {isProcessingPhotos ? "Memproses..." : "Tambah Foto"}
+                          </span>
                           <span className="text-[10px] text-slate-400 text-center mt-0.5">JPG / PNG</span>
                         </button>
                       )}
