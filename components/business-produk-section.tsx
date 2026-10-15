@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Star, Check, ArrowRight } from "lucide-react";
+import { Star, Check, ArrowRight, Building2 } from "lucide-react";
 
 const FEATURES = [
   "Kelola halaman profil resmi bisnis Anda",
@@ -50,11 +50,11 @@ export default function BusinessProdukSection({ withAnchor = true }: { withAncho
             <div className="bg-slate-50/80 rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xl space-y-6 w-full max-w-lg">
               <div className="flex items-center gap-3 pb-4 border-b border-slate-200/80">
                 <div className="w-12 h-12 rounded-2xl bg-[#008767] text-white font-bold text-xl flex items-center justify-center shadow-md shadow-[#008767]/20">
-                  SC
+                  <Building2 className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 text-lg">Sunny Cafe & Bakery</h4>
-                  <p className="text-xs text-slate-500">Jakarta Selatan • Kuliner & Resto</p>
+                  <h4 className="font-bold text-slate-900 text-lg">Profil Bisnis Terverifikasi</h4>
+                  <p className="text-xs text-slate-500">Indonesia • Mitra Katamereka</p>
                 </div>
                 <span className="ml-auto bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-300">
                   Terverifikasi
@@ -73,14 +73,14 @@ export default function BusinessProdukSection({ withAnchor = true }: { withAncho
                     ))}
                   </div>
                   <p className="text-xs text-slate-700 font-medium">
-                    &quot;Pelayanan ramah banget, kopi dan suasananya oke buat kerja remote!&quot;
+                    &quot;Pelayanan ramah dan profesional, sangat merekomendasikan tempat ini!&quot;
                   </p>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 space-y-2">
                   <p className="text-xs font-bold text-[#008767]">Tanggapan Pemilik Bisnis:</p>
                   <p className="text-xs text-slate-700">
-                    &quot;Terima kasih Kak! Kami senang bisa memberikan tempat yang nyaman untuk Anda.&quot;
+                    &quot;Terima kasih atas ulasan dan kepercayaannya! Kami selalu berkomitmen memberikan layanan terbaik.&quot;
                   </p>
                 </div>
               </div>

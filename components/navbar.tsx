@@ -181,9 +181,9 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
               </Link>
 
               <Link
-                href="/business/sunny-cafe"
+                href="/dashboard/business"
                 className={`transition-colors hover:text-[#008767] ${
-                  isActive("/business") ? "text-[#008767] font-bold" : ""
+                  isActive("/dashboard/business") ? "text-[#008767] font-bold" : ""
                 }`}
               >
                 Bisnis Saya
@@ -352,7 +352,7 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
 
                     {(user.role === "bisnis" || isBusinessUser) && (
                       <Link
-                        href="/business/sunny-cafe"
+                        href="/dashboard/business"
                         onClick={() => setProfileDropdownOpen(false)}
                         className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
                       >
@@ -553,10 +553,10 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
                       Utama
                     </Link>
                     <Link
-                      href="/business/sunny-cafe"
+                      href="/dashboard/business"
                       onClick={() => setMobileMenuOpen(false)}
                       className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
-                        isActive("/business")
+                        isActive("/dashboard/business")
                           ? "bg-emerald-50 text-[#008767] font-bold"
                           : "text-slate-800 hover:bg-slate-50"
                       }`}
