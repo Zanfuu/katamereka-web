@@ -442,17 +442,30 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
         </div>
       </div>
 
-      {/* Mobile Bottom Sheet Menu (Rendered via Portal) */}
-      {mounted && mobileMenuOpen && createPortal(
+      {/* Mobile Bottom Sheet Menu (Persistent Pre-Rendered for 60fps GPU Animation) */}
+      {mounted && createPortal(
         <>
           {/* Backdrop Overlay */}
           <div
             onClick={() => setMobileMenuOpen(false)}
-            className="md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[9999] animate-fadeIn"
+            aria-hidden="true"
+            className={`md:hidden fixed inset-0 bg-slate-900/60 z-[9999] transition-opacity duration-300 ease-out ${
+              mobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+            }`}
+            style={{ touchAction: "none" }}
           />
 
           {/* Bottom Sheet Container */}
-          <div className="md:hidden fixed inset-x-0 bottom-0 z-[10000] bg-white rounded-t-3xl shadow-2xl p-5 border-t border-slate-100 max-h-[70vh] flex flex-col justify-between animate-in slide-in-from-bottom duration-300 ease-out overflow-y-auto">
+          <div
+            className={`md:hidden fixed inset-x-0 bottom-0 z-[10000] bg-white rounded-t-3xl shadow-2xl p-5 border-t border-slate-100 max-h-[75vh] flex flex-col justify-between overflow-y-auto overscroll-contain transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform-gpu ${
+              mobileMenuOpen ? "pointer-events-auto" : "pointer-events-none"
+            }`}
+            style={{
+              transform: mobileMenuOpen ? "translate3d(0, 0, 0)" : "translate3d(0, 100%, 0)",
+              willChange: "transform",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
             <div>
               {/* Drag Handle & Header */}
               <div className="flex flex-col items-center mb-3">
