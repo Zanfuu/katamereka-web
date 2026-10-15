@@ -110,50 +110,12 @@ async function fetchFreshClaims(
   }
 }
 
-const BUSINESS_ACCOUNTS_KEY = "katamereka_business_accounts";
-
-function getStoredBusinessEmails(): string[] {
-  try {
-    if (typeof window === "undefined") return [];
-    const raw = localStorage.getItem(BUSINESS_ACCOUNTS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function rememberBusinessEmail(email: string) {
-  try {
-    if (typeof window === "undefined") return;
-    const list = getStoredBusinessEmails();
-    const clean = email.trim().toLowerCase();
-    if (clean && !list.includes(clean)) {
-      list.push(clean);
-      localStorage.setItem(BUSINESS_ACCOUNTS_KEY, JSON.stringify(list));
-    }
-  } catch {
-    // ignore
-  }
-}
-
-function isKnownBusinessEmail(email?: string): boolean {
-  if (!email) return false;
-  const clean = email.trim().toLowerCase();
-  const list = getStoredBusinessEmails();
-  return list.includes(clean);
-}
-
 function resolveUserRole(
-  serverUser: any,
-  hintRole?: UserRole | null,
-  cachedRole?: UserRole | null,
-  userEmail?: string
+  serverUser: any
 ): { role: UserRole; platformRole: PlatformRole; businessRole: BusinessMemberRole } {
   const sRole = String(serverUser?.role || "").toLowerCase();
   const sBusinessRole = (serverUser?.businessRole ?? serverUser?.business_role ?? null) as BusinessMemberRole;
   const sUserType = String(serverUser?.user_type || serverUser?.userType || "").toLowerCase();
-  const email = (userEmail || serverUser?.email || "").trim().toLowerCase();
-  const name = String(serverUser?.name || "").toLowerCase();
 
   const isBisnis = Boolean(
     sBusinessRole ||
@@ -163,12 +125,7 @@ function resolveUserRole(
     sRole === "merchant" ||
     sRole === "partner" ||
     sUserType === "business" ||
-    sUserType === "bisnis" ||
-    hintRole === "bisnis" ||
-    isKnownBusinessEmail(email) ||
-    cachedRole === "bisnis" ||
-    email.includes("ipussoey") ||
-    name.includes("mandja")
+    sUserType === "bisnis"
   );
 
   const role: UserRole = isBisnis ? "bisnis" : "customer";
@@ -206,12 +163,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         }
 
-        const { role, platformRole, businessRole } = resolveUserRole(
-          freshClaims,
-          null,
-          parsed.role,
-          parsed.email
-        );
+        try {
+          localStorage.removeItem("katamereka_business_accounts");
+        } catch {
+          // ignore
+        }
+
+        const { role, platformRole, businessRole } = resolveUserRole(freshClaims);
 
         const hydratedUser: UserProfile = {
           ...parsed,
@@ -235,23 +193,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const setAccountRole = (newRole: UserRole) => {
-    if (!user) return;
-    const updated: UserProfile = {
-      ...user,
-      role: newRole,
-      businessRole: newRole === "bisnis" ? "OWNER" : null,
-      businessCount: newRole === "bisnis" ? Math.max(1, user.businessCount || 1) : 0,
-    };
-    if (newRole === "bisnis" && user.email) {
-      rememberBusinessEmail(user.email);
-    }
-    setUser(updated);
-    try {
-      localStorage.setItem("katamereka_active_user", JSON.stringify(updated));
-    } catch {
-      // ignore
-    }
+  const setAccountRole = (_newRole: UserRole) => {
+    // Role switching is permanently disabled: role is strictly determined by account registration
   };
 
   const login = async (
@@ -287,16 +230,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const returnedUser = data.user || {};
 
       // Ground truth resolved with business-awareness
-      const { role: userRole, platformRole, businessRole } = resolveUserRole(
-        returnedUser,
-        hintRole,
-        null,
-        lowerEmail
-      );
-
-      if (userRole === "bisnis") {
-        rememberBusinessEmail(lowerEmail);
-      }
+      const { role: userRole, platformRole, businessRole } = resolveUserRole(returnedUser);
 
       const userName = returnedUser.name || email.split("@")[0];
       const initials = userName
@@ -367,12 +301,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const returnedEmail = returnedUser.email || "";
       const lowerEmail = returnedEmail.toLowerCase().trim();
 
-      const { role: userRole, platformRole, businessRole } = resolveUserRole(
-        returnedUser,
-        hintRole,
-        null,
-        lowerEmail
-      );
+      const { role: userRole, platformRole, businessRole } = resolveUserRole(returnedUser);
 
       const userName = returnedUser.name || lowerEmail.split("@")[0];
       const initials = userName
@@ -469,9 +398,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.setItem("accessToken", token);
       setSessionCookie(token);
 
-      if (role === "bisnis") {
-        rememberBusinessEmail(lowerEmail);
-      }
+
 
       // Auto-login session directly with the registered role
       const initials = name
