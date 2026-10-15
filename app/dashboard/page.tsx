@@ -46,9 +46,33 @@ const ACTIVITY_ICON = {
 }
 
 export default function DashboardOverviewPage() {
-  const { selectedBusiness } = useBusinessContext()
+  const { selectedBusiness, isLoading } = useBusinessContext()
   const { user } = useAuth()
-  if (!selectedBusiness) return null
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-6 p-4 animate-pulse">
+        <div className="h-8 w-72 rounded bg-muted" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="h-28 rounded-xl bg-muted" />
+          <div className="h-28 rounded-xl bg-muted" />
+          <div className="h-28 rounded-xl bg-muted" />
+          <div className="h-28 rounded-xl bg-muted" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!selectedBusiness) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center">
+        <h2 className="text-lg font-semibold text-foreground">Selamat Datang di Dashboard Bisnis</h2>
+        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+          Pilih profil bisnis Anda pada menu di sidebar untuk melihat ringkasan performa dan ulasan pelanggan.
+        </p>
+      </div>
+    )
+  }
 
   const reviews = getReviewsByBusiness(selectedBusiness.id)
   const needsAttention = getNeedsAttentionReviews(selectedBusiness.id).slice(0, 5)

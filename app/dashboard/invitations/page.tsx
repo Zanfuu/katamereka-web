@@ -61,7 +61,7 @@ const STATUS_OPTIONS = [
 ]
 
 export default function DashboardInvitationsPage() {
-  const { selectedBusiness } = useBusinessContext()
+  const { selectedBusiness, isLoading } = useBusinessContext()
   const [tab, setTab] = React.useState<string>("all")
   const [search, setSearch] = React.useState("")
   const [channelFilter, setChannelFilter] = React.useState("all")
@@ -70,7 +70,25 @@ export default function DashboardInvitationsPage() {
   const [advancedOpen, setAdvancedOpen] = React.useState(false)
   const [reviewOnly, setReviewOnly] = React.useState(false)
 
-  if (!selectedBusiness) return null
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-6 p-4 animate-pulse">
+        <div className="h-8 w-64 rounded bg-muted" />
+        <div className="h-64 w-full rounded-xl bg-muted/60" />
+      </div>
+    )
+  }
+
+  if (!selectedBusiness) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center">
+        <h2 className="text-lg font-semibold text-foreground">Undangan Belum Tersedia</h2>
+        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+          Silakan hubungkan profil bisnis Anda untuk mengelola undangan ulasan pelanggan.
+        </p>
+      </div>
+    )
+  }
 
   const invitations = getInvitationsByBusiness(selectedBusiness.id)
   const counts = {

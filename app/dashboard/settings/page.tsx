@@ -117,10 +117,40 @@ const SECTIONS = [
 type SectionValue = (typeof SECTIONS)[number]["value"]
 
 export default function DashboardSettingsPage() {
-  const { selectedBusiness } = useBusinessContext()
+  const { selectedBusiness, isLoading } = useBusinessContext()
   const [section, setSection] = React.useState<SectionValue>("profil")
 
-  if (!selectedBusiness) return null
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-4 p-4 animate-pulse">
+        <div className="h-8 w-60 rounded bg-muted" />
+        <div className="h-4 w-96 rounded bg-muted" />
+        <div className="h-96 w-full rounded-xl bg-muted/60 mt-4" />
+      </div>
+    )
+  }
+
+  if (!selectedBusiness) {
+    return (
+      <div className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card p-8 text-center">
+        <span className="flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground mb-4">
+          <BuildingIcon className="size-7" />
+        </span>
+        <h2 className="text-lg font-semibold text-foreground">Pengaturan Belum Tersedia</h2>
+        <p className="mt-1.5 max-w-md text-sm text-muted-foreground">
+          Akun Anda saat ini belum memiliki profil bisnis yang terdaftar atau dikelola. Silakan daftarkan profil bisnis baru atau klaim bisnis Anda untuk mengatur informasi akun dan bisnis.
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <Button render={<a href="/admin/add-business" />}>
+            + Daftarkan Bisnis Baru
+          </Button>
+          <Button variant="outline" render={<a href="/bisnis" />}>
+            Klaim Bisnis Anda
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4">

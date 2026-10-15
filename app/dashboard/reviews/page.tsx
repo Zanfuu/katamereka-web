@@ -142,10 +142,23 @@ function mapApiReviewToUiReview(r: ApiDashboardReview, business: ActiveBusiness)
   }
 }
 
+import { useBusinessContext } from "@/components/business-provider"
+
 export default function DashboardReviewsPage() {
   const { isLoggedIn } = useAuth()
-  const [activeBusiness, setActiveBusiness] = React.useState<ActiveBusiness | null>(null)
-  const [isBusinessLoading, setIsBusinessLoading] = React.useState(true)
+  const { selectedBusiness, isLoading: isBusinessLoading } = useBusinessContext()
+
+  const activeBusiness = React.useMemo<ActiveBusiness | null>(() => {
+    if (!selectedBusiness) return null
+    return {
+      id: selectedBusiness.id,
+      name: selectedBusiness.name,
+      slug: selectedBusiness.slug,
+      averageRating: Number(selectedBusiness.averageRating ?? 0) || 0,
+      totalReviews: Number(selectedBusiness.totalReviews ?? 0) || 0,
+    }
+  }, [selectedBusiness])
+
   const [tab, setTab] = React.useState<string>("all")
   const [search, setSearch] = React.useState("")
   const [debouncedSearch, setDebouncedSearch] = React.useState("")
@@ -167,45 +180,6 @@ export default function DashboardReviewsPage() {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300)
     return () => clearTimeout(timer)
   }, [search])
-
-  React.useEffect(() => {
-    let cancelled = false
-
-    if (!isLoggedIn) {
-      setActiveBusiness(null)
-      setIsBusinessLoading(false)
-      return
-    }
-
-    setIsBusinessLoading(true)
-    ;(async () => {
-      const mine = await fetchMyBusinesses()
-      if (cancelled) return
-
-      const first = mine[0]
-      if (!first) {
-        setActiveBusiness(null)
-        setIsBusinessLoading(false)
-        return
-      }
-
-      const detail = await fetchMyBusinessDetail(first.id)
-      if (cancelled) return
-
-      setActiveBusiness({
-        id: first.id,
-        name: detail?.name ?? first.name,
-        slug: detail?.slug ?? first.slug,
-        averageRating: Number(detail?.averageRating ?? detail?.rating ?? 0) || 0,
-        totalReviews: Number(detail?.reviewCount ?? detail?.reviews_count ?? 0) || 0,
-      })
-      setIsBusinessLoading(false)
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [isLoggedIn])
 
   const businessId = activeBusiness?.id
 

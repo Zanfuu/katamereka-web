@@ -10,7 +10,19 @@ import { API_BASE_URL, ApiBusinessDetail } from "./api-client"
 function getToken(): string | null {
   if (typeof window === "undefined") return null
   try {
-    return localStorage.getItem("accessToken")
+    const direct = localStorage.getItem("accessToken")
+    if (direct) return direct
+
+    const activeUser = localStorage.getItem("katamereka_active_user")
+    if (activeUser) {
+      const parsed = JSON.parse(activeUser)
+      if (parsed?.accessToken) return parsed.accessToken
+    }
+
+    const match = document.cookie.match(/(?:^|;\s*)km_session=([^;]+)/)
+    if (match?.[1]) return decodeURIComponent(match[1])
+
+    return null
   } catch {
     return null
   }
@@ -30,6 +42,28 @@ export interface MyBusinessItem {
   slug: string
   role: "OWNER" | "ADMIN" | "MEMBER" | string
   is_claimed: boolean
+  description?: string
+  category?: string
+  website?: string
+  phone?: string
+  email?: string
+  logo?: string
+  logo_url?: string
+  cover?: string
+  cover_url?: string
+  address?: string
+  city?: string
+  province?: string
+  postalCode?: string
+  postal_code?: string
+  rating?: number
+  averageRating?: number
+  reviewCount?: number
+  totalReviews?: number
+  status?: string
+  verificationStatus?: string
+  sourceOfTruth?: string
+  createdAt?: string
 }
 
 export async function fetchMyBusinesses(): Promise<MyBusinessItem[]> {

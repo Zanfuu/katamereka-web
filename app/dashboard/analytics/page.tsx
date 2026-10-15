@@ -59,11 +59,29 @@ const INVITATIONS_SENT = 2430
 const INVITATION_RESPONSE_RATE = 52
 
 export default function DashboardAnalyticsPage() {
-  const { selectedBusiness } = useBusinessContext()
+  const { selectedBusiness, isLoading } = useBusinessContext()
   const [volumeFilter, setVolumeFilter] = React.useState<"all" | "verified" | "unverified">("all")
   const [keywordFilter, setKeywordFilter] = React.useState<"all" | "positive" | "negative">("all")
 
-  if (!selectedBusiness) return null
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-6 p-4 animate-pulse">
+        <div className="h-8 w-64 rounded bg-muted" />
+        <div className="h-72 w-full rounded-xl bg-muted/60" />
+      </div>
+    )
+  }
+
+  if (!selectedBusiness) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center">
+        <h2 className="text-lg font-semibold text-foreground">Analytics Belum Tersedia</h2>
+        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+          Silakan pilih atau hubungkan profil bisnis Anda untuk melihat data analytics.
+        </p>
+      </div>
+    )
+  }
 
   const reviews = getReviewsByBusiness(selectedBusiness.id)
   const keywordData =
