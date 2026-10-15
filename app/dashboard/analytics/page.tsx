@@ -72,16 +72,7 @@ export default function DashboardAnalyticsPage() {
     )
   }
 
-  if (!selectedBusiness) {
-    return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center">
-        <h2 className="text-lg font-semibold text-foreground">Analytics Belum Tersedia</h2>
-        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-          Silakan pilih atau hubungkan profil bisnis Anda untuk melihat data analytics.
-        </p>
-      </div>
-    )
-  }
+  if (!selectedBusiness) return null
 
   const reviews = getReviewsByBusiness(selectedBusiness.id)
   const keywordData =

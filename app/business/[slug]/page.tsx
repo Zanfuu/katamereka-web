@@ -115,6 +115,7 @@ export default function BusinessProfilePage() {
   const [isTentangOpen, setIsTentangOpen] = useState(false);
   const [isFasilitasOpen, setIsFasilitasOpen] = useState(false);
   const [claimStatus, setClaimStatus] = useState<BusinessClaimStatus | null>(null);
+  const [isBusinessMember, setIsBusinessMember] = useState(false);
   const [claimStatusLoading, setClaimStatusLoading] = useState(false);
   const [claimModalOpen, setClaimModalOpen] = useState(false);
   const [claimSubmitting, setClaimSubmitting] = useState(false);
@@ -202,6 +203,7 @@ export default function BusinessProfilePage() {
       try {
         const res = await fetchClaimStatus(apiDetail.id);
         setClaimStatus(res.status);
+        setIsBusinessMember(Boolean(res.is_member));
       } finally {
         setClaimStatusLoading(false);
       }
@@ -1344,7 +1346,7 @@ export default function BusinessProfilePage() {
             </div>
 
             {/* CARD 4: Apakah Anda pemilik bisnis ini? */}
-            {user?.role === "bisnis" ? (
+            {isBusinessMember ? (
               <div className="bg-[#f0faf7] border border-[#008767]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                   <LayoutDashboard className="w-5 h-5 text-[#008767]" />
@@ -1360,7 +1362,17 @@ export default function BusinessProfilePage() {
                   Buka Dashboard
                 </Link>
               </div>
-            ) : apiDetail?.status === "CLAIMED" ? null : !isLoggedIn ? (
+            ) : claimStatus === "PENDING" ? (
+              <div className="bg-gradient-to-r from-amber-50 via-amber-50/80 to-orange-50 rounded-2xl sm:rounded-3xl border border-amber-200 p-4 sm:p-6 shadow-xs space-y-2">
+                <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                  <ShieldCheck className="w-5 h-5 text-amber-700" />
+                  <span>Klaim Sedang Ditinjau</span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Pengajuan klaim Anda untuk bisnis ini sedang diperiksa oleh tim admin Katamereka.
+                </p>
+              </div>
+            ) : !isLoggedIn ? (
               <div className="bg-[#f0faf7] border border-[#008767]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                   <ShieldCheck className="w-5 h-5 text-[#008767]" />
@@ -1370,20 +1382,20 @@ export default function BusinessProfilePage() {
                   Kelola profil bisnis Anda, balas review, dan jangkau lebih banyak pelanggan.
                 </p>
                 <Link
-                  href="/login"
+                  href={`/login?returnUrl=/business/${slug}`}
                   className="block w-full text-center py-3 rounded-full bg-[#008767] hover:bg-[#007458] text-white text-xs font-bold shadow-xs transition-all active:scale-95"
                 >
                   Klaim Bisnis Ini
                 </Link>
               </div>
-            ) : claimStatus === "PENDING" ? (
-              <div className="bg-gradient-to-r from-amber-50 via-amber-50/80 to-orange-50 rounded-2xl sm:rounded-3xl border border-amber-200 p-4 sm:p-6 shadow-xs space-y-2">
-                <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
-                  <ShieldCheck className="w-5 h-5 text-amber-700" />
-                  <span>Klaim Sedang Ditinjau</span>
+            ) : apiDetail?.status === "CLAIMED" && claimStatus !== "REJECTED" ? (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-2">
+                <div className="flex items-center gap-2 text-slate-800 font-bold text-sm">
+                  <ShieldCheck className="w-5 h-5 text-[#008767]" />
+                  <span>Bisnis Terverifikasi</span>
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Pengajuan klaim Anda untuk bisnis ini sedang diperiksa oleh tim admin Katamereka.
+                  Bisnis ini sudah terdaftar resmi dan dikelola oleh pemilik terverifikasi.
                 </p>
               </div>
             ) : (
@@ -1404,7 +1416,7 @@ export default function BusinessProfilePage() {
                   type="button"
                   disabled={claimStatusLoading || !apiDetail?.id}
                   onClick={() => setClaimModalOpen(true)}
-                  className="block w-full text-center py-3 rounded-full bg-[#008767] hover:bg-[#007458] disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs transition-all active:scale-95"
+                  className="block w-full text-center py-3 rounded-full bg-[#008767] hover:bg-[#007458] disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
                 >
                   {claimStatusLoading
                     ? "Memeriksa status..."

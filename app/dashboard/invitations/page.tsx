@@ -79,16 +79,7 @@ export default function DashboardInvitationsPage() {
     )
   }
 
-  if (!selectedBusiness) {
-    return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center">
-        <h2 className="text-lg font-semibold text-foreground">Undangan Belum Tersedia</h2>
-        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-          Silakan hubungkan profil bisnis Anda untuk mengelola undangan ulasan pelanggan.
-        </p>
-      </div>
-    )
-  }
+  if (!selectedBusiness) return null
 
   const invitations = getInvitationsByBusiness(selectedBusiness.id)
   const counts = {

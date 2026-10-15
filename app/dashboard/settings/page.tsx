@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 
 import { useBusinessContext } from "@/components/business-provider"
+import { updateBusinessProfile } from "@/lib/api-business-dashboard"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb"
 import { PageHeader } from "@/components/page-header"
@@ -130,27 +131,7 @@ export default function DashboardSettingsPage() {
     )
   }
 
-  if (!selectedBusiness) {
-    return (
-      <div className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card p-8 text-center">
-        <span className="flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground mb-4">
-          <BuildingIcon className="size-7" />
-        </span>
-        <h2 className="text-lg font-semibold text-foreground">Pengaturan Belum Tersedia</h2>
-        <p className="mt-1.5 max-w-md text-sm text-muted-foreground">
-          Akun Anda saat ini belum memiliki profil bisnis yang terdaftar atau dikelola. Silakan daftarkan profil bisnis baru atau klaim bisnis Anda untuk mengatur informasi akun dan bisnis.
-        </p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <Button render={<a href="/admin/add-business" />}>
-            + Daftarkan Bisnis Baru
-          </Button>
-          <Button variant="outline" render={<a href="/bisnis" />}>
-            Klaim Bisnis Anda
-          </Button>
-        </div>
-      </div>
-    )
-  }
+  if (!selectedBusiness) return null
 
   return (
     <div className="flex flex-col gap-4">
@@ -212,6 +193,8 @@ function ProfilBisnisSection({
   business: Business
   onManageTeam: () => void
 }) {
+  const { refetch } = useBusinessContext()
+  const [isSaving, setIsSaving] = React.useState(false)
   const [form, setForm] = React.useState({
     name: business.name,
     description: business.description,
@@ -222,8 +205,43 @@ function ProfilBisnisSection({
   })
   const [deleteOpen, setDeleteOpen] = React.useState(false)
 
+  React.useEffect(() => {
+    setForm({
+      name: business.name,
+      description: business.description,
+      email: business.email ?? "",
+      phone: business.phone ?? "",
+      website: business.website ?? "",
+      address: `${business.address}, ${business.city}${business.postalCode ? ` ${business.postalCode}` : ""}`,
+    })
+  }, [business])
+
   function update<K extends keyof typeof form>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  async function handleSaveProfile() {
+    if (!business.id) return
+    setIsSaving(true)
+    try {
+      const res = await updateBusinessProfile(business.id, {
+        name: form.name.trim(),
+        description: form.description.trim(),
+        email: form.email.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+        website: form.website.trim() || undefined,
+      })
+      if (res.success) {
+        toast.success(res.message || "Perubahan profil bisnis berhasil disimpan.")
+        await refetch()
+      } else {
+        toast.error(res.message || "Gagal menyimpan perubahan profil.")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat menyimpan perubahan profil.")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const initials = business.name
@@ -244,8 +262,8 @@ function ProfilBisnisSection({
                 Informasi ini akan ditampilkan kepada pelanggan di public profile Anda.
               </p>
             </div>
-            <Button onClick={() => toast.success("Perubahan profil bisnis berhasil disimpan.")}>
-              Simpan Perubahan
+            <Button disabled={isSaving} onClick={handleSaveProfile}>
+              {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
             </Button>
           </div>
 

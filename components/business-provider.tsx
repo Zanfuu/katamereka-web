@@ -99,9 +99,29 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const emptyDefaultBusiness = React.useMemo<Business>(() => ({
+    id: "default-empty-business",
+    name: user?.name ? `${user.name} Business` : "Profil Bisnis",
+    slug: "",
+    description: "",
+    category: "Bisnis",
+    address: "-",
+    city: "Indonesia",
+    province: "-",
+    ownerId: user?.id || "",
+    ownerName: user?.name || "Pemilik Bisnis",
+    averageRating: 0,
+    totalReviews: 0,
+    verifiedReviews: 0,
+    responseRate: 0,
+    verificationStatus: "UNVERIFIED",
+    status: "ACTIVE",
+    createdAt: new Date().toISOString(),
+  }), [user?.id, user?.name])
+
   const selectedBusiness = React.useMemo(
-    () => businesses.find((b) => b.id === selectedBusinessId) ?? businesses[0],
-    [businesses, selectedBusinessId]
+    () => businesses.find((b) => b.id === selectedBusinessId) ?? businesses[0] ?? emptyDefaultBusiness,
+    [businesses, selectedBusinessId, emptyDefaultBusiness]
   )
 
   const value = React.useMemo<BusinessContextValue>(

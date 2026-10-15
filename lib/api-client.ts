@@ -860,6 +860,8 @@ export interface ApiCreateClaimResponse {
 
 export interface ApiClaimStatusResponse {
   status: BusinessClaimStatus | null;
+  is_member?: boolean;
+  role?: string | null;
 }
 
 export interface ApiMyBusinessClaim {

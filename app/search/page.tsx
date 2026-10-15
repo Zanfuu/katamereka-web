@@ -31,7 +31,11 @@ import {
 function SearchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialQuery = searchParams.get("q") || "";
+  const rawQ = searchParams.get("q") || "";
+  let initialQuery = rawQ;
+  try {
+    initialQuery = decodeURIComponent(rawQ);
+  } catch {}
 
   const [searchInput, setSearchInput] = useState<string>(initialQuery);
   const [activeQuery, setActiveQuery] = useState<string>(initialQuery);
@@ -45,6 +49,16 @@ function SearchContent() {
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
   const [apiItems, setApiItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    const q = searchParams.get("q") || "";
+    let clean = q;
+    try {
+      clean = decodeURIComponent(q);
+    } catch {}
+    setSearchInput(clean);
+    setActiveQuery(clean);
+  }, [searchParams]);
 
   // Close dropdowns on outside click
   useEffect(() => {

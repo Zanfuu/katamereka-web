@@ -34,16 +34,45 @@ const chartConfig: ChartConfig = {
   },
 }
 
-export function RatingTrendChart({ showHeader = true }: { showHeader?: boolean }) {
-  const [period, setPeriod] = React.useState<Period>("30d")
-  const data = getRatingTrend(period)
+export interface TrendPoint {
+  period: string
+  rating: number
+}
+
+export function RatingTrendChart({
+  showHeader = true,
+  data: propData,
+  period: propPeriod,
+  onPeriodChange,
+}: {
+  showHeader?: boolean
+  data?: TrendPoint[]
+  period?: Period
+  onPeriodChange?: (period: Period) => void
+}) {
+  const [internalPeriod, setInternalPeriod] = React.useState<Period>("30d")
+  const currentPeriod = propPeriod ?? internalPeriod
+
+  const handlePeriodChange = (val: Period) => {
+    setInternalPeriod(val)
+    onPeriodChange?.(val)
+  }
+
+  const defaultMockData = React.useMemo(() => [
+    { period: "Minggu 1", rating: 0 },
+    { period: "Minggu 2", rating: 0 },
+    { period: "Minggu 3", rating: 0 },
+    { period: "Minggu 4", rating: 0 },
+  ], [])
+
+  const data = propData && propData.length > 0 ? propData : defaultMockData
 
   return (
     <div className="flex flex-col gap-4">
       {showHeader && (
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">Perkembangan rating dari waktu ke waktu</span>
-          <Select value={period} onValueChange={(value) => setPeriod(value as Period)}>
+          <Select value={currentPeriod} onValueChange={(value) => handlePeriodChange(value as Period)}>
             <SelectTrigger size="sm" className="w-44">
               <SelectValue />
             </SelectTrigger>
@@ -69,7 +98,7 @@ export function RatingTrendChart({ showHeader = true }: { showHeader?: boolean }
           <CartesianGrid vertical={false} />
           <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={8} />
           <YAxis
-            domain={[1, 5]}
+            domain={[0, 5]}
             tickLine={false}
             axisLine={false}
             tickMargin={8}
