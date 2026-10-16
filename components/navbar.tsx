@@ -398,19 +398,19 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
               )}
             </div>
           ) : isBusinessView ? (
-            /* Business Landing Header Buttons: Log in | Create free account */
+            /* Business Landing Header Buttons: Masuk | Daftar Akun Bisnis */
             <div className="hidden sm:flex items-center gap-3">
               <Link
                 href="/login?role=bisnis"
                 className="px-4 py-2 rounded-xl text-slate-700 hover:text-[#008767] font-bold text-sm transition-colors"
               >
-                Log in
+                Masuk
               </Link>
               <Link
                 href="/signup?role=bisnis"
                 className="px-5 py-2.5 rounded-xl bg-[#008767] hover:bg-[#007055] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all hover:scale-105"
               >
-                Create free account
+                Daftar Akun Bisnis
               </Link>
             </div>
           ) : (

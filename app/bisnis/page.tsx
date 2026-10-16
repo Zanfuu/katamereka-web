@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   Search,
   CheckCircle2,
@@ -25,9 +24,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Business } from "@/lib/mock-data";
 
 export default function BisnisLandingPage() {
-  const router = useRouter();
-  const [heroSearch, setHeroSearch] = useState("");
-  const [bottomSearch, setBottomSearch] = useState("");
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loadingBusinesses, setLoadingBusinesses] = useState(true);
 
@@ -64,15 +60,6 @@ export default function BisnisLandingPage() {
     };
   }, []);
 
-  const handleSearchSubmit = (query: string, e: React.FormEvent) => {
-    e.preventDefault();
-    if (query.trim()) {
-      router.push(`/search?q=${encodeURIComponent(query.trim())}`);
-    } else {
-      router.push("/search");
-    }
-  };
-
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans text-slate-800 antialiased selection:bg-[#008767] selection:text-white">
       <Navbar isBusinessPage={true} />
@@ -94,31 +81,27 @@ export default function BisnisLandingPage() {
                   <span className="text-[#008767]">Klaim Profilnya. Kelola Reputasinya.</span>
                 </h1>
                 <p className="text-sm sm:text-base text-slate-500 leading-relaxed max-w-lg">
-                  Cari bisnis Anda untuk melihat dan mengklaim profilnya secara gratis.
-                  Lengkapi informasi, tanggapi ulasan, dan kelola reputasi bisnis Anda.
+                  Klaim profil bisnis Anda secara gratis di Katamereka.
+                  Lengkapi informasi operasional, tanggapi ulasan konsumen secara langsung, dan bangun kepercayaan reputasi bisnis Anda.
                 </p>
 
-                <form
-                  onSubmit={(e) => handleSearchSubmit(heroSearch, e)}
-                  className="flex items-center bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden max-w-md focus-within:ring-2 focus-within:ring-[#008767]/25 transition-all"
-                >
-                  <Search className="w-4 h-4 text-slate-400 ml-4 shrink-0" />
-                  <input
-                    type="text"
-                    placeholder="Nama bisnis atau lokasi"
-                    value={heroSearch}
-                    onChange={(e) => setHeroSearch(e.target.value)}
-                    className="flex-1 bg-transparent border-none outline-none text-slate-800 placeholder:text-slate-400 text-sm py-3.5 px-3"
-                  />
-                  <button
-                    type="submit"
-                    className="px-6 py-3.5 bg-[#008767] hover:bg-[#007458] text-white text-sm font-semibold shrink-0 transition-colors"
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex items-center justify-center px-6 py-3.5 bg-[#008767] hover:bg-[#007458] text-white text-sm font-bold rounded-xl shadow-md shadow-emerald-900/10 transition-colors"
                   >
-                    Cari
-                  </button>
-                </form>
+                    Mulai Kelola Bisnis
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Link>
+                  <a
+                    href="#cara-kerja"
+                    className="inline-flex items-center justify-center px-5 py-3.5 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl border border-slate-200 transition-colors shadow-xs"
+                  >
+                    Pelajari Cara Kerja
+                  </a>
+                </div>
 
-                <div className="flex flex-wrap items-center gap-5 text-[11px] font-medium text-slate-500">
+                <div className="flex flex-wrap items-center gap-5 text-[11px] font-medium text-slate-500 pt-2">
                   <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-[#008767]" />Gratis untuk diklaim</span>
                   <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-[#008767]" />Verifikasi pemilik</span>
                   <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-[#008767]" />Kelola profil bisnis</span>
@@ -401,27 +384,20 @@ export default function BisnisLandingPage() {
         <section className="py-14 sm:py-24 bg-white">
           <div className="max-w-2xl mx-auto px-4 text-center space-y-5">
             <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-              Temukan & Klaim Bisnis Anda
+              Mulai Kelola Profil Bisnis Anda
             </h2>
             <p className="text-sm text-slate-500 leading-relaxed">
-              Profil bisnis Anda mungkin sudah ada di Katamereka. Cari bisnis Anda dan mulai klaim secara gratis.
+              Profil bisnis Anda mungkin sudah ada di Katamereka. Masuk atau daftar akun bisnis untuk mulai mengklaim profil Anda secara gratis.
             </p>
-            <form
-              onSubmit={(e) => handleSearchSubmit(bottomSearch, e)}
-              className="flex items-center bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden max-w-md mx-auto focus-within:ring-2 focus-within:ring-[#008767]/25 transition-all"
-            >
-              <Search className="w-4 h-4 text-slate-400 ml-4 shrink-0" />
-              <input
-                type="text"
-                placeholder="Nama bisnis atau lokasi"
-                value={bottomSearch}
-                onChange={(e) => setBottomSearch(e.target.value)}
-                className="flex-1 bg-transparent border-none outline-none text-slate-800 placeholder:text-slate-400 text-sm py-3 px-3"
-              />
-              <button type="submit" className="px-5 py-3 bg-[#008767] hover:bg-[#007458] text-white text-sm font-semibold shrink-0 transition-colors">
-                Cari
-              </button>
-            </form>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center justify-center px-7 py-3.5 bg-[#008767] hover:bg-[#007458] text-white text-sm font-bold rounded-xl shadow-md shadow-emerald-900/10 transition-colors"
+              >
+                Klaim & Kelola Bisnis Sekarang
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
+            </div>
             <div className="flex flex-wrap items-center justify-center gap-5 text-[11px] font-medium text-slate-500">
               <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-[#008767]" />Gratis</span>
               <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-[#008767]" />Proses verifikasi</span>

@@ -111,8 +111,8 @@ export default function BusinessTrustScoreView({
     ? business.slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
     : "Bisnis";
 
-  // 3. Dynamic Rating Headline Status
-  let statusText = "No reviews yet";
+  // 3. Dynamic Rating Headline Status (Bahasa Indonesia)
+  let statusText = "Belum Ada Ulasan";
   if (ratingScore > 0 || reviewCount > 0) {
     if (ratingScore >= 4.5) statusText = "Sangat Baik";
     else if (ratingScore >= 4.0) statusText = "Bagus";
@@ -139,51 +139,52 @@ export default function BusinessTrustScoreView({
       {/* ── NAVBAR ── */}
       <Navbar isBusinessPage={true} />
 
-      {/* ── MINIMAL DYNAMIC TRUSTSCORE SECTION (EXACT MATCH TO USER SCREENSHOT) ── */}
-      <main className="flex-1 flex flex-col items-center justify-center max-w-4xl mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center w-full">
+      {/* ── MINIMAL DYNAMIC TRUSTSCORE SECTION ── */}
+      <main className="flex-1 flex flex-col items-center justify-center max-w-4xl mx-auto px-4 sm:px-6 py-14 sm:py-20 text-center w-full">
         {/* Dynamic Business Name (no hyphens) */}
         <p className="text-base sm:text-lg font-medium text-slate-800 tracking-tight">
           {displayName}
         </p>
 
-        {/* Dynamic Headline ("No reviews yet" or status) */}
-        <h1 className="text-3xl sm:text-4xl lg:text-[2.6rem] font-bold text-slate-900 mt-5 tracking-tight">
+        {/* Dynamic Headline (Bahasa Indonesia) */}
+        <h1 className="text-3xl sm:text-4xl lg:text-[2.6rem] font-bold text-slate-900 mt-4 tracking-tight">
           {statusText}
         </h1>
 
-        {/* 5-STAR BOXES ROW + DYNAMIC AVG RATING BESIDE IT */}
-        <div className="flex items-center justify-center gap-3.5 pt-4">
-          <div className="flex items-center gap-1.5">
-            {[1, 2, 3, 4, 5].map((starNum) => {
-              const isFilled = ratingScore > 0 && starNum <= Math.round(ratingScore);
-              return (
-                <div
-                  key={starNum}
-                  className={`size-11 sm:size-12 rounded-[3px] flex items-center justify-center transition-colors ${
-                    isFilled
-                      ? "bg-[#008767] text-white shadow-xs"
-                      : "bg-[#d8dce2] text-white"
-                  }`}
-                >
-                  <Star className="size-6 sm:size-7 fill-white text-transparent" />
-                </div>
-              );
-            })}
+        {/* ── CARD SIMPEL BINTANG & RATING (TANPA BORDER) ── */}
+        <div className="mt-6 bg-slate-50/80 rounded-2xl p-5 sm:p-6 shadow-xs max-w-md mx-auto w-full flex flex-col items-center justify-center gap-2.5">
+          {/* Row Bintang (Borderless) + Dynamic Avg Rating */}
+          <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center gap-1.5">
+              {[1, 2, 3, 4, 5].map((starNum) => {
+                const isFilled = ratingScore > 0 && starNum <= Math.round(ratingScore);
+                return (
+                  <Star
+                    key={starNum}
+                    className={`size-7 sm:size-8 transition-colors ${
+                      isFilled
+                        ? "fill-[#008767] text-[#008767]"
+                        : "fill-slate-200 text-slate-200"
+                    }`}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Dynamic Average Rating Display */}
+            <div className="flex items-baseline gap-1 text-slate-900 font-extrabold text-2xl sm:text-3xl pl-1 tracking-tight">
+              <span>{avgRatingDisplay}</span>
+              <span className="text-xs sm:text-sm font-semibold text-slate-400">/ 5.0</span>
+            </div>
           </div>
 
-          {/* Dynamic Average Rating Display */}
-          <div className="flex items-baseline gap-1 text-slate-900 font-extrabold text-2xl sm:text-3xl pl-1 tracking-tight">
-            <span>{avgRatingDisplay}</span>
-            <span className="text-xs sm:text-sm font-semibold text-slate-400">/ 5.0</span>
-          </div>
+          {/* Dynamic Review count text */}
+          <p className="text-xs text-slate-500 font-medium">
+            {reviewCount > 0
+              ? `Berdasarkan ${reviewCount} ulasan konsumen di KataMereka`
+              : "Belum ada ulasan konsumen"}
+          </p>
         </div>
-
-        {/* Review count text (dynamic) */}
-        <p className="text-xs text-slate-500 pt-2 font-medium">
-          {reviewCount > 0
-            ? `Berdasarkan ${reviewCount} ulasan konsumen di KataMereka`
-            : "Belum ada ulasan konsumen"}
-        </p>
 
         {/* ── CARD CALL TO ACTION (VERSI KATAMEREKA) ── */}
         <section className="mt-12 sm:mt-16 w-full max-w-2xl mx-auto space-y-6">
