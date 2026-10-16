@@ -27,7 +27,6 @@ import type { Business } from "@/lib/mock-data";
 export default function BisnisLandingPage() {
   const router = useRouter();
   const [heroSearch, setHeroSearch] = useState("");
-  const [middleSearch, setMiddleSearch] = useState("");
   const [bottomSearch, setBottomSearch] = useState("");
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loadingBusinesses, setLoadingBusinesses] = useState(true);
@@ -217,22 +216,6 @@ export default function BisnisLandingPage() {
                 <p className="text-sm text-slate-500 leading-relaxed">
                   Temukan bisnis Anda di Katamereka. Lihat bagaimana pelanggan menemukan dan menilai bisnis Anda.
                 </p>
-                <form
-                  onSubmit={(e) => handleSearchSubmit(middleSearch, e)}
-                  className="flex items-center bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden focus-within:ring-2 focus-within:ring-[#008767]/25 transition-all"
-                >
-                  <Search className="w-4 h-4 text-slate-400 ml-4 shrink-0" />
-                  <input
-                    type="text"
-                    placeholder="Nama bisnis atau lokasi"
-                    value={middleSearch}
-                    onChange={(e) => setMiddleSearch(e.target.value)}
-                    className="flex-1 bg-transparent border-none outline-none text-slate-800 placeholder:text-slate-400 text-sm py-3 px-3"
-                  />
-                  <button type="submit" className="px-5 py-3 bg-[#008767] hover:bg-[#007458] text-white text-sm font-semibold shrink-0 transition-colors">
-                    Cari
-                  </button>
-                </form>
               </div>
 
               {/* Right: Business cards */}
