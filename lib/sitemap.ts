@@ -2,6 +2,10 @@
  * Shared XML builders for the sitemap index + its child sitemaps
  * (app/sitemap.xml, app/sitemap-*.xml). Keeping this in one place means
  * every child sitemap escapes/formats entries identically.
+ *
+ * Output is plain sitemaps.org XML — no <?xml-stylesheet?> (XSLT is being
+ * removed from browsers). The human-readable page for browsers is a separate
+ * HTML response chosen by content negotiation, see lib/sitemap-handlers.ts.
  */
 
 export interface SitemapUrl {
@@ -43,7 +47,6 @@ function buildUrlEntry(url: SitemapUrl): string {
 export function buildUrlsetXml(urls: SitemapUrl[]): string {
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<?xml-stylesheet type="text/xsl" href="/sitemap.xsl"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     urls.map(buildUrlEntry).join("\n"),
     "</urlset>",
@@ -60,18 +63,22 @@ function buildSitemapEntry(entry: SitemapIndexEntry): string {
 export function buildSitemapIndexXml(entries: SitemapIndexEntry[]): string {
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<?xml-stylesheet type="text/xsl" href="/sitemap.xsl"?>',
     '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     entries.map(buildSitemapEntry).join("\n"),
     "</sitemapindex>",
   ].join("\n");
 }
 
+// Same URL serves XML (crawlers) or HTML (browsers) — see
+// lib/sitemap-handlers.ts — so shared caches must key on both headers.
+export const SITEMAP_VARY = "Accept, User-Agent";
+
 export function xmlResponse(body: string): Response {
   return new Response(body, {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
       "Cache-Control": "public, max-age=0, s-maxage=3600",
+      Vary: SITEMAP_VARY,
     },
   });
 }
