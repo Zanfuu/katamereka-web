@@ -384,6 +384,13 @@ export default function BusinessesPage() {
                     </button>
                   );
                 })}
+                <Link
+                  href="/klaim-bisnis"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold transition-all shadow-2xs ml-auto"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Klaim Bisnis Anda &rarr;</span>
+                </Link>
               </div>
             </div>
           </div>

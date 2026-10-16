@@ -77,19 +77,31 @@ export default function AdminVerificationsPage() {
 
   React.useEffect(() => {
     if (!detailId) {
-      // Reset the stale detail right away when the sheet closes.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDetail(null)
       return
     }
+
+    // Instantly populate detail from loaded claims list so drawer is never blank
+    const fromList = claims.find((c) => c.id === detailId)
+    if (fromList) {
+      setDetail({
+        ...fromList,
+        verification_data: null,
+        updated_at: fromList.created_at,
+      })
+    }
+
     let cancelled = false
     setDetailLoading(true)
     fetchAdminBusinessClaimDetail(detailId)
       .then((d) => {
-        if (!cancelled) setDetail(d)
+        if (!cancelled && d) setDetail(d)
       })
       .catch((e) => {
-        if (!cancelled) toast.error(e instanceof Error ? e.message : "Gagal memuat detail klaim")
+        console.warn("fetchAdminBusinessClaimDetail failed:", e)
+        if (!fromList && !cancelled) {
+          toast.error(e instanceof Error ? e.message : "Gagal memuat detail klaim")
+        }
       })
       .finally(() => {
         if (!cancelled) setDetailLoading(false)
@@ -97,7 +109,7 @@ export default function AdminVerificationsPage() {
     return () => {
       cancelled = true
     }
-  }, [detailId])
+  }, [detailId, claims])
 
   const columns: ResourceTableColumn<ApiAdminBusinessClaim>[] = [
     {
@@ -235,10 +247,10 @@ export default function AdminVerificationsPage() {
               Diajukan oleh {detail?.user?.name} ({detail?.user?.email})
             </SheetDescription>
           </SheetHeader>
-          {detailLoading && (
+          {detailLoading && !detail && (
             <p className="px-4 text-sm text-muted-foreground">Memuat detail klaim...</p>
           )}
-          {detail && !detailLoading && (
+          {detail && (
             <div className="flex flex-col gap-5 overflow-y-auto px-4 pb-4">
               <section>
                 <h3 className="mb-2 text-xs font-medium text-muted-foreground uppercase">
