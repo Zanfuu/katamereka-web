@@ -13,6 +13,7 @@ export interface BusinessContextValue {
   selectedBusinessId: string
   setSelectedBusinessId: (id: string) => void
   isLoading: boolean
+  hasApprovedBusiness: boolean
   refetch: () => Promise<void>
 }
 
@@ -124,6 +125,11 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     [businesses, selectedBusinessId, emptyDefaultBusiness]
   )
 
+  const hasApprovedBusiness = React.useMemo(
+    () => businesses.length > 0 && selectedBusiness?.id !== "default-empty-business",
+    [businesses, selectedBusiness]
+  )
+
   const value = React.useMemo<BusinessContextValue>(
     () => ({
       businesses,
@@ -131,9 +137,10 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
       selectedBusinessId: selectedBusiness?.id ?? selectedBusinessId,
       setSelectedBusinessId,
       isLoading,
+      hasApprovedBusiness,
       refetch: loadBusinesses,
     }),
-    [businesses, selectedBusiness, selectedBusinessId, setSelectedBusinessId, isLoading, loadBusinesses]
+    [businesses, selectedBusiness, selectedBusinessId, setSelectedBusinessId, isLoading, hasApprovedBusiness, loadBusinesses]
   )
 
   return (

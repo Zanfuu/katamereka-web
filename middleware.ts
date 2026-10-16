@@ -81,14 +81,17 @@ export async function middleware(request: NextRequest) {
     const token = request.cookies.get("km_session")?.value;
     const roleCookie = request.cookies.get("km_role")?.value;
 
+    const isLocal = hostname.includes("localhost") || hostname.includes("127.0.0.1");
+    const baseRedirectUrl = isLocal ? request.nextUrl.origin : BUSINESS_SITE_URL;
+
     // Jika belum ada token sesi sama sekali, arahkan ke login
     if (!token) {
       if (needsAdminAccess) {
-        const loginUrl = new URL("/superadmin/login", BUSINESS_SITE_URL);
+        const loginUrl = new URL("/superadmin/login", baseRedirectUrl);
         loginUrl.searchParams.set("redirect", pathname);
         return NextResponse.redirect(loginUrl);
       } else {
-        const loginUrl = new URL("/login", BUSINESS_SITE_URL);
+        const loginUrl = new URL("/login", baseRedirectUrl);
         loginUrl.searchParams.set("role", "bisnis");
         loginUrl.searchParams.set("redirect", pathname);
         return NextResponse.redirect(loginUrl);
@@ -98,7 +101,7 @@ export async function middleware(request: NextRequest) {
     const jwtPayload = decodeJwtPayload(token);
     // Jika token JWT sudah kadaluarsa (expired), arahkan kembali ke login
     if (jwtPayload?.exp && jwtPayload.exp * 1000 < Date.now()) {
-      const loginUrl = new URL(needsAdminAccess ? "/superadmin/login" : "/login", BUSINESS_SITE_URL);
+      const loginUrl = new URL(needsAdminAccess ? "/superadmin/login" : "/login", baseRedirectUrl);
       if (!needsAdminAccess) {
         loginUrl.searchParams.set("role", "bisnis");
       }
@@ -118,7 +121,7 @@ export async function middleware(request: NextRequest) {
         jwtPayload?.role === "ADMIN" ||
         jwtPayload?.role === "SUPER_ADMIN";
       if (!isPlatformAdmin) {
-        const loginUrl = new URL("/superadmin/login", BUSINESS_SITE_URL);
+        const loginUrl = new URL("/superadmin/login", baseRedirectUrl);
         loginUrl.searchParams.set("redirect", pathname);
         return NextResponse.redirect(loginUrl);
       }

@@ -43,7 +43,7 @@ import { formatDate, timeAgo } from "@/lib/format"
 import type { RatingDistribution, Review } from "@/lib/types"
 
 export default function DashboardOverviewPage() {
-  const { selectedBusiness, isLoading } = useBusinessContext()
+  const { selectedBusiness, isLoading, hasApprovedBusiness } = useBusinessContext()
   const { user } = useAuth()
 
   const [range, setRange] = React.useState("30d")
@@ -139,9 +139,46 @@ export default function DashboardOverviewPage() {
     )
   }
 
-  if (!selectedBusiness) return null
-
   const firstName = user?.name ? user.name.split(" ")[0] : "Admin"
+
+  if (!hasApprovedBusiness) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">
+            Selamat datang, {firstName}! 👋
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Anda belum memiliki bisnis yang telah disetujui (approved) sebagai pemilik.
+          </p>
+        </div>
+
+        <Card className="border-dashed border-2">
+          <CardContent className="flex flex-col items-center justify-center p-8 text-center space-y-4">
+            <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <ScrollTextIcon className="size-6" />
+            </div>
+            <div className="space-y-1.5 max-w-md">
+              <h3 className="font-semibold text-base text-foreground">Belum Ada Bisnis Terverifikasi</h3>
+              <p className="text-sm text-muted-foreground">
+                Jika Anda telah mengajukan klaim bisnis sebelumnya, Anda dapat memantau status pengajuannya (Pending, Disetujui, atau Ditolak) melalui tombol <strong>Notifikasi 🔔</strong> di pojok kanan atas.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <Button
+                render={<Link href="/klaim-bisnis" />}
+                className="bg-[#008767] hover:bg-[#007458] text-white"
+              >
+                Cari & Klaim Bisnis
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!selectedBusiness) return null
 
   // 1. Average Rating
   const avgRatingVal = overview?.stats?.average_rating?.value ?? selectedBusiness.averageRating ?? 0

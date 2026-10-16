@@ -1,7 +1,23 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { toast } from "sonner"
+import { MyClaimsSection } from "@/components/my-claims-section"
+import {
+  fetchMyBusinessClaims,
+  createBusinessClaim,
+  type ApiMyBusinessClaim,
+  type VerificationMethod,
+} from "@/lib/api-client"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import {
   AlertTriangleIcon,
   BriefcaseIcon,
@@ -87,7 +103,7 @@ const TABS = [
 ] as const
 
 export default function DashboardBusinessPage() {
-  const { selectedBusiness, isLoading } = useBusinessContext()
+  const { selectedBusiness, isLoading, hasApprovedBusiness } = useBusinessContext()
 
   if (isLoading) {
     return (
@@ -95,6 +111,27 @@ export default function DashboardBusinessPage() {
         <div className="h-8 w-60 rounded bg-muted" />
         <div className="h-4 w-96 rounded bg-muted" />
         <div className="h-96 w-full rounded-xl bg-muted/60 mt-4" />
+      </div>
+    )
+  }
+
+  if (!hasApprovedBusiness) {
+    return (
+      <div className="flex flex-col gap-6">
+        <DashboardBreadcrumb items={[{ label: "Business" }]} />
+
+        <PageHeader
+          title="Business Profile Management"
+          description="Status verifikasi kepemilikan dan kelola profil bisnis Anda."
+          action={
+            <Button size="sm" render={<Link href="/klaim-bisnis" />} className="bg-[#008767] hover:bg-[#007458] text-white">
+              <BuildingIcon className="mr-1.5 size-3.5" />
+              Cari & Klaim Bisnis
+            </Button>
+          }
+        />
+
+        <MyClaimsSection />
       </div>
     )
   }
@@ -181,6 +218,65 @@ function InfoRow({
 function InformasiTab({ business }: { business: Business }) {
   const [editBasicOpen, setEditBasicOpen] = React.useState(false)
   const [editDetailOpen, setEditDetailOpen] = React.useState(false)
+
+  // Dynamic claim state
+  const [claim, setClaim] = React.useState<ApiMyBusinessClaim | null>(null)
+  const [loadingClaim, setLoadingClaim] = React.useState(true)
+  const [reclaimOpen, setReclaimOpen] = React.useState(false)
+  const [reclaimMethod, setReclaimMethod] = React.useState<VerificationMethod>("DOCUMENT")
+  const [reclaimProofUrl, setReclaimProofUrl] = React.useState("")
+  const [reclaimMessage, setReclaimMessage] = React.useState("")
+  const [reclaimSubmitting, setReclaimSubmitting] = React.useState(false)
+
+  const loadClaims = React.useCallback(async () => {
+    try {
+      setLoadingClaim(true)
+      const list = await fetchMyBusinessClaims()
+      const matched = list.find((c) => c.business?.id === business.id) || (list.length > 0 ? list[0] : null)
+      setClaim(matched)
+      if (matched) {
+        setReclaimMethod((matched.verification_method as VerificationMethod) || "DOCUMENT")
+        setReclaimProofUrl(matched.proof_url || "")
+      }
+    } catch (err) {
+      console.warn("Gagal mengambil status klaim di tab informasi:", err)
+    } finally {
+      setLoadingClaim(false)
+    }
+  }, [business.id])
+
+  React.useEffect(() => {
+    loadClaims()
+  }, [loadClaims])
+
+  async function handleConfirmReclaim() {
+    const targetBusinessId = claim?.business?.id || business.id
+    if (!targetBusinessId) return
+    setReclaimSubmitting(true)
+    try {
+      const res = await createBusinessClaim(targetBusinessId, {
+        verification_method: reclaimMethod,
+        proof_url: reclaimProofUrl.trim() || undefined,
+        message: reclaimMessage.trim() || undefined,
+      })
+      if (res.success) {
+        toast.success(res.message || "Pengajuan klaim berhasil dikirim ulang, menunggu review admin.")
+        setReclaimOpen(false)
+        setClaim((prev) => (prev ? { ...prev, status: "PENDING" } : null))
+        loadClaims()
+      } else {
+        toast.error(res.message || "Gagal mengajukan ulang klaim")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat mengajukan ulang klaim")
+    } finally {
+      setReclaimSubmitting(false)
+    }
+  }
+
+  const isVerified = business.verificationStatus === "VERIFIED" || claim?.status === "APPROVED"
+  const isPending = !isVerified && claim?.status === "PENDING"
+  const isRejected = !isVerified && claim?.status === "REJECTED"
 
   const initials = business.name
     .split(" ")
@@ -315,22 +411,154 @@ function InformasiTab({ business }: { business: Business }) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-              <div className="flex items-center gap-2">
-                <CheckCircle2Icon className="size-5 text-[#008767]" />
-                <div>
-                  <p className="text-xs font-bold text-[#008767]">Bisnis Terverifikasi</p>
-                  <p className="text-[11px] text-slate-600">Claim ID: #CLM-{business.id.slice(0, 6)}</p>
-                </div>
+            {loadingClaim ? (
+              <div className="p-4 border rounded-xl animate-pulse text-xs text-muted-foreground text-center">
+                Memeriksa status verifikasi klaim...
               </div>
-              <Badge className="bg-[#008767]">Source of Truth Active</Badge>
-            </div>
+            ) : isVerified ? (
+              <div className="flex items-center justify-between p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2Icon className="size-5 text-[#008767] shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-[#008767]">Bisnis Terverifikasi (Owner Resmi)</p>
+                    <p className="text-[11px] text-slate-600">ID Bisnis: {business.id.slice(0, 8)} • Hak Akses Penuh</p>
+                  </div>
+                </div>
+                <Badge className="bg-[#008767] text-white text-[10px] shrink-0">Aktif</Badge>
+              </div>
+            ) : isPending ? (
+              <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <ClockIcon className="size-4.5 text-amber-600 shrink-0" />
+                    <p className="text-xs font-bold text-amber-900">Menunggu Review Admin</p>
+                  </div>
+                  <Badge className="bg-amber-500 text-white text-[10px] shrink-0">Pending</Badge>
+                </div>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  Pengajuan klaim bisnis Anda sedang dalam proses peninjauan oleh tim admin (estimasi 1–2 hari kerja).
+                </p>
+              </div>
+            ) : isRejected ? (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangleIcon className="size-4.5 text-rose-600 shrink-0" />
+                    <p className="text-xs font-bold text-rose-900">Klaim Ditolak</p>
+                  </div>
+                  <Badge variant="destructive" className="text-[10px] shrink-0">Ditolak</Badge>
+                </div>
+                <div className="text-[11px] text-rose-800 bg-rose-100/60 p-2 rounded-lg space-y-0.5">
+                  <span className="font-semibold text-rose-900 block">Alasan Penolakan:</span>
+                  <p>{claim?.admin_notes || "Dokumen bukti kepemilikan yang dilampirkan belum memenuhi syarat validasi."}</p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setReclaimOpen(true)}
+                  className="w-full bg-[#008767] hover:bg-[#007458] text-white text-xs cursor-pointer"
+                >
+                  Ajukan Ulang Klaim
+                </Button>
+              </div>
+            ) : (
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <InfoIcon className="size-4.5 text-slate-500 shrink-0" />
+                    <p className="text-xs font-bold text-slate-800">Belum Terverifikasi</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] shrink-0">Belum Diklaim</Badge>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Bisnis ini belum diklaim atau diverifikasi sebagai milik Anda di sistem KataMereka.
+                </p>
+                <Button
+                  size="sm"
+                  render={<Link href="/klaim-bisnis" />}
+                  className="w-full bg-[#008767] hover:bg-[#007458] text-white text-xs cursor-pointer"
+                >
+                  Cari & Klaim Bisnis Ini
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
       <EditBasicInfoDialog open={editBasicOpen} onOpenChange={setEditBasicOpen} business={business} />
       <EditDetailDialog open={editDetailOpen} onOpenChange={setEditDetailOpen} business={business} />
+
+      {/* Dialog Ajukan Ulang Klaim */}
+      <Dialog open={reclaimOpen} onOpenChange={setReclaimOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">Ajukan Ulang Klaim Bisnis</DialogTitle>
+            <CardDescription className="text-xs">
+              Perbarui berkas atau bukti kepemilikan untuk ditinjau kembali oleh tim verifikasi admin.
+            </CardDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Metode Verifikasi</Label>
+              <Select
+                value={reclaimMethod}
+                onValueChange={(val) => setReclaimMethod(val as VerificationMethod)}
+              >
+                <SelectTrigger className="w-full text-xs">
+                  <SelectValue placeholder="Pilih metode verifikasi" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DOCUMENT">Dokumen Legal / NIB / SIUP</SelectItem>
+                  <SelectItem value="WEBSITE">Domain / Email Resmi Bisnis</SelectItem>
+                  <SelectItem value="PHONE">Verifikasi Telepon / WhatsApp</SelectItem>
+                  <SelectItem value="OTHER">Lainnya / Akun Medsos Resmi</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Link Bukti Kepemilikan (Proof URL)</Label>
+              <Input
+                placeholder="https://drive.google.com/... atau tautan berkas resmi"
+                value={reclaimProofUrl}
+                onChange={(e) => setReclaimProofUrl(e.target.value)}
+                className="text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Pesan / Catatan Tambahan untuk Admin</Label>
+              <Textarea
+                rows={3}
+                placeholder="Jelaskan perbaikan dokumen atau informasi tambahan..."
+                value={reclaimMessage}
+                onChange={(e) => setReclaimMessage(e.target.value)}
+                className="text-xs"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setReclaimOpen(false)}
+              disabled={reclaimSubmitting}
+            >
+              Batal
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmReclaim}
+              disabled={reclaimSubmitting}
+              className="bg-[#008767] hover:bg-[#007458] text-white"
+            >
+              {reclaimSubmitting ? "Mengirim..." : "Kirim Pengajuan Ulang"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
