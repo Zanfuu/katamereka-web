@@ -283,7 +283,7 @@ export default function BisnisLandingPage() {
                             </div>
                           </div>
                           <Link
-                            href={`/business/${biz.slug}`}
+                            href={`/business/${biz.slug}?from=business`}
                             className="mt-auto block w-full text-center py-2 rounded-lg border border-[#008767] text-[#008767] hover:bg-[#008767] hover:text-white font-semibold text-xs transition-colors"
                           >
                             Lihat Profil

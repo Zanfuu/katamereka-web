@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { isBusinessHost } from "@/lib/site-config";
+import BusinessTrustScoreView from "@/components/business-trustscore-view";
 import {
   fetchBusinessBySlug,
   fetchBusinessPlaceImage,
@@ -99,8 +101,19 @@ import ShareBusinessModal from "@/components/share-business-modal";
 
 export default function BusinessProfilePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const slug = (params.slug as string) || "";
   const { user, isLoggedIn } = useAuth();
+
+  const [isBusinessDomain, setIsBusinessDomain] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const fromParam = searchParams.get("from");
+      const isBizHost = isBusinessHost(window.location.hostname);
+      setIsBusinessDomain(isBizHost || fromParam === "business" || fromParam === "bisnis");
+    }
+  }, [searchParams]);
 
   const [apiDetail, setApiDetail] = useState<ApiBusinessDetail | null>(null);
   const [placeImageUrl, setPlaceImageUrl] = useState<string | null>(null);
@@ -359,10 +372,12 @@ export default function BusinessProfilePage() {
   let reviewCountVal = typeof rawReviewCount === "number" ? rawReviewCount : (parseInt(String(rawReviewCount || 0), 10) || 0);
   if (isNaN(reviewCountVal)) reviewCountVal = 0;
 
-  // Dynamic average rating from API (averageRating, rating, externalRating)
+  // Dynamic average rating from API (averageRating, rating, avg, average_rating)
   const rawRating =
     (apiDetail as any)?.averageRating ??
     (apiDetail as any)?.average_rating ??
+    (apiDetail as any)?.avg ??
+    (apiDetail as any)?.avg_rating ??
     apiDetail?.rating ??
     apiDetail?.externalRating ??
     (apiDetail as any)?.external_rating ??
@@ -386,7 +401,9 @@ export default function BusinessProfilePage() {
           }, 0) / businessReviews.length
         ).toFixed(1)
       )
-      : actualReviewCount > 0 ? ratingVal : 0;
+      : ratingVal > 0
+      ? (ratingVal > 5 ? parseFloat((ratingVal / 2).toFixed(1)) : ratingVal)
+      : 0;
 
   const ratingFormatted = actualRating > 0 ? actualRating.toFixed(1) : "0.0";
   const reviewCountFormatted = `${actualReviewCount} ulasan`;
@@ -604,6 +621,25 @@ export default function BusinessProfilePage() {
           </Link>
         </div>
       </div>
+    );
+  }
+
+  if (isBusinessDomain && apiDetail) {
+    return (
+      <BusinessTrustScoreView
+        business={apiDetail}
+        actualRating={actualRating}
+        actualReviewCount={actualReviewCount}
+        placeImageUrl={placeImageUrl}
+        claimStatus={claimStatus}
+        isBusinessMember={isBusinessMember}
+        claimModalOpen={claimModalOpen}
+        setClaimModalOpen={setClaimModalOpen}
+        claimForm={claimForm}
+        setClaimForm={setClaimForm}
+        onSubmitClaim={handleSubmitClaim}
+        claimSubmitting={claimSubmitting}
+      />
     );
   }
 
