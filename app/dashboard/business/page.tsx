@@ -36,6 +36,13 @@ import {
 } from "lucide-react"
 
 import { useBusinessContext } from "@/components/business-provider"
+import {
+  updateBusinessProfile,
+  uploadBusinessLogo,
+  uploadBusinessCover,
+  deleteBusinessLogo,
+  deleteBusinessCover,
+} from "@/lib/api-business-dashboard"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb"
 import { PageHeader } from "@/components/page-header"
@@ -80,7 +87,18 @@ const TABS = [
 ] as const
 
 export default function DashboardBusinessPage() {
-  const { selectedBusiness } = useBusinessContext()
+  const { selectedBusiness, isLoading } = useBusinessContext()
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-4 p-4 animate-pulse">
+        <div className="h-8 w-60 rounded bg-muted" />
+        <div className="h-4 w-96 rounded bg-muted" />
+        <div className="h-96 w-full rounded-xl bg-muted/60 mt-4" />
+      </div>
+    )
+  }
+
   if (!selectedBusiness) return null
 
   return (
@@ -321,23 +339,50 @@ function InformasiTab({ business }: { business: Business }) {
  * TAB 2: LOKASI
  * ================================================== */
 function LokasiTab({ business }: { business: Business }) {
+  const { refetch } = useBusinessContext()
   const [form, setForm] = React.useState({
     address: business.address || "",
     city: business.city || "",
-    province: "DKI Jakarta",
+    province: business.province || "Indonesia",
     postalCode: business.postalCode || "",
     latitude: "-6.2088",
     longitude: "106.8456",
   })
 
+  React.useEffect(() => {
+    setForm({
+      address: business.address || "",
+      city: business.city || "",
+      province: business.province || "Indonesia",
+      postalCode: business.postalCode || "",
+      latitude: "-6.2088",
+      longitude: "106.8456",
+    })
+  }, [business])
+
   const [saving, setSaving] = React.useState(false)
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!business.id) return
     setSaving(true)
-    setTimeout(() => {
+    try {
+      const res = await updateBusinessProfile(business.id, {
+        address: form.address.trim(),
+        city: form.city.trim(),
+        province: form.province.trim(),
+        postal_code: form.postalCode.trim() || undefined,
+      })
+      if (res.success) {
+        toast.success(res.message || "Data lokasi berhasil diperbarui.")
+        await refetch()
+      } else {
+        toast.error(res.message || "Gagal memperbarui lokasi.")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan jaringan saat menyimpan lokasi.")
+    } finally {
       setSaving(false)
-      toast.success("Data lokasi berhasil diperbarui.")
-    }, 600)
+    }
   }
 
   return (
@@ -406,9 +451,9 @@ function LokasiTab({ business }: { business: Business }) {
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Koordinat GPS (Geoapify External Data)</CardTitle>
+            <CardTitle>Koordinat GPS</CardTitle>
             <CardDescription>
-              Koordinat bawaan dari penyedia peta external. Read-only untuk MVP.
+              Koordinat bawaan dari penyedia peta external atau data sync.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -423,7 +468,7 @@ function LokasiTab({ business }: { business: Business }) {
               </div>
               <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-200">
                 <span className="text-slate-500">External Provider:</span>
-                <Badge variant="outline" className="text-[10px]">Geoapify Synced</Badge>
+                <Badge variant="outline" className="text-[10px]">Synced</Badge>
               </div>
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed">
@@ -440,12 +485,17 @@ function LokasiTab({ business }: { business: Business }) {
  * TAB 3: KATEGORI & LAYANAN
  * ================================================== */
 function KategoriTab({ business }: { business: Business }) {
-  const [primaryCategory, setPrimaryCategory] = React.useState(business.category || "Kuliner & Resto")
+  const { refetch } = useBusinessContext()
+  const [primaryCategory, setPrimaryCategory] = React.useState(business.category || "Bisnis")
   const [categories, setCategories] = React.useState<string[]>(
-    business.additionalCategories || ["Cafe", "Bakery", "Coffee Shop", "Tempat Kerja Remote"]
+    business.additionalCategories || ["Layanan Unggulan", "Konsultasi"]
   )
   const [newCat, setNewCat] = React.useState("")
   const [saving, setSaving] = React.useState(false)
+
+  React.useEffect(() => {
+    setPrimaryCategory(business.category || "Bisnis")
+  }, [business.category])
 
   const handleAddCategory = () => {
     if (newCat.trim() && !categories.includes(newCat.trim())) {
@@ -458,12 +508,24 @@ function KategoriTab({ business }: { business: Business }) {
     setCategories(categories.filter((c) => c !== cat))
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!business.id) return
     setSaving(true)
-    setTimeout(() => {
+    try {
+      const res = await updateBusinessProfile(business.id, {
+        category: primaryCategory.trim(),
+      })
+      if (res.success) {
+        toast.success(res.message || "Kategori & Layanan berhasil diperbarui.")
+        await refetch()
+      } else {
+        toast.error(res.message || "Gagal memperbarui kategori.")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat menyimpan kategori.")
+    } finally {
       setSaving(false)
-      toast.success("Kategori & Layanan berhasil diperbarui.")
-    }, 600)
+    }
   }
 
   return (
@@ -472,7 +534,7 @@ function KategoriTab({ business }: { business: Business }) {
         <CardHeader>
           <CardTitle>Kategori Bisnis Utama &amp; Tambahan</CardTitle>
           <CardDescription>
-            Tentukan kategori usaha Anda agar mudah ditemukan dalam hasil pencarian pencarian dan filter platform Katamereka.
+            Tentukan kategori usaha Anda agar mudah ditemukan dalam hasil pencarian dan filter platform Katamereka.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -552,6 +614,7 @@ interface DaySchedule {
 }
 
 function JamOperasionalTab({ business }: { business: Business }) {
+  const { refetch } = useBusinessContext()
   const [schedule, setSchedule] = React.useState<DaySchedule[]>([
     { day: "monday", label: "Senin", open: "08:00", close: "21:00", closed: false },
     { day: "tuesday", label: "Selasa", open: "08:00", close: "21:00", closed: false },
@@ -589,12 +652,32 @@ function JamOperasionalTab({ business }: { business: Business }) {
     toast.success("Preset Jam Kerja Kantor diterapkan.")
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!business.id) return
     setSaving(true)
-    setTimeout(() => {
+    try {
+      const openingHoursMap: Record<string, any> = {}
+      schedule.forEach((s) => {
+        openingHoursMap[s.day] = {
+          open: s.open,
+          close: s.close,
+          closed: s.closed,
+        }
+      })
+      const res = await updateBusinessProfile(business.id, {
+        opening_hours: openingHoursMap,
+      })
+      if (res.success) {
+        toast.success(res.message || "Jam operasional berhasil disimpan.")
+        await refetch()
+      } else {
+        toast.error(res.message || "Gagal menyimpan jam operasional.")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat menyimpan jam operasional.")
+    } finally {
       setSaving(false)
-      toast.success("Jam operasional berhasil disimpan.")
-    }, 600)
+    }
   }
 
   return (
@@ -682,21 +765,122 @@ function JamOperasionalTab({ business }: { business: Business }) {
  * TAB 5: MEDIA & SOSMED
  * ================================================== */
 function MediaTab({ business }: { business: Business }) {
+  const { refetch } = useBusinessContext()
+  const logoInputRef = React.useRef<HTMLInputElement>(null)
+  const coverInputRef = React.useRef<HTMLInputElement>(null)
+
+  const [isUploadingLogo, setIsUploadingLogo] = React.useState(false)
+  const [isUploadingCover, setIsUploadingCover] = React.useState(false)
+  const [savingSocial, setSavingSocial] = React.useState(false)
+
   const [social, setSocial] = React.useState({
-    instagram: "https://instagram.com/transgo.id",
-    facebook: "https://facebook.com/transgo.official",
-    tiktok: "https://tiktok.com/@transgo.id",
-    linkedin: "https://linkedin.com/company/transgo-id",
+    instagram: "",
+    facebook: "",
+    tiktok: "",
+    linkedin: "",
   })
 
-  const [saving, setSaving] = React.useState(false)
+  const initials = business.name
+    .split(" ")
+    .map((word) => word[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase()
 
-  const handleSaveSocial = () => {
-    setSaving(true)
-    setTimeout(() => {
-      setSaving(false)
-      toast.success("Tautan media sosial berhasil disimpan.")
-    }, 600)
+  const handleLogoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !business.id) return
+    setIsUploadingLogo(true)
+    try {
+      const res = await uploadBusinessLogo(business.id, file)
+      if (res.success) {
+        toast.success(res.message || "Logo baru berhasil diunggah.")
+        await refetch()
+      } else {
+        toast.error(res.message || "Gagal mengunggah logo.")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat mengunggah logo.")
+    } finally {
+      setIsUploadingLogo(false)
+      if (logoInputRef.current) logoInputRef.current.value = ""
+    }
+  }
+
+  const handleDeleteLogo = async () => {
+    if (!business.id) return
+    setIsUploadingLogo(true)
+    try {
+      const res = await deleteBusinessLogo(business.id)
+      if (res.success) {
+        toast.success(res.message || "Logo berhasil dihapus.")
+        await refetch()
+      } else {
+        toast.error(res.message || "Gagal menghapus logo.")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat menghapus logo.")
+    } finally {
+      setIsUploadingLogo(false)
+    }
+  }
+
+  const handleCoverFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !business.id) return
+    setIsUploadingCover(true)
+    try {
+      const res = await uploadBusinessCover(business.id, file)
+      if (res.success) {
+        toast.success(res.message || "Cover baru berhasil diunggah.")
+        await refetch()
+      } else {
+        toast.error(res.message || "Gagal mengunggah cover.")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat mengunggah cover.")
+    } finally {
+      setIsUploadingCover(false)
+      if (coverInputRef.current) coverInputRef.current.value = ""
+    }
+  }
+
+  const handleDeleteCover = async () => {
+    if (!business.id) return
+    setIsUploadingCover(true)
+    try {
+      const res = await deleteBusinessCover(business.id)
+      if (res.success) {
+        toast.success(res.message || "Cover berhasil dihapus.")
+        await refetch()
+      } else {
+        toast.error(res.message || "Gagal menghapus cover.")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat menghapus cover.")
+    } finally {
+      setIsUploadingCover(false)
+    }
+  }
+
+  const handleSaveSocial = async () => {
+    if (!business.id) return
+    setSavingSocial(true)
+    try {
+      const res = await updateBusinessProfile(business.id, {
+        social_media: social,
+      })
+      if (res.success) {
+        toast.success(res.message || "Tautan media sosial berhasil disimpan.")
+        await refetch()
+      } else {
+        toast.error(res.message || "Gagal menyimpan tautan media sosial.")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat menyimpan media sosial.")
+    } finally {
+      setSavingSocial(false)
+    }
   }
 
   return (
@@ -715,24 +899,43 @@ function MediaTab({ business }: { business: Business }) {
             <p className="text-xs font-bold text-slate-800">Logo Bisnis</p>
             <div className="flex items-center gap-4">
               <Avatar className="size-16 border-2 border-white shadow-md">
-                <AvatarFallback className="bg-[#008767] text-white font-bold text-base">
-                  TG
-                </AvatarFallback>
+                {business.logo ? (
+                  <img src={business.logo} alt={business.name} className="size-full object-cover rounded-full" />
+                ) : (
+                  <AvatarFallback className="bg-[#008767] text-white font-bold text-base">
+                    {initials}
+                  </AvatarFallback>
+                )}
               </Avatar>
               <div className="space-y-2">
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => toast.success("Logo baru berhasil diunggah.")}>
-                    <UploadIcon className="mr-1 size-3.5" />
-                    Upload Logo
-                  </Button>
+                  <input
+                    type="file"
+                    ref={logoInputRef}
+                    className="hidden"
+                    accept="image/png,image/jpeg,image/webp,image/jpg"
+                    onChange={handleLogoFileChange}
+                  />
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-red-600 hover:text-red-700"
-                    onClick={() => toast.success("Logo berhasil dihapus.")}
+                    disabled={isUploadingLogo}
+                    onClick={() => logoInputRef.current?.click()}
                   >
-                    <Trash2Icon className="size-3.5" />
+                    <UploadIcon className="mr-1 size-3.5" />
+                    {isUploadingLogo ? "Mengunggah..." : "Upload Logo"}
                   </Button>
+                  {business.logo && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isUploadingLogo}
+                      className="text-red-600 hover:text-red-700"
+                      onClick={handleDeleteLogo}
+                    >
+                      <Trash2Icon className="size-3.5" />
+                    </Button>
+                  )}
                 </div>
                 <p className="text-[11px] text-slate-500">Rasio 1:1 direkomendasikan (e.g. 500x500px).</p>
               </div>
@@ -743,12 +946,38 @@ function MediaTab({ business }: { business: Business }) {
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
             <p className="text-xs font-bold text-slate-800">Cover Header Bisnis</p>
             <div className="relative aspect-video rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center border border-slate-300">
-              <ImageIcon className="size-8 text-slate-400" />
-              <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                <Button size="sm" className="bg-white text-slate-900 hover:bg-slate-100" onClick={() => toast.success("Cover baru berhasil diunggah.")}>
+              {business.cover ? (
+                <img src={business.cover} alt="Cover Bisnis" className="w-full h-full object-cover" />
+              ) : (
+                <ImageIcon className="size-8 text-slate-400" />
+              )}
+              <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity gap-2">
+                <input
+                  type="file"
+                  ref={coverInputRef}
+                  className="hidden"
+                  accept="image/png,image/jpeg,image/webp,image/jpg"
+                  onChange={handleCoverFileChange}
+                />
+                <Button
+                  size="sm"
+                  disabled={isUploadingCover}
+                  className="bg-white text-slate-900 hover:bg-slate-100"
+                  onClick={() => coverInputRef.current?.click()}
+                >
                   <UploadIcon className="mr-1 size-3.5" />
-                  Ganti Cover
+                  {isUploadingCover ? "Mengunggah..." : business.cover ? "Ganti Cover" : "Upload Cover"}
                 </Button>
+                {business.cover && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={isUploadingCover}
+                    onClick={handleDeleteCover}
+                  >
+                    <Trash2Icon className="size-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
             <p className="text-[11px] text-slate-500">Rasio 16:9 direkomendasikan untuk hasil terbaik.</p>
@@ -759,7 +988,7 @@ function MediaTab({ business }: { business: Business }) {
       {/* Social Media Links */}
       <Card>
         <CardHeader>
-          <CardTitle>Tautan Media Sosial (JSONB)</CardTitle>
+          <CardTitle>Tautan Media Sosial</CardTitle>
           <CardDescription>
             Hubungkan akun media sosial bisnis Anda agar calon pelanggan mudah menghubungi Anda.
           </CardDescription>
@@ -808,9 +1037,9 @@ function MediaTab({ business }: { business: Business }) {
           </FieldGroup>
 
           <div className="pt-2 flex justify-end">
-            <Button onClick={handleSaveSocial} disabled={saving} className="bg-[#008767] hover:bg-[#007055]">
+            <Button onClick={handleSaveSocial} disabled={savingSocial} className="bg-[#008767] hover:bg-[#007055]">
               <SaveIcon className="mr-1.5 size-4" />
-              {saving ? "Menyimpan..." : "Simpan Media Sosial"}
+              {savingSocial ? "Menyimpan..." : "Simpan Media Sosial"}
             </Button>
           </div>
         </CardContent>
@@ -914,6 +1143,8 @@ function EditBasicInfoDialog({
   onOpenChange: (open: boolean) => void
   business: Business
 }) {
+  const { refetch } = useBusinessContext()
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [form, setForm] = React.useState({
     name: business.name,
     description: business.description,
@@ -922,8 +1153,43 @@ function EditBasicInfoDialog({
     website: business.website ?? "",
   })
 
+  React.useEffect(() => {
+    setForm({
+      name: business.name,
+      description: business.description,
+      email: business.email ?? "",
+      phone: business.phone ?? "",
+      website: business.website ?? "",
+    })
+  }, [business])
+
   function update<K extends keyof typeof form>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  async function handleSave() {
+    if (!business.id) return
+    setIsSubmitting(true)
+    try {
+      const res = await updateBusinessProfile(business.id, {
+        name: form.name.trim(),
+        description: form.description.trim(),
+        email: form.email.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+        website: form.website.trim() || undefined,
+      })
+      if (res.success) {
+        toast.success(res.message || "Informasi utama berhasil disimpan.")
+        await refetch()
+        onOpenChange(false)
+      } else {
+        toast.error(res.message || "Gagal menyimpan informasi")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat menyimpan informasi.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -960,17 +1226,15 @@ function EditBasicInfoDialog({
           </Field>
         </FieldGroup>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" disabled={isSubmitting} onClick={() => onOpenChange(false)}>
             Batal
           </Button>
           <Button
             className="bg-[#008767] hover:bg-[#007055]"
-            onClick={() => {
-              toast.success("Informasi utama berhasil disimpan.")
-              onOpenChange(false)
-            }}
+            disabled={isSubmitting}
+            onClick={handleSave}
           >
-            Simpan
+            {isSubmitting ? "Menyimpan..." : "Simpan"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -987,13 +1251,44 @@ function EditDetailDialog({
   onOpenChange: (open: boolean) => void
   business: Business
 }) {
+  const { refetch } = useBusinessContext()
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [form, setForm] = React.useState({
     category: business.category,
     address: business.address,
   })
 
+  React.useEffect(() => {
+    setForm({
+      category: business.category,
+      address: business.address,
+    })
+  }, [business])
+
   function update<K extends keyof typeof form>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  async function handleSave() {
+    if (!business.id) return
+    setIsSubmitting(true)
+    try {
+      const res = await updateBusinessProfile(business.id, {
+        category: form.category.trim() || undefined,
+        address: form.address.trim() || undefined,
+      })
+      if (res.success) {
+        toast.success(res.message || "Detail bisnis berhasil disimpan.")
+        await refetch()
+        onOpenChange(false)
+      } else {
+        toast.error(res.message || "Gagal menyimpan detail bisnis")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat menyimpan detail bisnis.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -1022,17 +1317,15 @@ function EditDetailDialog({
           </Field>
         </FieldGroup>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" disabled={isSubmitting} onClick={() => onOpenChange(false)}>
             Batal
           </Button>
           <Button
             className="bg-[#008767] hover:bg-[#007055]"
-            onClick={() => {
-              toast.success("Detail bisnis berhasil disimpan.")
-              onOpenChange(false)
-            }}
+            disabled={isSubmitting}
+            onClick={handleSave}
           >
-            Simpan
+            {isSubmitting ? "Menyimpan..." : "Simpan"}
           </Button>
         </DialogFooter>
       </DialogContent>

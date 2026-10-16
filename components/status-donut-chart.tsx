@@ -23,6 +23,7 @@ export function StatusDonutChart({
   showCount?: boolean
 }) {
   const total = segments.reduce((sum, s) => sum + s.value, 0)
+  const chartData = total > 0 ? segments : [{ label: "Empty", value: 1, color: "var(--color-border, #e2e8f0)" }]
 
   return (
     <div className="flex items-center gap-4">
@@ -30,7 +31,7 @@ export function StatusDonutChart({
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={segments}
+              data={chartData}
               dataKey="value"
               nameKey="label"
               innerRadius="72%"
@@ -39,7 +40,7 @@ export function StatusDonutChart({
               endAngle={-270}
               stroke="none"
             >
-              {segments.map((segment) => (
+              {chartData.map((segment) => (
                 <Cell key={segment.label} fill={segment.color} />
               ))}
             </Pie>

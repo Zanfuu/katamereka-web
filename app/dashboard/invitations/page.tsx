@@ -61,7 +61,7 @@ const STATUS_OPTIONS = [
 ]
 
 export default function DashboardInvitationsPage() {
-  const { selectedBusiness } = useBusinessContext()
+  const { selectedBusiness, isLoading } = useBusinessContext()
   const [tab, setTab] = React.useState<string>("all")
   const [search, setSearch] = React.useState("")
   const [channelFilter, setChannelFilter] = React.useState("all")
@@ -69,6 +69,15 @@ export default function DashboardInvitationsPage() {
   const [panelOpen, setPanelOpen] = React.useState(false)
   const [advancedOpen, setAdvancedOpen] = React.useState(false)
   const [reviewOnly, setReviewOnly] = React.useState(false)
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-6 p-4 animate-pulse">
+        <div className="h-8 w-64 rounded bg-muted" />
+        <div className="h-64 w-full rounded-xl bg-muted/60" />
+      </div>
+    )
+  }
 
   if (!selectedBusiness) return null
 

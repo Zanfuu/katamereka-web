@@ -18,6 +18,7 @@ import {
   ScrollTextIcon,
   SearchIcon,
   SettingsIcon,
+  ShieldCheckIcon,
   ShieldIcon,
   StarIcon,
   UserCogIcon,
@@ -47,13 +48,17 @@ const navGroups = [
       { title: "Admin Management", url: "/admin/customers", icon: UserCogIcon },
       { title: "User Management", url: "/admin/users", icon: UsersIcon },
       { title: "Businesses", url: "/admin/businesses", icon: BuildingIcon },
+      { title: "Verifikasi Klaim", url: "/admin/verifications", icon: ShieldCheckIcon },
       { title: "Add Business", url: "/admin/add-business", icon: PlusCircleIcon },
       { title: "Reviews", url: "/admin/reviews", icon: StarIcon },
     ],
   },
   {
     label: "Trust & Safety",
-    items: [{ title: "Trust & Safety", url: "/admin/trust-safety", icon: FlagIcon }],
+    items: [
+      { title: "Verifikasi Klaim", url: "/admin/verifications", icon: ShieldCheckIcon },
+      { title: "Trust & Safety", url: "/admin/trust-safety", icon: FlagIcon },
+    ],
   },
   {
     label: "Konten (CMS)",

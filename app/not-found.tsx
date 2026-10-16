@@ -45,7 +45,7 @@ export default function NotFound() {
       </main>
 
       <footer className="border-t border-slate-100 py-6 text-center text-xs text-slate-400">
-        <p>© 2025 Katamereka. Semua hak dilindungi.</p>
+        <p>© {new Date().getFullYear()} Katamereka. Semua hak dilindungi.</p>
       </footer>
     </div>
   );

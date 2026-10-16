@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -12,14 +12,58 @@ import {
   Star,
   ArrowRight,
   MapPin,
+  Building2,
 } from "lucide-react";
 import Navbar from "@/components/navbar";
+import {
+  fetchBusinesses,
+  fetchBusinessPlaceImage,
+  mapApiBusinessToUiModel,
+} from "@/lib/api-client";
+import { categoryDisplayName } from "@/lib/slug";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Business } from "@/lib/mock-data";
 
 export default function BisnisLandingPage() {
   const router = useRouter();
   const [heroSearch, setHeroSearch] = useState("");
   const [middleSearch, setMiddleSearch] = useState("");
   const [bottomSearch, setBottomSearch] = useState("");
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [loadingBusinesses, setLoadingBusinesses] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoadingBusinesses(true);
+    fetchBusinesses({ limit: 3, sort: "popular" })
+      .then(async (res) => {
+        if (!isMounted) return;
+        if (res.data && res.data.length > 0) {
+          const mapped = res.data.map(mapApiBusinessToUiModel);
+          const withImages = await Promise.all(
+            mapped.map(async (biz) => {
+              if (biz.imageUrl) return biz;
+              try {
+                const img = await fetchBusinessPlaceImage(biz.name, biz.location || "Indonesia");
+                if (img) return { ...biz, imageUrl: img };
+              } catch {}
+              return biz;
+            })
+          );
+          if (isMounted) setBusinesses(withImages);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed fetching businesses in landing page:", err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingBusinesses(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSearchSubmit = (query: string, e: React.FormEvent) => {
     e.preventDefault();
@@ -29,33 +73,6 @@ export default function BisnisLandingPage() {
       router.push("/search");
     }
   };
-
-  const sampleBusinesses = [
-    {
-      name: "Sunny Cafe & Bakery",
-      category: "Kafe & Restoran",
-      location: "Jakarta Selatan",
-      rating: 4.7,
-      reviews: 128,
-      slug: "sunny-cafe-bakery",
-    },
-    {
-      name: "Klinik Sehat Sentosa",
-      category: "Klinik",
-      location: "Jakarta Selatan",
-      rating: 4.8,
-      reviews: 86,
-      slug: "klinik-sehat-sentosa",
-    },
-    {
-      name: "AutoCare Garage",
-      category: "Bengkel",
-      location: "Jakarta Barat",
-      rating: 4.6,
-      reviews: 54,
-      slug: "autocare-garage",
-    },
-  ];
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans text-slate-800 antialiased selection:bg-[#008767] selection:text-white">
@@ -193,7 +210,7 @@ export default function BisnisLandingPage() {
 
               {/* Left */}
               <div className="lg:col-span-5 space-y-4">
-                <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#008767]">CONTOH BISNIS YANG SUDAH ADA</p>
+                <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#008767]">BISNIS TERDAFTAR DI KATAMEREKA</p>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
                   Mungkin Pelanggan Anda Sudah Membicarakan Bisnis Anda
                 </h2>
@@ -220,38 +237,79 @@ export default function BisnisLandingPage() {
 
               {/* Right: Business cards */}
               <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {sampleBusinesses.map((biz) => (
-                  <div key={biz.slug} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
-                    {/* Photo placeholder */}
-                    <div className="h-28 bg-gradient-to-br from-emerald-100 to-slate-100 flex items-center justify-center text-3xl">
-                      {biz.category.includes("Kafe") ? "☕" : biz.category.includes("Klinik") ? "🏥" : "🔧"}
+                {loadingBusinesses ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="bg-white rounded-2xl border border-slate-200 overflow-hidden p-4 space-y-3"
+                    >
+                      <Skeleton className="h-28 w-full rounded-xl" />
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                      <Skeleton className="h-8 w-full rounded-lg" />
                     </div>
-                    <div className="p-4 flex flex-col gap-2 flex-1">
-                      <div>
-                        <div className="flex items-center gap-1">
-                          <span className="font-bold text-slate-900 text-sm leading-tight">{biz.name}</span>
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#008767] shrink-0" />
+                  ))
+                ) : businesses.length > 0 ? (
+                  businesses.slice(0, 3).map((biz) => {
+                    const coverPhoto = biz.imageUrl;
+                    const ratingScore = biz.rating ? biz.rating.toFixed(1) : "0.0";
+                    const reviewCount = biz.reviewCount || 0;
+                    const locationText = biz.location || "Indonesia";
+
+                    return (
+                      <div
+                        key={biz.id || biz.slug}
+                        className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col group"
+                      >
+                        {/* Real Photo / Image */}
+                        <div className="h-28 bg-slate-100 relative overflow-hidden flex items-center justify-center">
+                          {coverPhoto ? (
+                            <img
+                              src={coverPhoto}
+                              alt={biz.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-emerald-100 to-slate-100 flex items-center justify-center text-[#008767]">
+                              <Building2 className="w-8 h-8 opacity-60" />
+                            </div>
+                          )}
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{biz.category}</p>
-                        <div className="flex items-center gap-1 text-[11px] text-amber-500 font-semibold mt-1">
-                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                          <span>{biz.rating}</span>
-                          <span className="text-slate-400 font-normal">({biz.reviews} ulasan)</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">
-                          <MapPin className="w-3 h-3" />
-                          <span>{biz.location}</span>
+                        <div className="p-4 flex flex-col gap-2 flex-1">
+                          <div>
+                            <div className="flex items-center gap-1">
+                              <span className="font-bold text-slate-900 text-sm leading-tight truncate">
+                                {biz.name}
+                              </span>
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#008767] shrink-0" />
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                              {categoryDisplayName(biz.category)}
+                            </p>
+                            <div className="flex items-center gap-1 text-[11px] text-amber-500 font-semibold mt-1">
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
+                              <span>{ratingScore}</span>
+                              <span className="text-slate-400 font-normal">
+                                ({reviewCount} ulasan)
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5 truncate">
+                              <MapPin className="w-3 h-3 shrink-0" />
+                              <span className="truncate">{locationText}</span>
+                            </div>
+                          </div>
+                          <Link
+                            href={`/business/${biz.slug}`}
+                            className="mt-auto block w-full text-center py-2 rounded-lg border border-[#008767] text-[#008767] hover:bg-[#008767] hover:text-white font-semibold text-xs transition-colors"
+                          >
+                            Lihat Profil
+                          </Link>
                         </div>
                       </div>
-                      <Link
-                        href={`/business/${biz.slug}`}
-                        className="mt-auto block w-full text-center py-2 rounded-lg border border-[#008767] text-[#008767] hover:bg-[#008767] hover:text-white font-semibold text-xs transition-colors"
-                      >
-                        Lihat Profil
-                      </Link>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })
+                ) : null}
               </div>
 
             </div>
@@ -276,7 +334,7 @@ export default function BisnisLandingPage() {
                   href="/dashboard"
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:border-[#008767] hover:text-[#008767] font-semibold text-xs transition-colors"
                 >
-                  Lihat Contoh Dashboard <ArrowRight className="w-3.5 h-3.5" />
+                  Akses Dashboard Bisnis <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
 
@@ -413,7 +471,7 @@ export default function BisnisLandingPage() {
             </nav>
           </div>
           <div className="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
-            <p>© 2025 Katamereka. Semua hak dilindungi.</p>
+            <p>© {new Date().getFullYear()} Katamereka. Semua hak dilindungi.</p>
             <div className="flex items-center gap-4">
               <Link href="/bantuan" className="hover:text-slate-600 transition-colors">Kebijakan Privasi</Link>
               <Link href="/bantuan" className="hover:text-slate-600 transition-colors">Syarat & Ketentuan</Link>

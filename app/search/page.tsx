@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useMemo, useEffect } from "react";
+import { Suspense, useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import Navbar from "@/components/navbar";
@@ -12,6 +12,8 @@ import {
   MapPin,
   Bookmark,
   ChevronRight,
+  ChevronDown,
+  Check,
   CheckCircle2,
   SlidersHorizontal,
   Building2,
@@ -29,15 +31,48 @@ import {
 function SearchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialQuery = searchParams.get("q") || "";
+  const rawQ = searchParams.get("q") || "";
+  let initialQuery = rawQ;
+  try {
+    initialQuery = decodeURIComponent(rawQ);
+  } catch {}
 
   const [searchInput, setSearchInput] = useState<string>(initialQuery);
   const [activeQuery, setActiveQuery] = useState<string>(initialQuery);
   const [selectedType, setSelectedType] = useState<string>("Semua");
   const [selectedCategorySidebar, setSelectedCategorySidebar] = useState<string>("Semua");
+  const [selectedLocation, setSelectedLocation] = useState<string>("Semua Lokasi");
   const [sortBy, setSortBy] = useState<string>("Paling Relevan");
+  const [openLocationDropdown, setOpenLocationDropdown] = useState(false);
+  const [openSortDropdown, setOpenSortDropdown] = useState(false);
+  const locationDropdownRef = useRef<HTMLDivElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
   const [apiItems, setApiItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    const q = searchParams.get("q") || "";
+    let clean = q;
+    try {
+      clean = decodeURIComponent(q);
+    } catch {}
+    setSearchInput(clean);
+    setActiveQuery(clean);
+  }, [searchParams]);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      if (locationDropdownRef.current && !locationDropdownRef.current.contains(e.target as Node)) {
+        setOpenLocationDropdown(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) {
+        setOpenSortDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleGlobalClick);
+    return () => document.removeEventListener("mousedown", handleGlobalClick);
+  }, []);
 
   // Live API integration: fetch businesses from GET /businesses endpoint
   useEffect(() => {
@@ -102,6 +137,7 @@ function SearchContent() {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setActiveQuery(searchInput);
+    setSelectedLocation("Semua Lokasi");
     router.replace(searchInput.trim() ? `/search?q=${encodeURIComponent(searchInput)}` : "/search");
   };
 
@@ -116,11 +152,25 @@ function SearchContent() {
     return [...apiItems];
   }, [apiItems]);
 
+  // Extract unique locations from active search results
+  const availableLocations = useMemo(() => {
+    const locSet = new Set<string>();
+    allSearchItems.forEach((item) => {
+      if (item.location && typeof item.location === "string") {
+        const clean = item.location.trim();
+        if (clean && clean !== "-") {
+          locSet.add(clean);
+        }
+      }
+    });
+    return Array.from(locSet).sort((a, b) => a.localeCompare(b));
+  }, [allSearchItems]);
+
   // Filter items
   const filteredResults = useMemo(() => {
     const q = activeQuery.toLowerCase().trim();
 
-    return allSearchItems.filter((item) => {
+    let results = allSearchItems.filter((item) => {
       const targetText = `${item.name} ${item.category} ${item.location} ${item.website}`.toLowerCase();
       const queryWords = q.split(/\s+/).filter(Boolean);
 
@@ -133,10 +183,23 @@ function SearchContent() {
       const matchesType = selectedType === "Semua" || item.type === selectedType;
       const matchesCategorySidebar =
         selectedCategorySidebar === "Semua" || item.type === selectedCategorySidebar;
+      const matchesLocation =
+        selectedLocation === "Semua Lokasi" ||
+        item.location === selectedLocation ||
+        (typeof item.location === "string" &&
+          item.location.toLowerCase().includes(selectedLocation.toLowerCase()));
 
-      return matchesQuery && matchesType && matchesCategorySidebar;
+      return matchesQuery && matchesType && matchesCategorySidebar && matchesLocation;
     });
-  }, [allSearchItems, activeQuery, selectedType, selectedCategorySidebar]);
+
+    if (sortBy === "Rating Tertinggi") {
+      results = [...results].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    } else if (sortBy === "Ulasan Terbanyak") {
+      results = [...results].sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0));
+    }
+
+    return results;
+  }, [allSearchItems, activeQuery, selectedType, selectedCategorySidebar, selectedLocation, sortBy]);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -225,20 +288,129 @@ function SearchContent() {
                 ))}
               </div>
 
-              {/* Sort Selector */}
-              <div className="flex items-center justify-end gap-2 text-xs font-semibold text-slate-600 shrink-0">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
-                <span>Urutkan:</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-[#008767]"
-                >
-                  <option value="Paling Relevan">Paling Relevan</option>
-                  <option value="Rating Tertinggi">Rating Tertinggi</option>
-                  <option value="Ulasan Terbanyak">Ulasan Terbanyak</option>
-                  <option value="Terbaru">Terbaru</option>
-                </select>
+              {/* Filter Lokasi & Sort Selector (Satu Baris Bersebelahan & Palette Katamereka) */}
+              <div className="flex items-center justify-between sm:justify-end gap-2 text-xs font-semibold text-slate-600 w-full sm:w-auto shrink-0 flex-nowrap">
+                {/* Custom Dropdown Filter Lokasi */}
+                <div ref={locationDropdownRef} className="relative flex-1 sm:flex-initial min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenLocationDropdown((prev) => !prev);
+                      setOpenSortDropdown(false);
+                    }}
+                    className={`w-full sm:w-auto flex items-center justify-between gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] sm:text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                      openLocationDropdown || selectedLocation !== "Semua Lokasi"
+                        ? "bg-[#e8f6f2] border-[#008767] text-[#008767]"
+                        : "bg-white border-slate-200 text-slate-700 hover:border-[#008767]/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <MapPin className="w-3.5 h-3.5 text-[#008767] shrink-0" />
+                      <span className="truncate max-w-[95px] sm:max-w-[150px]">{selectedLocation}</span>
+                    </div>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
+                        openLocationDropdown ? "rotate-180 text-[#008767]" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {/* Dropdown Menu Lokasi (Scrollable & Stylized) */}
+                  {openLocationDropdown && (
+                    <div className="absolute left-0 mt-2 w-64 sm:w-72 max-h-60 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/60 p-1.5 z-50">
+                      <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
+                        Pilih Lokasi Bisnis
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedLocation("Semua Lokasi");
+                          setOpenLocationDropdown(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                          selectedLocation === "Semua Lokasi"
+                            ? "bg-[#008767] text-white font-bold"
+                            : "text-slate-700 hover:bg-[#e8f6f2] hover:text-[#008767]"
+                        }`}
+                      >
+                        <span>Semua Lokasi</span>
+                        {selectedLocation === "Semua Lokasi" && <Check className="w-3.5 h-3.5 shrink-0" />}
+                      </button>
+
+                      {availableLocations.map((loc) => (
+                        <button
+                          key={loc}
+                          type="button"
+                          onClick={() => {
+                            setSelectedLocation(loc);
+                            setOpenLocationDropdown(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                            selectedLocation === loc
+                              ? "bg-[#008767] text-white font-bold"
+                              : "text-slate-700 hover:bg-[#e8f6f2] hover:text-[#008767]"
+                          }`}
+                        >
+                          <span className="truncate pr-2">{loc}</span>
+                          {selectedLocation === loc && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Custom Dropdown Sort */}
+                <div ref={sortDropdownRef} className="relative flex-1 sm:flex-initial min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenSortDropdown((prev) => !prev);
+                      setOpenLocationDropdown(false);
+                    }}
+                    className={`w-full sm:w-auto flex items-center justify-between gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] sm:text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                      openSortDropdown
+                        ? "bg-[#e8f6f2] border-[#008767] text-[#008767]"
+                        : "bg-white border-slate-200 text-slate-700 hover:border-[#008767]/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-[#008767] shrink-0" />
+                      <span className="truncate max-w-[85px] sm:max-w-[130px]">{sortBy}</span>
+                    </div>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
+                        openSortDropdown ? "rotate-180 text-[#008767]" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {/* Dropdown Menu Sort */}
+                  {openSortDropdown && (
+                    <div className="absolute right-0 mt-2 w-48 sm:w-52 bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/60 p-1.5 z-50">
+                      <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
+                        Urutkan Berdasarkan
+                      </div>
+                      {["Paling Relevan", "Rating Tertinggi", "Ulasan Terbanyak", "Terbaru"].map((opt) => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => {
+                            setSortBy(opt);
+                            setOpenSortDropdown(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                            sortBy === opt
+                              ? "bg-[#008767] text-white font-bold"
+                              : "text-slate-700 hover:bg-[#e8f6f2] hover:text-[#008767]"
+                          }`}
+                        >
+                          <span>{opt}</span>
+                          {sortBy === opt && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -276,12 +448,9 @@ function SearchContent() {
 
                       {/* Text Details */}
                       <div className="space-y-2 min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <h3 className="font-extrabold text-slate-900 text-base sm:text-lg group-hover:text-[#008767] transition-colors truncate">
-                            {item.name}
-                          </h3>
-                          <CheckCircle2 className="w-4.5 h-4.5 text-sky-500 fill-sky-500/10 shrink-0" />
-                        </div>
+                        <h3 className="font-extrabold text-slate-900 text-[15px] sm:text-lg group-hover:text-[#008767] transition-colors leading-snug break-words">
+                          {item.name}
+                        </h3>
 
                         {/* Website & Category Badge */}
                         <div className="flex items-center gap-2 text-xs flex-wrap">
@@ -459,7 +628,7 @@ function SearchContent() {
           </div>
 
           <div className="pt-8 border-t border-slate-100 flex items-center justify-between gap-4 text-xs text-slate-400">
-            <p>© 2026 Katamereka. Semua hak dilindungi.</p>
+            <p>© {new Date().getFullYear()} Katamereka. Semua hak dilindungi.</p>
             <button
               onClick={scrollToTop}
               className="inline-flex items-center gap-1.5 font-semibold text-slate-600 hover:text-[#008767]"

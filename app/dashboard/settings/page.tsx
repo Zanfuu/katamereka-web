@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 
 import { useBusinessContext } from "@/components/business-provider"
+import { updateBusinessProfile } from "@/lib/api-business-dashboard"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb"
 import { PageHeader } from "@/components/page-header"
@@ -117,8 +118,18 @@ const SECTIONS = [
 type SectionValue = (typeof SECTIONS)[number]["value"]
 
 export default function DashboardSettingsPage() {
-  const { selectedBusiness } = useBusinessContext()
+  const { selectedBusiness, isLoading } = useBusinessContext()
   const [section, setSection] = React.useState<SectionValue>("profil")
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-4 p-4 animate-pulse">
+        <div className="h-8 w-60 rounded bg-muted" />
+        <div className="h-4 w-96 rounded bg-muted" />
+        <div className="h-96 w-full rounded-xl bg-muted/60 mt-4" />
+      </div>
+    )
+  }
 
   if (!selectedBusiness) return null
 
@@ -182,6 +193,8 @@ function ProfilBisnisSection({
   business: Business
   onManageTeam: () => void
 }) {
+  const { refetch } = useBusinessContext()
+  const [isSaving, setIsSaving] = React.useState(false)
   const [form, setForm] = React.useState({
     name: business.name,
     description: business.description,
@@ -192,8 +205,43 @@ function ProfilBisnisSection({
   })
   const [deleteOpen, setDeleteOpen] = React.useState(false)
 
+  React.useEffect(() => {
+    setForm({
+      name: business.name,
+      description: business.description,
+      email: business.email ?? "",
+      phone: business.phone ?? "",
+      website: business.website ?? "",
+      address: `${business.address}, ${business.city}${business.postalCode ? ` ${business.postalCode}` : ""}`,
+    })
+  }, [business])
+
   function update<K extends keyof typeof form>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  async function handleSaveProfile() {
+    if (!business.id) return
+    setIsSaving(true)
+    try {
+      const res = await updateBusinessProfile(business.id, {
+        name: form.name.trim(),
+        description: form.description.trim(),
+        email: form.email.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+        website: form.website.trim() || undefined,
+      })
+      if (res.success) {
+        toast.success(res.message || "Perubahan profil bisnis berhasil disimpan.")
+        await refetch()
+      } else {
+        toast.error(res.message || "Gagal menyimpan perubahan profil.")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat menyimpan perubahan profil.")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const initials = business.name
@@ -214,8 +262,8 @@ function ProfilBisnisSection({
                 Informasi ini akan ditampilkan kepada pelanggan di public profile Anda.
               </p>
             </div>
-            <Button onClick={() => toast.success("Perubahan profil bisnis berhasil disimpan.")}>
-              Simpan Perubahan
+            <Button disabled={isSaving} onClick={handleSaveProfile}>
+              {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
             </Button>
           </div>
 

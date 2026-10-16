@@ -25,7 +25,7 @@ export function ReplyDialog({
   onReplied,
   onSubmit,
 }: {
-  review: Review
+  review: { reviewerName: string; rating: number; content: string } | Review
   triggerLabel?: string
   triggerVariant?: VariantProps<typeof buttonVariants>["variant"]
   triggerSize?: VariantProps<typeof buttonVariants>["size"]

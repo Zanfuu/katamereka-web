@@ -10,7 +10,19 @@ import { API_BASE_URL, ApiBusinessDetail } from "./api-client"
 function getToken(): string | null {
   if (typeof window === "undefined") return null
   try {
-    return localStorage.getItem("accessToken")
+    const direct = localStorage.getItem("accessToken")
+    if (direct) return direct
+
+    const activeUser = localStorage.getItem("katamereka_active_user")
+    if (activeUser) {
+      const parsed = JSON.parse(activeUser)
+      if (parsed?.accessToken) return parsed.accessToken
+    }
+
+    const match = document.cookie.match(/(?:^|;\s*)km_session=([^;]+)/)
+    if (match?.[1]) return decodeURIComponent(match[1])
+
+    return null
   } catch {
     return null
   }
@@ -30,6 +42,28 @@ export interface MyBusinessItem {
   slug: string
   role: "OWNER" | "ADMIN" | "MEMBER" | string
   is_claimed: boolean
+  description?: string
+  category?: string
+  website?: string
+  phone?: string
+  email?: string
+  logo?: string
+  logo_url?: string
+  cover?: string
+  cover_url?: string
+  address?: string
+  city?: string
+  province?: string
+  postalCode?: string
+  postal_code?: string
+  rating?: number
+  averageRating?: number
+  reviewCount?: number
+  totalReviews?: number
+  status?: string
+  verificationStatus?: string
+  sourceOfTruth?: string
+  createdAt?: string
 }
 
 export async function fetchMyBusinesses(): Promise<MyBusinessItem[]> {
@@ -59,6 +93,133 @@ export async function fetchMyBusinessDetail(id: string): Promise<ApiBusinessDeta
   } catch (e) {
     console.warn("fetchMyBusinessDetail failed:", e)
     return null
+  }
+}
+
+export interface UpdateBusinessProfilePayload {
+  name?: string
+  description?: string
+  short_description?: string
+  phone?: string
+  email?: string
+  website?: string
+  address?: string
+  city?: string
+  province?: string
+  postal_code?: string
+  category?: string
+  photos?: string[]
+  opening_hours?: Record<string, any>
+  social_media?: Record<string, any>
+}
+
+export async function updateBusinessProfile(
+  businessId: string,
+  payload: UpdateBusinessProfilePayload
+): Promise<{ success: boolean; message: string; data?: any }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/profile`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    const json = await res.json()
+    if (!res.ok) {
+      return { success: false, message: json?.message || "Gagal memperbarui profil bisnis" }
+    }
+    return { success: true, message: json?.message || "Profil bisnis berhasil diperbarui", data: json?.data }
+  } catch (err: any) {
+    return { success: false, message: err?.message || "Terjadi kesalahan jaringan" }
+  }
+}
+
+export async function uploadBusinessLogo(
+  businessId: string,
+  file: File
+): Promise<{ success: boolean; url?: string; message: string }> {
+  try {
+    const token = getToken()
+    const formData = new FormData()
+    formData.append("file", file)
+    const res = await fetch(`${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/logo`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    })
+    const json = await res.json()
+    if (!res.ok) {
+      return { success: false, message: json?.message || "Gagal mengunggah logo" }
+    }
+    return {
+      success: true,
+      url: json?.url || json?.logoUrl || json?.data?.logoUrl,
+      message: "Logo berhasil diperbarui",
+    }
+  } catch (err: any) {
+    return { success: false, message: err?.message || "Gagal mengunggah logo" }
+  }
+}
+
+export async function uploadBusinessCover(
+  businessId: string,
+  file: File
+): Promise<{ success: boolean; url?: string; message: string }> {
+  try {
+    const token = getToken()
+    const formData = new FormData()
+    formData.append("file", file)
+    const res = await fetch(`${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/cover`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    })
+    const json = await res.json()
+    if (!res.ok) {
+      return { success: false, message: json?.message || "Gagal mengunggah gambar sampul" }
+    }
+    return {
+      success: true,
+      url: json?.url || json?.coverUrl || json?.data?.coverUrl,
+      message: "Gambar sampul berhasil diperbarui",
+    }
+  } catch (err: any) {
+    return { success: false, message: err?.message || "Gagal mengunggah gambar sampul" }
+  }
+}
+
+export async function deleteBusinessLogo(
+  businessId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/logo`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    })
+    const json = await res.json()
+    if (!res.ok) {
+      return { success: false, message: json?.message || "Gagal menghapus logo" }
+    }
+    return { success: true, message: json?.message || "Logo berhasil dihapus" }
+  } catch (err: any) {
+    return { success: false, message: err?.message || "Gagal menghapus logo" }
+  }
+}
+
+export async function deleteBusinessCover(
+  businessId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/cover`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    })
+    const json = await res.json()
+    if (!res.ok) {
+      return { success: false, message: json?.message || "Gagal menghapus cover" }
+    }
+    return { success: true, message: json?.message || "Cover berhasil dihapus" }
+  } catch (err: any) {
+    return { success: false, message: err?.message || "Gagal menghapus cover" }
   }
 }
 
@@ -204,4 +365,91 @@ export async function fetchReviewReportsSummary(businessId: string): Promise<Api
     console.warn("fetchReviewReportsSummary failed:", e)
   }
   return { pending: 0, resolved: 0, total: 0 }
+}
+
+export interface DashboardStatsOverview {
+  range: {
+    key: string
+    from?: string
+    to?: string
+  }
+  stats: {
+    average_rating: {
+      value: number
+      previous: number | null
+      delta: number | null
+    }
+    total_reviews: {
+      value: number
+      previous: number | null
+      delta_pct: number | null
+    }
+    new_reviews: {
+      value: number
+      previous: number | null
+      delta_pct: number | null
+    }
+    response_rate: {
+      value: number
+      previous: number | null
+      delta: number | null
+    }
+  }
+  rating_distribution: Record<string, number>
+  review_status: {
+    replied: number
+    unreplied: number
+    reported: number
+  }
+}
+
+export async function fetchDashboardOverview(
+  businessId: string,
+  range = "30d"
+): Promise<DashboardStatsOverview | null> {
+  if (!businessId || businessId === "default-empty-business") return null
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/dashboard/overview?range=${encodeURIComponent(range)}`,
+      {
+        headers: authHeaders(),
+        cache: "no-store",
+      }
+    )
+    if (res.ok) return await res.json()
+  } catch (err) {
+    console.warn("fetchDashboardOverview failed:", err)
+  }
+  return null
+}
+
+export interface RatingTrendPoint {
+  start: string
+  average_rating: number | null
+  review_count: number
+}
+
+export interface RatingTrendResponse {
+  bucket: "day" | "week" | "month"
+  points: RatingTrendPoint[]
+}
+
+export async function fetchRatingTrend(
+  businessId: string,
+  range = "30d"
+): Promise<RatingTrendResponse | null> {
+  if (!businessId || businessId === "default-empty-business") return null
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/dashboard/rating-trend?range=${encodeURIComponent(range)}`,
+      {
+        headers: authHeaders(),
+        cache: "no-store",
+      }
+    )
+    if (res.ok) return await res.json()
+  } catch (err) {
+    console.warn("fetchRatingTrend failed:", err)
+  }
+  return null
 }

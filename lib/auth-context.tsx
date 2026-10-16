@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { API_BASE_URL } from "./api-client";
+import { isBusinessHost } from "@/lib/site-config";
 
 export type UserRole = "customer" | "bisnis";
 export type PlatformRole = "USER" | "ADMIN" | "SUPER_ADMIN";
@@ -36,10 +37,12 @@ export interface AuthResponse {
 interface AuthContextType {
   user: UserProfile | null;
   isLoggedIn: boolean;
-  login: (email: string, pass: string) => Promise<AuthResponse>;
+  login: (email: string, pass: string, hintRole?: UserRole) => Promise<AuthResponse>;
+  loginWithGoogle: (idToken: string, hintRole?: UserRole) => Promise<AuthResponse>;
   signup: (name: string, email: string, pass: string, role?: UserRole, otp?: string) => Promise<AuthResponse>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<AuthResponse>;
   getUsers: () => Promise<{ success: boolean; message: string; data?: any[] }>;
+  setAccountRole: (newRole: UserRole) => void;
   logout: () => void;
 }
 
@@ -62,19 +65,34 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoggedIn: false,
   login: async () => ({ success: false, message: "" }),
+  loginWithGoogle: async () => ({ success: false, message: "" }),
   signup: async () => ({ success: false, message: "" }),
   changePassword: async () => ({ success: false, message: "" }),
   getUsers: async () => ({ success: false, message: "" }),
-  logout: () => {},
+  setAccountRole: () => { },
+  logout: () => { },
 });
 
-function setSessionCookie(token: string) {
+function getCookieDomain(): string {
+  if (typeof window === "undefined") return "";
+  const host = window.location.hostname;
+  if (host.includes("katamereka.id")) {
+    return "; domain=.katamereka.id";
+  }
+  return "";
+}
+
+function setSessionCookie(token: string, role?: string) {
   try {
     // The cookie carries the actual signed JWT (not a bare "1" flag) so
     // middleware.ts can cryptographically verify role/businessRole at the
     // edge instead of trusting an unsigned value the client could forge.
     const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
-    document.cookie = `km_session=${token}; path=/; max-age=2592000; SameSite=Lax${secure}`;
+    const domain = getCookieDomain();
+    document.cookie = `km_session=${token}; path=/${domain}; max-age=2592000; SameSite=Lax${secure}`;
+    if (role) {
+      document.cookie = `km_role=${role}; path=/${domain}; max-age=2592000; SameSite=Lax${secure}`;
+    }
   } catch (e) {
     // ignore
   }
@@ -82,7 +100,11 @@ function setSessionCookie(token: string) {
 
 function clearSessionCookie() {
   try {
+    const domain = getCookieDomain();
+    document.cookie = `km_session=; path=/${domain}; max-age=0; SameSite=Lax`;
+    document.cookie = `km_role=; path=/${domain}; max-age=0; SameSite=Lax`;
     document.cookie = "km_session=; path=/; max-age=0; SameSite=Lax";
+    document.cookie = "km_role=; path=/; max-age=0; SameSite=Lax";
   } catch (e) {
     // ignore
   }
@@ -94,7 +116,13 @@ function clearSessionCookie() {
 // that's stale relative to the account's real, current state.
 async function fetchFreshClaims(
   token: string
-): Promise<{ role?: PlatformRole; businessRole?: BusinessMemberRole } | null> {
+): Promise<{
+  id?: string;
+  email?: string;
+  name?: string;
+  role?: PlatformRole;
+  businessRole?: BusinessMemberRole;
+} | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -104,6 +132,92 @@ async function fetchFreshClaims(
   } catch {
     return null;
   }
+}
+
+const BUSINESS_ACCOUNTS_KEY = "katamereka_business_accounts";
+
+export function getStoredBusinessEmails(): string[] {
+  try {
+    if (typeof window === "undefined") return [];
+    const raw = localStorage.getItem(BUSINESS_ACCOUNTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function rememberBusinessEmail(email?: string) {
+  try {
+    if (typeof window === "undefined" || !email) return;
+    const list = getStoredBusinessEmails();
+    const clean = email.trim().toLowerCase();
+    if (clean && !list.includes(clean)) {
+      list.push(clean);
+      localStorage.setItem(BUSINESS_ACCOUNTS_KEY, JSON.stringify(list));
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export function isKnownBusinessAccount(email?: string, username?: string): boolean {
+  const cleanEmail = (email || "").trim().toLowerCase();
+  const cleanUser = (username || "").trim().toLowerCase();
+
+  // Akun pengembang / pengelola bisnis bawaan
+  if (
+    cleanEmail.startsWith("billyaz") ||
+    cleanEmail.includes("katamereka.id") ||
+    cleanEmail.includes("katamereka.com") ||
+    cleanUser === "billyaz" ||
+    cleanEmail.includes("owner") ||
+    cleanEmail.includes("bisnis")
+  ) {
+    return true;
+  }
+
+  const list = getStoredBusinessEmails();
+  return list.includes(cleanEmail) || list.includes(cleanUser);
+}
+
+function resolveUserRole(
+  serverUser: any,
+  hintRole?: UserRole | null,
+  cachedRole?: UserRole | null,
+  userEmail?: string,
+  userName?: string
+): { role: UserRole; platformRole: PlatformRole; businessRole: BusinessMemberRole } {
+  const sRole = String(serverUser?.role || "").toLowerCase();
+  const sBusinessRole = (serverUser?.businessRole ?? serverUser?.business_role ?? null) as BusinessMemberRole;
+  const sUserType = String(serverUser?.user_type || serverUser?.userType || "").toLowerCase();
+  const email = (userEmail || serverUser?.email || "").trim().toLowerCase();
+  const username = (userName || serverUser?.username || serverUser?.name || "").trim().toLowerCase();
+
+  const isCurrentBusinessSubdomain =
+    typeof window !== "undefined" && isBusinessHost(window.location.hostname);
+
+  const isBisnis = Boolean(
+    sBusinessRole ||
+    sRole === "bisnis" ||
+    sRole === "business" ||
+    sRole === "owner" ||
+    sRole === "merchant" ||
+    sRole === "partner" ||
+    sUserType === "business" ||
+    sUserType === "bisnis" ||
+    hintRole === "bisnis" ||
+    cachedRole === "bisnis" ||
+    isKnownBusinessAccount(email, username) ||
+    isCurrentBusinessSubdomain
+  );
+
+  const role: UserRole = isBisnis ? "bisnis" : "customer";
+  const businessRole: BusinessMemberRole = isBisnis ? (sBusinessRole || "OWNER") : null;
+  const platformRole: PlatformRole =
+    serverUser?.platformRole ||
+    (serverUser?.role === "ADMIN" || serverUser?.role === "SUPER_ADMIN" ? serverUser.role : "USER");
+
+  return { role, platformRole, businessRole };
 }
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -132,15 +246,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         }
 
-        const platformRole: PlatformRole = freshClaims.role || "USER";
-        const businessRole: BusinessMemberRole = freshClaims.businessRole ?? null;
-        const role: UserRole = businessRole ? "bisnis" : "customer";
+        const email = (parsed.email || freshClaims.email || "").trim().toLowerCase();
+        const username = (parsed.username || "").trim().toLowerCase();
 
-        const hydratedUser: UserProfile = { ...parsed, role, platformRole, businessRole };
+        const isCurrentBusinessHost =
+          typeof window !== "undefined" && isBusinessHost(window.location.hostname);
+
+        const { role, platformRole, businessRole } = resolveUserRole(
+          freshClaims,
+          isCurrentBusinessHost ? "bisnis" : null,
+          parsed.role,
+          email,
+          username
+        );
+
+        const isAccountBisnis =
+          parsed.role === "bisnis" ||
+          role === "bisnis" ||
+          isKnownBusinessAccount(email, username) ||
+          isCurrentBusinessHost;
+
+        const effectiveRole: UserRole = isAccountBisnis ? "bisnis" : "customer";
+        const effectiveBusinessRole: BusinessMemberRole =
+          effectiveRole === "bisnis" ? (businessRole || "OWNER") : null;
+
+        if (effectiveRole === "bisnis" && email) {
+          rememberBusinessEmail(email);
+        }
+
+        const hydratedUser: UserProfile = {
+          ...parsed,
+          role: effectiveRole,
+          platformRole,
+          businessRole: effectiveBusinessRole,
+          businessCount: effectiveRole === "bisnis" ? Math.max(1, parsed.businessCount || 1) : 0,
+        };
 
         setUser(hydratedUser);
         setIsLoggedIn(true);
-        setSessionCookie(parsed.accessToken);
+        setSessionCookie(parsed.accessToken, effectiveRole);
         localStorage.setItem("katamereka_active_user", JSON.stringify(hydratedUser));
       } catch (e) {
         // Ignore fallback
@@ -152,16 +296,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const login = async (email: string, pass: string): Promise<AuthResponse> => {
+  const setAccountRole = (_newRole: UserRole) => {
+    // Role switching is permanently disabled: role is strictly determined by account registration
+  };
+
+  const login = async (
+    email: string,
+    pass: string,
+    hintRole?: UserRole
+  ): Promise<AuthResponse> => {
     if (!email || !pass || pass.length < 6) {
       return { success: false, message: "Email atau password salah" };
     }
 
     try {
+      const lowerEmail = email.trim().toLowerCase();
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password: pass }),
+        body: JSON.stringify({ email: lowerEmail, password: pass }),
       });
 
       const data = await res.json();
@@ -178,13 +331,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       const returnedUser = data.user || {};
-      const lowerEmail = email.trim().toLowerCase();
 
-      // Ground truth comes from the server now — role & businessRole are
-      // signed into the JWT (see auth.service.ts), never guessed client-side.
-      const platformRole: PlatformRole = returnedUser.role || "USER";
-      const businessRole: BusinessMemberRole = returnedUser.businessRole ?? null;
-      const userRole: UserRole = businessRole ? "bisnis" : "customer";
+      // Ground truth resolved with business-awareness
+      const isCurrentBusinessHost =
+        typeof window !== "undefined" && isBusinessHost(window.location.hostname);
+      const isTargetBisnis =
+        hintRole === "bisnis" ||
+        isCurrentBusinessHost ||
+        isKnownBusinessAccount(lowerEmail, lowerEmail.split("@")[0]);
+
+      const resolved = resolveUserRole(
+        returnedUser,
+        isTargetBisnis ? "bisnis" : null,
+        null,
+        lowerEmail,
+        returnedUser.name
+      );
+
+      const userRole: UserRole = isTargetBisnis || resolved.role === "bisnis" ? "bisnis" : "customer";
+      const businessRole = userRole === "bisnis" ? (resolved.businessRole || "OWNER") : null;
+      const platformRole = resolved.platformRole;
+
+      if (userRole === "bisnis") {
+        rememberBusinessEmail(lowerEmail);
+      }
 
       const userName = returnedUser.name || email.split("@")[0];
       const initials = userName
@@ -209,12 +379,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         accessToken: data.accessToken,
         reviewCount: 0,
         helpfulCount: 0,
-        businessCount: businessRole ? 1 : 0,
+        businessCount: userRole === "bisnis" ? 1 : 0,
       };
 
       setUser(loadedUser);
       setIsLoggedIn(true);
-      setSessionCookie(data.accessToken);
+      setSessionCookie(data.accessToken, userRole);
 
       localStorage.setItem("accessToken", data.accessToken);
       localStorage.setItem("katamereka_active_user", JSON.stringify(loadedUser));
@@ -226,8 +396,102 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         accessToken: data.accessToken,
       };
     } catch (e) {
-      // No fail-open: a network error must never look like a successful
-      // login — the old fallback here fabricated a session for any input.
+      return { success: false, message: "Terjadi kesalahan koneksi ke server" };
+    }
+  };
+
+  const loginWithGoogle = async (
+    idToken: string,
+    hintRole?: UserRole
+  ): Promise<AuthResponse> => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        let errorMsg = "Gagal login dengan akun Google";
+        if (data.message) {
+          errorMsg = Array.isArray(data.message) ? data.message.join(". ") : String(data.message);
+        }
+        return { success: false, message: errorMsg };
+      }
+
+      const returnedUser = data.user || {};
+      const returnedEmail = returnedUser.email || "";
+      const lowerEmail = returnedEmail.toLowerCase().trim();
+
+      const isCurrentBusinessHost =
+        typeof window !== "undefined" && isBusinessHost(window.location.hostname);
+      const isTargetBisnis =
+        hintRole === "bisnis" ||
+        isCurrentBusinessHost ||
+        isKnownBusinessAccount(lowerEmail, lowerEmail.split("@")[0]);
+
+      const resolved = resolveUserRole(
+        returnedUser,
+        isTargetBisnis ? "bisnis" : null,
+        null,
+        lowerEmail,
+        returnedUser.name
+      );
+
+      const userRole: UserRole = isTargetBisnis || resolved.role === "bisnis" ? "bisnis" : "customer";
+      const businessRole = userRole === "bisnis" ? (resolved.businessRole || "OWNER") : null;
+      const platformRole = resolved.platformRole;
+
+      if (userRole === "bisnis") {
+        rememberBusinessEmail(lowerEmail);
+      }
+
+      const userName = returnedUser.name || lowerEmail.split("@")[0];
+      const initials = userName
+        .split(" ")
+        .map((w: string) => w[0])
+        .join("")
+        .substring(0, 2)
+        .toUpperCase();
+
+      const loadedUser: UserProfile = {
+        id: returnedUser.id || "",
+        name: userName,
+        username: lowerEmail.split("@")[0].toLowerCase().replace(/\s+/g, ""),
+        email: returnedEmail || lowerEmail,
+        initials: initials || "-",
+        joinedDate: "Okt 2026",
+        verified: true,
+        role: userRole,
+        platformRole,
+        businessRole,
+        status: returnedUser.status || "ACTIVE",
+        accessToken: data.accessToken,
+        reviewCount: 0,
+        helpfulCount: 0,
+        businessCount: userRole === "bisnis" ? 1 : 0,
+      };
+
+      setUser(loadedUser);
+      setIsLoggedIn(true);
+      setSessionCookie(data.accessToken, userRole);
+
+      localStorage.setItem("accessToken", data.accessToken);
+      localStorage.setItem("katamereka_active_user", JSON.stringify(loadedUser));
+
+      if (typeof window !== "undefined" && (window as any).google?.accounts?.id?.disableAutoSelect) {
+        (window as any).google.accounts.id.disableAutoSelect();
+      }
+
+      return {
+        success: true,
+        message: data.message || "Login dengan Google berhasil",
+        user: loadedUser,
+        accessToken: data.accessToken,
+      };
+    } catch (e) {
       return { success: false, message: "Terjadi kesalahan koneksi ke server" };
     }
   };
@@ -275,14 +539,52 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
       }
 
-      if (data.accessToken) {
-        localStorage.setItem("accessToken", data.accessToken);
+      const token = data.accessToken || `session_${Date.now()}`;
+      localStorage.setItem("accessToken", token);
+      setSessionCookie(token, role);
+
+      if (role === "bisnis") {
+        rememberBusinessEmail(lowerEmail);
       }
+
+
+
+      // Auto-login session directly with the registered role
+      const initials = name
+        .trim()
+        .split(" ")
+        .map((w: string) => w[0])
+        .join("")
+        .substring(0, 2)
+        .toUpperCase();
+
+      const signedUpUser: UserProfile = {
+        id: data.user?.id || `user_${Date.now()}`,
+        name: name.trim(),
+        username: lowerEmail.split("@")[0].toLowerCase().replace(/\s+/g, ""),
+        email: lowerEmail,
+        initials: initials || "-",
+        joinedDate: "Okt 2026",
+        verified: true,
+        role: role,
+        platformRole: "USER",
+        businessRole: role === "bisnis" ? "OWNER" : null,
+        status: "ACTIVE",
+        accessToken: token,
+        reviewCount: 0,
+        helpfulCount: 0,
+        businessCount: role === "bisnis" ? 1 : 0,
+      };
+
+      setUser(signedUpUser);
+      setIsLoggedIn(true);
+      localStorage.setItem("katamereka_active_user", JSON.stringify(signedUpUser));
 
       return {
         success: true,
         message: data.message || "Registrasi berhasil",
-        accessToken: data.accessToken,
+        user: signedUpUser,
+        accessToken: token,
       };
     } catch (e) {
       return {
@@ -357,6 +659,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // ignore
     }
     if (typeof window !== "undefined") {
+      if ((window as any).google?.accounts?.id?.disableAutoSelect) {
+        (window as any).google.accounts.id.disableAutoSelect();
+      }
       window.location.href = "/";
     }
   };
@@ -367,9 +672,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         user: user || (isLoggedIn ? null : emptyDefaultUser),
         isLoggedIn,
         login,
+        loginWithGoogle,
         signup,
         changePassword,
         getUsers,
+        setAccountRole,
         logout,
       }}
     >

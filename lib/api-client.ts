@@ -23,6 +23,48 @@ export const API_BASE_URL =
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://katamereka.id";
 
+export const GOOGLE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+  "4365266507-2gh2oo3qqf6o8k9fdgigtdde68fag3ce.apps.googleusercontent.com";
+
+/**
+ * 🔐 Login with Google Account (Verify Google ID Token)
+ */
+export async function googleLoginApi(idToken: string): Promise<{
+  success: boolean;
+  message: string;
+  data?: any;
+}> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/google`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken }),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      let errorMsg = "Gagal login dengan akun Google";
+      if (json.message) {
+        errorMsg = Array.isArray(json.message) ? json.message.join(". ") : String(json.message);
+      }
+      return { success: false, message: errorMsg };
+    }
+
+    return {
+      success: true,
+      message: json.message || "Login dengan Google berhasil",
+      data: json,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.message || "Terjadi kesalahan saat menghubungi server",
+    };
+  }
+}
+
+
 export interface BusinessQueryParams {
   search?: string;
   city?: string;
@@ -818,6 +860,8 @@ export interface ApiCreateClaimResponse {
 
 export interface ApiClaimStatusResponse {
   status: BusinessClaimStatus | null;
+  is_member?: boolean;
+  role?: string | null;
 }
 
 export interface ApiMyBusinessClaim {

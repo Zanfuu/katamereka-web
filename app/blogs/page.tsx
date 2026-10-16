@@ -60,7 +60,7 @@ export default async function BlogsPage() {
           </div>
 
           <div className="pt-8 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-            <p>© 2026 Katamereka. Semua hak dilindungi.</p>
+            <p>© {new Date().getFullYear()} Katamereka. Semua hak dilindungi.</p>
             <Link href="/" className="font-semibold text-[#008767] hover:underline">
               Kembali ke Utama
             </Link>

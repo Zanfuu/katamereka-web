@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth, isKnownBusinessAccount } from "@/lib/auth-context";
+import { isBusinessHost } from "@/lib/site-config";
 import { getBusinessUrl } from "@/lib/domain";
 import { fetchCategoryFacets, ApiCategoryFacet } from "@/lib/api-client";
 import { slugify, categoryDisplayName } from "@/lib/slug";
@@ -59,6 +60,8 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
@@ -88,9 +91,14 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
     forceBusinessView ||
     pathname.startsWith("/bisnis") ||
     pathname.startsWith("/untuk-bisnis") ||
-    (mounted && typeof window !== "undefined" && window.location.hostname.startsWith("business."));
+    (mounted && typeof window !== "undefined" && isBusinessHost(window.location.hostname));
 
-  const isBusinessUser = mounted && isLoggedIn && user && user.role === "bisnis";
+  const isBusinessUser =
+    mounted &&
+    isLoggedIn &&
+    user &&
+    (user.role === "bisnis" ||
+      (isBusinessView && isKnownBusinessAccount(user.email, user.username)));
 
   return (
     <header
@@ -173,9 +181,9 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
               </Link>
 
               <Link
-                href="/business/sunny-cafe"
+                href="/dashboard/business"
                 className={`transition-colors hover:text-[#008767] ${
-                  isActive("/business") ? "text-[#008767] font-bold" : ""
+                  isActive("/dashboard/business") ? "text-[#008767] font-bold" : ""
                 }`}
               >
                 Bisnis Saya
@@ -316,12 +324,12 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
                       <p className="font-bold text-slate-900 text-sm truncate">{user.name}</p>
                       <span
                         className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                          user.role === "bisnis"
+                          user.role === "bisnis" || isBusinessUser
                             ? "bg-amber-100 text-amber-900 border border-amber-300"
                             : "bg-emerald-50 text-emerald-800 border border-emerald-200"
                         }`}
                       >
-                        {user.role === "bisnis" ? "Akun Bisnis" : "Customer"}
+                        {user.role === "bisnis" || isBusinessUser ? "Akun Bisnis" : "Customer"}
                       </span>
                     </div>
                     <p className="text-xs text-slate-400 font-medium">@{user.username}</p>
@@ -329,7 +337,7 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
 
                   <div className="py-1 text-xs font-semibold text-slate-700">
                     {/* Special Dashboard Link for Business Account */}
-                    {user.role === "bisnis" && (
+                    {(user.role === "bisnis" || isBusinessUser) && (
                       <Link
                         href="/dashboard"
                         onClick={() => setProfileDropdownOpen(false)}
@@ -342,9 +350,9 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
                       </Link>
                     )}
 
-                    {user.role === "bisnis" && (
+                    {(user.role === "bisnis" || isBusinessUser) && (
                       <Link
-                        href="/business/sunny-cafe"
+                        href="/dashboard/business"
                         onClick={() => setProfileDropdownOpen(false)}
                         className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
                       >
@@ -374,7 +382,7 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
                     )}
                   </div>
 
-                  <div className="pt-1 border-t border-slate-100">
+                  <div className="pt-1 border-t border-slate-100 space-y-0.5">
                     <button
                       onClick={() => {
                         logout();
@@ -434,17 +442,30 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
         </div>
       </div>
 
-      {/* Mobile Bottom Sheet Menu (Rendered via Portal) */}
-      {mounted && mobileMenuOpen && createPortal(
+      {/* Mobile Bottom Sheet Menu (Persistent Pre-Rendered for 60fps GPU Animation) */}
+      {mounted && createPortal(
         <>
           {/* Backdrop Overlay */}
           <div
             onClick={() => setMobileMenuOpen(false)}
-            className="md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[9999] animate-fadeIn"
+            aria-hidden="true"
+            className={`md:hidden fixed inset-0 bg-slate-900/60 z-[9999] transition-opacity duration-300 ease-out ${
+              mobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+            }`}
+            style={{ touchAction: "none" }}
           />
 
           {/* Bottom Sheet Container */}
-          <div className="md:hidden fixed inset-x-0 bottom-0 z-[10000] bg-white rounded-t-3xl shadow-2xl p-5 border-t border-slate-100 max-h-[70vh] flex flex-col justify-between animate-in slide-in-from-bottom duration-300 ease-out overflow-y-auto">
+          <div
+            className={`md:hidden fixed inset-x-0 bottom-0 z-[10000] bg-white rounded-t-3xl shadow-2xl p-5 border-t border-slate-100 max-h-[75vh] flex flex-col justify-between overflow-y-auto overscroll-contain transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform-gpu ${
+              mobileMenuOpen ? "pointer-events-auto" : "pointer-events-none"
+            }`}
+            style={{
+              transform: mobileMenuOpen ? "translate3d(0, 0, 0)" : "translate3d(0, 100%, 0)",
+              willChange: "transform",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
             <div>
               {/* Drag Handle & Header */}
               <div className="flex flex-col items-center mb-3">
@@ -532,10 +553,10 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
                       Utama
                     </Link>
                     <Link
-                      href="/business/sunny-cafe"
+                      href="/dashboard/business"
                       onClick={() => setMobileMenuOpen(false)}
                       className={`block py-2.5 px-4 rounded-xl text-base font-semibold transition-colors ${
-                        isActive("/business")
+                        isActive("/dashboard/business")
                           ? "bg-emerald-50 text-[#008767] font-bold"
                           : "text-slate-800 hover:bg-slate-50"
                       }`}
@@ -626,7 +647,7 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
             {/* Auth Actions / Profile Section */}
             {isLoggedIn && user ? (
               <div className="pt-3 border-t border-slate-100 space-y-2 mt-3">
-                {user.role === "bisnis" && (
+                {(user.role === "bisnis" || isBusinessUser) && (
                   <Link
                     href="/dashboard"
                     onClick={() => setMobileMenuOpen(false)}
