@@ -9,6 +9,9 @@ import { getBusinessBySlug, businesses, Business } from "@/lib/mock-data";
 import { fetchBusinessBySlug, mapApiBusinessToUiModel, API_BASE_URL } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import GoogleLoginButton from "@/components/google-login-button";
+import MobileAuthSheet from "@/components/review/mobile-auth-sheet";
+import MobileReviewWizard, { MOBILE_MIN_CONTENT } from "@/components/review/mobile-review-wizard";
+import { useMobileViewport } from "@/hooks/use-mobile-viewport";
 import {
   Star,
   UploadCloud,
@@ -33,7 +36,8 @@ function WriteReviewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const slugParam = searchParams.get("business") || "sunny-cafe";
-  const { user, isLoggedIn } = useAuth();
+  const { user, isLoggedIn, isAuthReady } = useAuth();
+  const isMobile = useMobileViewport();
 
   const [selectedSlug, setSelectedSlug] = useState<string>(slugParam);
   const [business, setBusiness] = useState<Business>(getBusinessBySlug(slugParam));
@@ -81,6 +85,8 @@ function WriteReviewContent() {
   // Existing review detection (1 review per account per business)
   const [existingReview, setExistingReview] = useState<any | null>(null);
   const [checkingExisting, setCheckingExisting] = useState<boolean>(false);
+  // true once the existing-review lookup finished (the mobile wizard waits for it to prefill)
+  const [existingChecked, setExistingChecked] = useState<boolean>(false);
 
   // Fetch real business data from API whenever slug changes
   useEffect(() => {
@@ -107,6 +113,7 @@ function WriteReviewContent() {
     const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
     if (!token || !isLoggedIn) {
       setExistingReview(null);
+      if (isLoggedIn) setExistingChecked(true);
       return;
     }
 
@@ -144,7 +151,10 @@ function WriteReviewContent() {
         if (isMounted) setExistingReview(null);
       })
       .finally(() => {
-        if (isMounted) setCheckingExisting(false);
+        if (isMounted) {
+          setCheckingExisting(false);
+          setExistingChecked(true);
+        }
       });
 
     return () => {
@@ -319,6 +329,11 @@ function WriteReviewContent() {
       return;
     }
 
+    await submitReview();
+  };
+
+  // Network part shared by the desktop form and the mobile wizard
+  const submitReview = async () => {
     setIsSubmitting(true);
 
     try {
@@ -407,6 +422,24 @@ function WriteReviewContent() {
       setIsSubmitting(false);
       scrollToField(errorBannerRef);
     }
+  };
+
+  // Mobile wizard: its own validation (content min. MOBILE_MIN_CONTENT chars)
+  const handleWizardSubmit = () => {
+    setErrorMessage("");
+    if (
+      rating === 0 ||
+      !title.trim() ||
+      content.trim().length < MOBILE_MIN_CONTENT ||
+      !confirmed
+    ) {
+      return;
+    }
+    void submitReview();
+  };
+
+  const handleCloseFlow = () => {
+    router.push(`/business/${business.slug}`);
   };
 
   const getRatingLabel = (val: number) => {
@@ -522,7 +555,7 @@ function WriteReviewContent() {
               </div>
 
               {/* CARD 2: INLINE AUTH PROMPT (If not logged in) OR REVIEW FORM (If logged in) */}
-              {!isLoggedIn ? (
+              {isMobile ? null : !isLoggedIn ? (
                 <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6">
                   {/* Header */}
                   <div className="text-center space-y-2 pb-4 border-b border-slate-100">
@@ -1042,6 +1075,53 @@ function WriteReviewContent() {
           </div>
         </main>
       </div>
+
+      {/* MOBILE: login/register popup, then the rating -> review -> photo wizard */}
+      {isMobile && isAuthReady && !isLoggedIn && (
+        <MobileAuthSheet
+          mode={authMode}
+          onModeChange={(mode) => {
+            setAuthMode(mode);
+            setAuthError("");
+          }}
+          error={authError}
+          onError={setAuthError}
+          onClose={handleCloseFlow}
+        />
+      )}
+
+      {isMobile && isLoggedIn && !existingChecked && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5 rounded-2xl bg-white px-5 py-3.5 shadow-xl text-sm font-semibold text-[#008767]">
+            <div className="w-4 h-4 border-2 border-[#008767] border-t-transparent rounded-full animate-spin" />
+            <span>Menyiapkan formulir...</span>
+          </div>
+        </div>
+      )}
+
+      {isMobile && isLoggedIn && existingChecked && (
+        <MobileReviewWizard
+          business={business}
+          isEditing={!!existingReview}
+          rating={rating}
+          onRatingChange={setRating}
+          title={title}
+          onTitleChange={setTitle}
+          content={content}
+          onContentChange={setContent}
+          photos={photos}
+          onPhotoSelect={handlePhotoSelect}
+          onPhotoRemove={handleRemovePhoto}
+          isProcessingPhotos={isProcessingPhotos}
+          fileInputRef={fileInputRef}
+          confirmed={confirmed}
+          onConfirmedChange={setConfirmed}
+          isSubmitting={isSubmitting}
+          errorMessage={errorMessage}
+          onSubmit={handleWizardSubmit}
+          onClose={handleCloseFlow}
+        />
+      )}
 
       {/* SHADCN STYLE SUCCESS DIALOG MODAL */}
       {showSuccessModal && (

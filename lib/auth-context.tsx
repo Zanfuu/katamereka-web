@@ -37,6 +37,8 @@ export interface AuthResponse {
 interface AuthContextType {
   user: UserProfile | null;
   isLoggedIn: boolean;
+  /** true once the stored session (if any) has been checked against the server */
+  isAuthReady: boolean;
   login: (email: string, pass: string, hintRole?: UserRole) => Promise<AuthResponse>;
   loginWithGoogle: (idToken: string, hintRole?: UserRole) => Promise<AuthResponse>;
   signup: (name: string, email: string, pass: string, role?: UserRole, otp?: string) => Promise<AuthResponse>;
@@ -64,6 +66,7 @@ const emptyDefaultUser: UserProfile = {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoggedIn: false,
+  isAuthReady: true,
   login: async () => ({ success: false, message: "" }),
   loginWithGoogle: async () => ({ success: false, message: "" }),
   signup: async () => ({ success: false, message: "" }),
@@ -223,6 +226,7 @@ function resolveUserRole(
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -288,6 +292,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.setItem("katamereka_active_user", JSON.stringify(hydratedUser));
       } catch (e) {
         // Ignore fallback
+      } finally {
+        if (!cancelled) setIsAuthReady(true);
       }
     })();
 
@@ -671,6 +677,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       value={{
         user: user || (isLoggedIn ? null : emptyDefaultUser),
         isLoggedIn,
+        isAuthReady,
         login,
         loginWithGoogle,
         signup,

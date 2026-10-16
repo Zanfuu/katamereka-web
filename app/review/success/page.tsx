@@ -30,7 +30,7 @@ function ReviewSuccessContent() {
         <Navbar />
 
         <main className="max-w-3xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
-          <div className="bg-white rounded-3xl border border-slate-200/80 p-8 sm:p-12 shadow-sm text-center space-y-8">
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-12 shadow-sm text-center space-y-8">
             
             {/* SUCCESS ICON & BADGE */}
             <div className="relative inline-block">
@@ -81,28 +81,31 @@ function ReviewSuccessContent() {
             <div className="pt-4 space-y-3 max-w-md mx-auto">
               <Link
                 href={`/business/${business.slug}`}
-                className="w-full px-6 py-3.5 rounded-2xl bg-[#008767] hover:bg-[#007458] text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 active:scale-95"
+                className="w-full px-4 sm:px-6 py-3.5 rounded-2xl bg-[#008767] hover:bg-[#007458] text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 whitespace-nowrap active:scale-95"
               >
-                <Building2 className="w-4 h-4" />
-                <span>Lihat Profil {business.name}</span>
-                <ArrowRight className="w-4 h-4 ml-1" />
+                <Building2 className="w-4 h-4 shrink-0" />
+                <span className="sm:hidden">Lihat Profil Bisnis</span>
+                <span className="hidden sm:inline truncate">Lihat Profil {business.name}</span>
+                <ArrowRight className="w-4 h-4 shrink-0 sm:ml-1" />
               </Link>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <Link
                   href="/profile"
-                  className="px-4 py-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors flex items-center justify-center gap-2"
+                  className="px-3 sm:px-4 py-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
                 >
-                  <User className="w-3.5 h-3.5 text-[#008767]" />
-                  <span>Lihat Profil Saya</span>
+                  <User className="w-3.5 h-3.5 shrink-0 text-[#008767]" />
+                  <span className="sm:hidden">Profil Saya</span>
+                  <span className="hidden sm:inline">Lihat Profil Saya</span>
                 </Link>
 
                 <Link
                   href="/businesses"
-                  className="px-4 py-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors flex items-center justify-center gap-2"
+                  className="px-3 sm:px-4 py-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
                 >
-                  <Home className="w-3.5 h-3.5 text-[#008767]" />
-                  <span>Cari Bisnis Lain</span>
+                  <Home className="w-3.5 h-3.5 shrink-0 text-[#008767]" />
+                  <span className="sm:hidden">Cari Bisnis</span>
+                  <span className="hidden sm:inline">Cari Bisnis Lain</span>
                 </Link>
               </div>
             </div>
