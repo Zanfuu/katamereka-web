@@ -27,9 +27,9 @@ import {
   API_BASE_URL,
   ApiBusinessDetail,
 } from "@/lib/api-client";
-import { getBusinessBySlug } from "@/lib/mock-data";
-import { deleteReview } from "@/lib/api-profile";
+import { deleteReview, toggleReviewHelpful, fetchMyHelpfulVotes, getLocalHelpfulVotes, getCachedHelpfulCount, saveLocalHelpfulVote } from "@/lib/api-profile";
 import { getCleanCategory, slugify } from "@/lib/slug";
+import { getBusinessBySlug } from "@/lib/mock-data";
 import { toast } from "sonner";
 
 interface ReviewItem {
@@ -66,6 +66,36 @@ export default function BusinessReviewsPage() {
   const [mobileRatingModalOpen, setMobileRatingModalOpen] = useState<boolean>(false);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState<boolean>(false);
   const [sortDropdownOpen, setSortDropdownOpen] = useState<boolean>(false);
+  const [myHelpfulVoteIds, setMyHelpfulVoteIds] = useState<Set<string>>(() => new Set(getLocalHelpfulVotes()));
+
+  useEffect(() => {
+    const local = getLocalHelpfulVotes();
+    if (local.length > 0) {
+      setMyHelpfulVoteIds(new Set(local));
+    }
+
+    if (user) {
+      fetchMyHelpfulVotes().then((ids) => {
+        if (Array.isArray(ids)) {
+          setMyHelpfulVoteIds(new Set(ids));
+        }
+      });
+    }
+
+    const handleHelpfulChanged = (e: any) => {
+      const { reviewId, isHelpful } = e.detail || {};
+      if (reviewId) {
+        setMyHelpfulVoteIds((prev) => {
+          const next = new Set(prev);
+          if (isHelpful) next.add(reviewId);
+          else next.delete(reviewId);
+          return next;
+        });
+      }
+    };
+    window.addEventListener("km_helpful_changed", handleHelpfulChanged);
+    return () => window.removeEventListener("km_helpful_changed", handleHelpfulChanged);
+  }, [user]);
 
   // Fetch business detail and reviews
   useEffect(() => {
@@ -567,6 +597,7 @@ export default function BusinessReviewsPage() {
                       review={rev}
                       businessSlug={slug}
                       currentUserId={user?.id}
+                      isInitiallyHelpful={myHelpfulVoteIds.has(rev.id)}
                       onDelete={(id) => setConfirmDeleteId(id)}
                       isDeleting={deletingReviewId === rev.id}
                     />
@@ -681,11 +712,12 @@ export default function BusinessReviewsPage() {
   );
 }
 
-// ─── Review Card Item Component ──────────────────────────────────────────────
+// Review Card Item Component
 interface ReviewCardItemProps {
   review: ReviewItem;
-  businessSlug?: string;
+  businessSlug: string;
   currentUserId?: string;
+  isInitiallyHelpful?: boolean;
   onDelete?: (id: string) => void;
   isDeleting?: boolean;
 }
@@ -694,6 +726,7 @@ function ReviewCardItem({
   review,
   businessSlug,
   currentUserId,
+  isInitiallyHelpful,
   onDelete,
   isDeleting,
 }: ReviewCardItemProps) {
@@ -717,18 +750,91 @@ function ReviewCardItem({
     (review.user?.id === currentUserId || review.userId === currentUserId)
   );
 
-  const [isHelpful, setIsHelpful] = useState<boolean>(false);
-  const initialHelpfulCount =
-    review.helpfulCount ?? (review as any).helpful_count ?? 0;
+  const [isHelpful, setIsHelpful] = useState<boolean>(Boolean(isInitiallyHelpful));
+  const cachedCount = getCachedHelpfulCount(review.id);
+  const rawCount = review.helpfulCount ?? (review as any).helpful_count ?? 0;
+  const initialHelpfulCount = Math.max(
+    rawCount,
+    cachedCount ?? 0,
+    isInitiallyHelpful ? 1 : 0
+  );
   const [helpfulCount, setHelpfulCount] = useState<number>(initialHelpfulCount);
+  const [helpfulLoading, setHelpfulLoading] = useState<boolean>(false);
 
-  const toggleHelpful = () => {
-    if (isHelpful) {
-      setIsHelpful(false);
-      setHelpfulCount((prev) => Math.max(0, prev - 1));
-    } else {
-      setIsHelpful(true);
-      setHelpfulCount((prev) => prev + 1);
+  useEffect(() => {
+    const cached = getCachedHelpfulCount(review.id);
+    const count = Math.max(
+      review.helpfulCount ?? (review as any).helpful_count ?? 0,
+      cached ?? 0,
+      isHelpful ? 1 : 0
+    );
+    setHelpfulCount(count);
+  }, [review.id, review.helpfulCount, (review as any).helpful_count, isHelpful]);
+
+  useEffect(() => {
+    if (isInitiallyHelpful !== undefined) {
+      setIsHelpful(Boolean(isInitiallyHelpful));
+      if (isInitiallyHelpful) {
+        setHelpfulCount((prev) => Math.max(1, prev));
+      }
+    }
+  }, [isInitiallyHelpful]);
+
+  useEffect(() => {
+    const onHelpfulChange = (e: any) => {
+      if (e.detail?.reviewId === review.id) {
+        setIsHelpful(Boolean(e.detail.isHelpful));
+        if (typeof e.detail.helpfulCount === "number") {
+          setHelpfulCount(e.detail.helpfulCount);
+        } else if (e.detail.isHelpful) {
+          setHelpfulCount((prev) => Math.max(1, prev));
+        } else {
+          setHelpfulCount((prev) => Math.max(0, prev - 1));
+        }
+      }
+    };
+    window.addEventListener("km_helpful_changed", onHelpfulChange);
+    return () => window.removeEventListener("km_helpful_changed", onHelpfulChange);
+  }, [review.id]);
+
+  const toggleHelpful = async () => {
+    if (helpfulLoading) return;
+    if (!currentUserId) {
+      toast.error("Silakan login terlebih dahulu untuk menandai ulasan bermanfaat");
+      return;
+    }
+    if (isOwnReview) {
+      toast.error("Anda tidak dapat menandai ulasan milik sendiri");
+      return;
+    }
+
+    const nextState = !isHelpful;
+    setIsHelpful(nextState);
+    setHelpfulCount((prev) => (nextState ? prev + 1 : Math.max(0, prev - 1)));
+    setHelpfulLoading(true);
+
+    try {
+      const res = await toggleReviewHelpful(review.id);
+      if (res && res.success) {
+        const finalHelpful = typeof res.isHelpful === "boolean" ? res.isHelpful : (typeof res.is_helpful === "boolean" ? res.is_helpful : nextState);
+        setIsHelpful(finalHelpful);
+        let finalCount = typeof res.helpfulCount === "number" ? res.helpfulCount : (typeof res.helpful_count === "number" ? res.helpful_count : (finalHelpful ? 1 : 0));
+        setHelpfulCount(finalCount);
+        saveLocalHelpfulVote(review.id, finalHelpful, finalCount);
+        toast.success(res.message || (finalHelpful ? "Ulasan ditandai bermanfaat" : "Batal menandai bermanfaat"));
+      } else {
+        // Rollback
+        setIsHelpful(!nextState);
+        setHelpfulCount((prev) => (!nextState ? prev + 1 : Math.max(0, prev - 1)));
+        toast.error(res?.message || "Gagal memperbarui vote helpful");
+      }
+    } catch {
+      // Rollback
+      setIsHelpful(!nextState);
+      setHelpfulCount((prev) => (!nextState ? prev + 1 : Math.max(0, prev - 1)));
+      toast.error("Terjadi kesalahan saat memproses vote");
+    } finally {
+      setHelpfulLoading(false);
     }
   };
 

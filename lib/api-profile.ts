@@ -33,7 +33,7 @@ export interface FavoriteToggleResponse { success: boolean; message: string; isF
 export interface RecentlyViewedItem { id: string; name: string; slug: string; category: string; city: string; province: string; country: string; externalRating: string | null; viewedAt: string; }
 export interface MyRecentlyViewedResponse { success: boolean; message: string; data: RecentlyViewedItem[]; }
 
-export interface CustomerLogData { action: string; businessId?: string; businessName?: string; [key: string]: unknown; }
+export interface CustomerLogData { action: string; businessId?: string; businessName?: string; reviewId?: string; reviewTitle?: string; [key: string]: any; }
 export interface CustomerLog { id: string; userId: string; actionType: "CREATE" | "UPDATE" | "DELETE" | string; data: CustomerLogData; createdAt: string; }
 export interface CustomerLogsResponse { success: boolean; message: string; data: CustomerLog[]; }
 
@@ -86,11 +86,127 @@ export function getLogActionLabel(log: CustomerLog): { label: string; color: str
     case "UPDATE_REVIEW": return { label: "Memperbarui ulasan", color: "text-blue-700", bg: "bg-blue-50 border-blue-200" };
     case "DELETE_REVIEW": return { label: "Menghapus ulasan", color: "text-red-600", bg: "bg-red-50 border-red-200" };
     case "VIEW_BUSINESS": return { label: "Melihat bisnis", color: "text-slate-700", bg: "bg-slate-50 border-slate-200" };
+    case "HELPFUL_REVIEW": return { label: "Menandai ulasan bermanfaat", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200" };
+    case "UNHELPFUL_REVIEW": return { label: "Batal menandai bermanfaat", color: "text-slate-600", bg: "bg-slate-50 border-slate-200" };
     default:
       if (log.actionType === "CREATE") return { label: "Aktivitas baru", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200" };
       if (log.actionType === "DELETE") return { label: "Penghapusan", color: "text-red-600", bg: "bg-red-50 border-red-200" };
       return { label: "Aktivitas", color: "text-slate-600", bg: "bg-slate-50 border-slate-200" };
   }
+}
+
+const HELPFUL_STORAGE_KEY = "km_helpful_votes";
+const HELPFUL_COUNTS_KEY = "km_helpful_counts";
+
+export function getLocalHelpfulVotes(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(HELPFUL_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function getCachedHelpfulCount(reviewId: string): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(HELPFUL_COUNTS_KEY);
+    if (!raw) return null;
+    const map = JSON.parse(raw);
+    if (typeof map?.[reviewId] === "number") return map[reviewId];
+  } catch {}
+  return null;
+}
+
+export function saveLocalHelpfulVote(reviewId: string, isHelpful: boolean, helpfulCount?: number) {
+  if (typeof window === "undefined") return;
+  try {
+    const current = new Set(getLocalHelpfulVotes());
+    if (isHelpful) {
+      current.add(reviewId);
+    } else {
+      current.delete(reviewId);
+    }
+    localStorage.setItem(HELPFUL_STORAGE_KEY, JSON.stringify(Array.from(current)));
+
+    if (typeof helpfulCount === "number") {
+      const raw = localStorage.getItem(HELPFUL_COUNTS_KEY);
+      const map = raw ? JSON.parse(raw) : {};
+      map[reviewId] = helpfulCount;
+      localStorage.setItem(HELPFUL_COUNTS_KEY, JSON.stringify(map));
+    }
+
+    // Broadcast change to other components/tabs
+    window.dispatchEvent(
+      new CustomEvent("km_helpful_changed", {
+        detail: { reviewId, isHelpful, helpfulCount },
+      })
+    );
+  } catch {}
+}
+
+export async function toggleReviewHelpful(
+  reviewId: string,
+  token?: string
+): Promise<{ success: boolean; message?: string; isHelpful?: boolean; is_helpful?: boolean; helpfulCount?: number; helpful_count?: number } | null> {
+  const t = token || getToken();
+  if (!t) return null;
+  try {
+    let res = await fetch(`/api/reviews/${reviewId}/helpful`, {
+      method: "POST",
+      headers: authHeaders(t),
+    });
+    if (!res.ok && res.status === 404) {
+      res = await fetch(`${API_BASE_URL}/reviews/${reviewId}/helpful`, {
+        method: "POST",
+        headers: authHeaders(t),
+      });
+    }
+    if (!res.ok) {
+      const errData = await res.json().catch(() => null);
+      return { success: false, message: errData?.message || "Gagal menandai ulasan bermanfaat" };
+    }
+    const json = await res.json();
+    const finalHelpful = Boolean(json.isHelpful ?? json.is_helpful ?? true);
+    const finalCount = json.helpfulCount ?? json.helpful_count;
+    saveLocalHelpfulVote(reviewId, finalHelpful, finalCount);
+    return json;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchMyHelpfulVotes(token?: string): Promise<string[]> {
+  const localVotes = getLocalHelpfulVotes();
+  const t = token || getToken();
+  if (!t) return localVotes;
+  try {
+    let res = await fetch(`/api/my-helpful-votes`, {
+      headers: authHeaders(t),
+      cache: "no-store",
+    });
+    if (!res.ok && res.status === 404) {
+      res = await fetch(`${API_BASE_URL}/my-helpful-votes`, {
+        headers: authHeaders(t),
+        cache: "no-store",
+      });
+    }
+    if (res.ok) {
+      const json = await res.json();
+      const serverVotes: string[] = Array.isArray(json?.data) ? json.data : [];
+      const merged = Array.from(new Set([...serverVotes, ...localVotes]));
+      if (typeof window !== "undefined") {
+        localStorage.setItem(HELPFUL_STORAGE_KEY, JSON.stringify(merged));
+      }
+      return merged;
+    }
+  } catch {
+    // fallback to localVotes
+  }
+  return localVotes;
 }
 
 export function formatRelativeDate(dateStr: string): string {
