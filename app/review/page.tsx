@@ -436,7 +436,7 @@ function WriteReviewContent() {
         {/* BREADCRUMB & HEADER */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
           <div className="space-y-3">
-            <nav className="flex items-center gap-2 text-xs font-medium text-slate-500">
+            <nav className="hidden sm:flex items-center gap-2 text-xs font-medium text-slate-500">
               <Link href="/" className="hover:text-[#008767] transition-colors">
                 Beranda
               </Link>

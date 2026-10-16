@@ -612,7 +612,7 @@ export default function BusinessProfilePage() {
       <Navbar />
 
       {/* ================= BREADCRUMBS ================= */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-4">
+      <div className="hidden sm:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-4">
         <nav className="flex items-center gap-2 text-xs text-slate-500 font-medium overflow-x-auto whitespace-nowrap">
           <Link href="/" className="hover:text-[#008767] transition-colors">
             Beranda
@@ -636,7 +636,7 @@ export default function BusinessProfilePage() {
       </div>
 
       {/* ================= TOP COVER BANNER & OVERLAPPING PROFILE CARD ================= */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-4">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-0 pb-4">
         {/* Landscape Cover Banner */}
         <div
           onClick={() => {
@@ -735,10 +735,10 @@ export default function BusinessProfilePage() {
             </div>
 
             {/* Right Action Buttons */}
-            <div className="flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2.5 w-full sm:w-auto">
               <Link
                 href={`/review?business=${slug}`}
-                className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 h-10 sm:h-11 rounded-full text-xs sm:text-sm font-bold shadow-xs whitespace-nowrap transition-colors flex-1 sm:flex-initial text-center ${hasReviewed
+                className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 h-10 sm:h-11 rounded-full text-xs sm:text-sm font-bold shadow-xs whitespace-nowrap transition-colors col-span-2 sm:col-auto text-center ${hasReviewed
                     ? "bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-[#008767]"
                     : "bg-[#008767] hover:bg-[#007458] text-white"
                   }`}
@@ -751,7 +751,7 @@ export default function BusinessProfilePage() {
                 type="button"
                 onClick={handleToggleSave}
                 disabled={savingFavorite}
-                className={`inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 h-10 sm:h-11 rounded-full text-xs sm:text-sm font-semibold border whitespace-nowrap transition-colors flex-initial shrink-0 text-center ${isSaved
+                className={`inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 h-10 sm:h-11 rounded-full text-xs sm:text-sm font-semibold border whitespace-nowrap transition-colors w-full sm:w-auto sm:shrink-0 text-center ${isSaved
                   ? "bg-emerald-50 border-emerald-300 text-[#008767]"
                   : "border-slate-200 text-slate-700 hover:bg-slate-50"
                   }`}
@@ -777,10 +777,11 @@ export default function BusinessProfilePage() {
                     toast.success("Tautan bisnis berhasil disalin!");
                   }
                 }}
-                className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center justify-center shrink-0"
+                className="w-full h-10 sm:w-11 sm:h-11 rounded-full border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5 sm:shrink-0"
                 title="Bagikan Profil Bisnis"
               >
                 <Share2 className="w-4 h-4 shrink-0" />
+                <span className="sm:hidden text-xs font-semibold">Bagikan</span>
               </button>
             </div>
           </div>
@@ -800,7 +801,7 @@ export default function BusinessProfilePage() {
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`relative py-3 sm:py-2.5 px-2 sm:px-1 flex-1 sm:flex-initial text-center text-xs sm:text-sm font-bold transition-all cursor-pointer select-none ${isActive
+                    className={`relative py-3 sm:py-2.5 px-2 sm:px-1 flex-auto sm:flex-initial whitespace-nowrap text-center text-xs sm:text-sm font-bold transition-all cursor-pointer select-none ${isActive
                         ? "text-[#008767]"
                         : "text-slate-500 hover:text-slate-800"
                       }`}
