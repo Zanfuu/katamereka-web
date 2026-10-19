@@ -203,12 +203,15 @@ function WriteReviewContent() {
             resolve(event.target?.result as string);
             return;
           }
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.82);
+          const compressedDataUrl = canvas.toDataURL("image/webp", 0.82) || canvas.toDataURL("image/jpeg", 0.82);
           resolve(compressedDataUrl);
         };
         img.onerror = () => {
-          resolve(event.target?.result as string);
+          if (file.size < 500 * 1024) {
+            resolve(event.target?.result as string);
+          } else {
+            resolve("");
+          }
         };
         img.src = event.target?.result as string;
       };
@@ -243,8 +246,8 @@ function WriteReviewContent() {
           toast.error(`File "${file.name}" bukan format gambar yang valid.`);
           continue;
         }
-        if (file.size > 15 * 1024 * 1024) {
-          toast.error(`Ukuran "${file.name}" melebihi 15MB.`);
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`Ukuran "${file.name}" melebihi batas 10MB.`);
           continue;
         }
         const compressed = await compressImage(file);
@@ -370,10 +373,19 @@ function WriteReviewContent() {
           }),
         });
 
-        const data = await res.json();
+        let data: any = null;
+        try {
+          data = await res.json();
+        } catch {
+          // Ignore JSON parse failure on non-JSON error pages (like 413)
+        }
 
         if (!res.ok) {
-          setErrorMessage(data?.message || "Gagal memperbarui ulasan. Silakan coba lagi.");
+          if (res.status === 413) {
+            setErrorMessage("Ukuran gambar ulasan terlalu besar (maksimal 10MB per foto). Silakan kurangi ukuran foto.");
+          } else {
+            setErrorMessage(data?.message || "Gagal memperbarui ulasan. Silakan coba lagi.");
+          }
           setIsSubmitting(false);
           scrollToField(errorBannerRef);
           return;
@@ -399,10 +411,17 @@ function WriteReviewContent() {
         }),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        // Ignore JSON parse failure on non-JSON error pages (like 413)
+      }
 
       if (!res.ok) {
-        if (res.status === 409) {
+        if (res.status === 413) {
+          setErrorMessage("Ukuran foto ulasan terlalu besar (maksimal 10MB per foto). Silakan gunakan foto yang lebih kecil.");
+        } else if (res.status === 409) {
           setErrorMessage(
             data?.message ||
               "Anda sudah pernah memberikan ulasan untuk bisnis ini. Silakan muat ulang halaman untuk memperbarui ulasan Anda."
@@ -871,7 +890,7 @@ function WriteReviewContent() {
                         Unggah Foto <span className="text-slate-400 font-normal">(Opsional)</span>
                       </label>
                       <p className="text-[11px] font-medium text-slate-500 mt-0.5">
-                        (Maksimal 4 foto)
+                        (Maksimal 4 foto, maks. 10MB per foto)
                       </p>
                     </div>
 

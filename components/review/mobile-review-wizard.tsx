@@ -305,7 +305,7 @@ export default function MobileReviewWizard({
                     <span className="text-sm font-medium text-slate-400">(opsional)</span>
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Maksimal 4 foto. Foto asli bikin ulasanmu lebih dipercaya.
+                    Maksimal 4 foto (maks. 10MB per foto). Foto asli bikin ulasanmu lebih dipercaya.
                   </p>
                 </div>
 
