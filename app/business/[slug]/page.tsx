@@ -15,6 +15,7 @@ import {
   createBusinessClaim,
   BusinessClaimStatus,
   VerificationMethod,
+  resolveMediaUrl,
 } from "@/lib/api-client";
 import {
   formatRelativeDate,
@@ -195,7 +196,7 @@ export default function BusinessProfilePage() {
             res.data.logo_url;
 
           if (existingCover) {
-            setPlaceImageUrl(existingCover);
+            setPlaceImageUrl(resolveMediaUrl(existingCover));
           } else if (res.data.name) {
             const loc = res.data.city || res.data.province || "Palembang";
             fetchBusinessPlaceImage(
@@ -514,8 +515,10 @@ export default function BusinessProfilePage() {
   const displayLocation = locationStr !== "-" ? locationStr : addressStr;
 
   // Logo & cover: prefer camelCase (real API) > snake_case (legacy)
-  const logoUrl = apiDetail?.logoUrl ?? apiDetail?.logo_url ?? null;
-  const coverUrl = apiDetail?.coverUrl ?? apiDetail?.cover_url ?? null;
+  const rawLogo = apiDetail?.logoUrl ?? apiDetail?.logo_url ?? null;
+  const rawCover = apiDetail?.coverUrl ?? apiDetail?.cover_url ?? null;
+  const logoUrl = rawLogo ? resolveMediaUrl(rawLogo) : null;
+  const coverUrl = rawCover ? resolveMediaUrl(rawCover) : null;
 
   const openingHoursRaw = cleanValue(
     (apiDetail as any)?.opening_hours ??
@@ -1110,7 +1113,7 @@ export default function BusinessProfilePage() {
               const allPhotos = Array.from(
                 new Set(
                   [
-                    ...(Array.isArray(apiDetail?.photos) ? apiDetail.photos : []),
+                    ...(Array.isArray(apiDetail?.photos) ? apiDetail.photos.map((p) => resolveMediaUrl(p)) : []),
                     coverUrl,
                     placeImageUrl,
                     logoUrl,

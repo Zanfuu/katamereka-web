@@ -28,6 +28,15 @@ export const GOOGLE_CLIENT_ID =
   "4365266507-2gh2oo3qqf6o8k9fdgigtdde68fag3ce.apps.googleusercontent.com";
 
 /**
+ * Resolves relative media paths (e.g., /uploads/covers/x.jpg) to full absolute API URLs.
+ */
+export function resolveMediaUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  if (/^(https?:)?\/\//i.test(url) || url.startsWith("data:") || url.startsWith("blob:")) return url;
+  return `${API_BASE_URL.replace(/\/+$/, "")}/${url.replace(/^\/+/, "")}`;
+}
+
+/**
  * 🔐 Login with Google Account (Verify Google ID Token)
  */
 export async function googleLoginApi(idToken: string): Promise<{
@@ -1216,13 +1225,14 @@ export function mapApiBusinessToUiModel(item: ApiBusinessListItem | ApiBusinessD
   const computedLocation = effectiveCity ? `${effectiveCity}${effectiveState ? `, ${effectiveState}` : ""}` : (computedFullAddress || "-");
   
   // Prioritize cover_url / photos[0] / logo_url directly from backend
-  const coverImg =
+  const rawCoverImg =
     item.cover_url ||
     item.coverUrl ||
     (Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : undefined) ||
     item.logo_url ||
     item.logoUrl ||
     undefined;
+  const coverImg = rawCoverImg ? resolveMediaUrl(rawCoverImg) : undefined;
 
   const latVal = item.latitude !== undefined && item.latitude !== null ? Number(item.latitude) : (meta.lat ? Number(meta.lat) : undefined);
   const lonVal = item.longitude !== undefined && item.longitude !== null ? Number(item.longitude) : (meta.lon ? Number(meta.lon) : undefined);

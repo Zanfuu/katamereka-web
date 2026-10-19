@@ -376,11 +376,7 @@ export function deleteCmsMedia(id: string) {
  * API host — prefix them so they resolve from the web app (and stay valid when
  * the HTML body is rendered elsewhere).
  */
-export function resolveMediaUrl(url: string | null | undefined): string {
-  if (!url) return ""
-  if (/^(https?:)?\/\//i.test(url) || url.startsWith("data:") || url.startsWith("blob:")) return url
-  return `${API_BASE_URL.replace(/\/+$/, "")}/${url.replace(/^\/+/, "")}`
-}
+export { resolveMediaUrl } from "./api-client"
 
 /**
  * The public API only serves PUBLISHED items whose publishedAt has passed, and

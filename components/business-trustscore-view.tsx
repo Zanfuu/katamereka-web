@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth-context";
 import type { ApiBusinessDetail, VerificationMethod, BusinessClaimStatus } from "@/lib/api-client";
-import { CONSUMER_SITE_URL } from "@/lib/site-config";
+import { CONSUMER_SITE_URL, getConsumerSiteUrl } from "@/lib/site-config";
 
 interface BusinessTrustScoreViewProps {
   business: ApiBusinessDetail;
@@ -132,7 +132,7 @@ export default function BusinessTrustScoreView({
     setClaimModalOpen(true);
   }
 
-  const consumerUrl = `${CONSUMER_SITE_URL}/business/${business.slug}`;
+  const consumerUrl = `${getConsumerSiteUrl()}/business/${business.slug}`;
 
   return (
     <div className="min-h-screen bg-white text-slate-800 font-sans flex flex-col justify-between selection:bg-emerald-100 selection:text-emerald-900">

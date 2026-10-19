@@ -49,9 +49,14 @@ import {
   SaveIcon,
   SparklesIcon,
   InfoIcon,
+  CropIcon,
 } from "lucide-react"
 
+import { CoverCropDialog } from "@/components/cover-crop-dialog"
+import { getConsumerSiteUrl } from "@/lib/site-config"
+
 import { useBusinessContext } from "@/components/business-provider"
+import { resolveMediaUrl } from "@/lib/cms-api"
 import {
   updateBusinessProfile,
   uploadBusinessLogo,
@@ -104,6 +109,22 @@ const TABS = [
 
 export default function DashboardBusinessPage() {
   const { selectedBusiness, isLoading, hasApprovedBusiness } = useBusinessContext()
+  const [activeTab, setActiveTab] = React.useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const urlTab = new URLSearchParams(window.location.search).get("tab")
+      if (urlTab) return urlTab
+    }
+    return "informasi"
+  })
+
+  const handleTabChange = (val: string) => {
+    setActiveTab(val)
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+      url.searchParams.set("tab", val)
+      window.history.replaceState({}, "", url.toString())
+    }
+  }
 
   if (isLoading) {
     return (
@@ -149,7 +170,7 @@ export default function DashboardBusinessPage() {
           <Button
             variant="outline"
             render={
-              <a href={`/business/${selectedBusiness.slug}`} target="_blank" rel="noreferrer" />
+              <a href={`${getConsumerSiteUrl()}/business/${selectedBusiness.slug}`} target="_blank" rel="noreferrer" />
             }
           >
             Lihat Public Profile
@@ -158,7 +179,7 @@ export default function DashboardBusinessPage() {
         }
       />
 
-      <Tabs defaultValue="informasi">
+      <Tabs value={activeTab} onValueChange={(val) => typeof val === "string" && handleTabChange(val)}>
         <TabsList variant="line" className="w-full justify-start overflow-x-auto border-b">
           {TABS.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value}>
@@ -1001,6 +1022,23 @@ function MediaTab({ business }: { business: Business }) {
   const [isUploadingCover, setIsUploadingCover] = React.useState(false)
   const [savingSocial, setSavingSocial] = React.useState(false)
 
+  const [cropDialogOpen, setCropDialogOpen] = React.useState(false)
+  const [cropImageSrc, setCropImageSrc] = React.useState<string | null>(null)
+  const [isCropSaving, setIsCropSaving] = React.useState(false)
+
+  const [coverUrl, setCoverUrl] = React.useState<string>(() => business.cover ? resolveMediaUrl(business.cover) : "")
+  const [logoUrl, setLogoUrl] = React.useState<string>(() => business.logo ? resolveMediaUrl(business.logo) : "")
+
+  React.useEffect(() => {
+    if (business.cover) setCoverUrl(resolveMediaUrl(business.cover))
+    else setCoverUrl("")
+  }, [business.cover])
+
+  React.useEffect(() => {
+    if (business.logo) setLogoUrl(resolveMediaUrl(business.logo))
+    else setLogoUrl("")
+  }, [business.logo])
+
   const [social, setSocial] = React.useState({
     instagram: "",
     facebook: "",
@@ -1018,11 +1056,19 @@ function MediaTab({ business }: { business: Business }) {
   const handleLogoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !business.id) return
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ukuran file logo maksimal 5MB.")
+      if (logoInputRef.current) logoInputRef.current.value = ""
+      return
+    }
     setIsUploadingLogo(true)
     try {
       const res = await uploadBusinessLogo(business.id, file)
       if (res.success) {
         toast.success(res.message || "Logo baru berhasil diunggah.")
+        if (res.url) {
+          setLogoUrl(resolveMediaUrl(res.url))
+        }
         await refetch()
       } else {
         toast.error(res.message || "Gagal mengunggah logo.")
@@ -1042,6 +1088,7 @@ function MediaTab({ business }: { business: Business }) {
       const res = await deleteBusinessLogo(business.id)
       if (res.success) {
         toast.success(res.message || "Logo berhasil dihapus.")
+        setLogoUrl("")
         await refetch()
       } else {
         toast.error(res.message || "Gagal menghapus logo.")
@@ -1053,14 +1100,31 @@ function MediaTab({ business }: { business: Business }) {
     }
   }
 
-  const handleCoverFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !business.id) return
-    setIsUploadingCover(true)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Ukuran file cover maksimal 10MB.")
+      if (coverInputRef.current) coverInputRef.current.value = ""
+      return
+    }
+    const objUrl = URL.createObjectURL(file)
+    setCropImageSrc(objUrl)
+    setCropDialogOpen(true)
+    if (coverInputRef.current) coverInputRef.current.value = ""
+  }
+
+  const handleSaveCroppedCover = async (croppedFile: File) => {
+    if (!business.id) return
+    setIsCropSaving(true)
     try {
-      const res = await uploadBusinessCover(business.id, file)
+      const res = await uploadBusinessCover(business.id, croppedFile)
       if (res.success) {
-        toast.success(res.message || "Cover baru berhasil diunggah.")
+        toast.success(res.message || "Cover baru berhasil disimpan dan diterapkan.")
+        if (res.url) {
+          setCoverUrl(resolveMediaUrl(res.url))
+        }
+        setCropDialogOpen(false)
         await refetch()
       } else {
         toast.error(res.message || "Gagal mengunggah cover.")
@@ -1068,9 +1132,14 @@ function MediaTab({ business }: { business: Business }) {
     } catch {
       toast.error("Terjadi kesalahan saat mengunggah cover.")
     } finally {
-      setIsUploadingCover(false)
-      if (coverInputRef.current) coverInputRef.current.value = ""
+      setIsCropSaving(false)
     }
+  }
+
+  const handleOpenCropExisting = () => {
+    if (!coverUrl) return
+    setCropImageSrc(coverUrl)
+    setCropDialogOpen(true)
   }
 
   const handleDeleteCover = async () => {
@@ -1080,6 +1149,7 @@ function MediaTab({ business }: { business: Business }) {
       const res = await deleteBusinessCover(business.id)
       if (res.success) {
         toast.success(res.message || "Cover berhasil dihapus.")
+        setCoverUrl("")
         await refetch()
       } else {
         toast.error(res.message || "Gagal menghapus cover.")
@@ -1127,8 +1197,8 @@ function MediaTab({ business }: { business: Business }) {
             <p className="text-xs font-bold text-slate-800">Logo Bisnis</p>
             <div className="flex items-center gap-4">
               <Avatar className="size-16 border-2 border-white shadow-md">
-                {business.logo ? (
-                  <img src={business.logo} alt={business.name} className="size-full object-cover rounded-full" />
+                {logoUrl ? (
+                  <img src={logoUrl} alt={business.name} className="size-full object-cover rounded-full" />
                 ) : (
                   <AvatarFallback className="bg-[#008767] text-white font-bold text-base">
                     {initials}
@@ -1151,9 +1221,9 @@ function MediaTab({ business }: { business: Business }) {
                     onClick={() => logoInputRef.current?.click()}
                   >
                     <UploadIcon className="mr-1 size-3.5" />
-                    {isUploadingLogo ? "Mengunggah..." : "Upload Logo"}
+                    {isUploadingLogo ? "Mengunggah..." : logoUrl ? "Ganti Logo" : "Upload Logo"}
                   </Button>
-                  {business.logo && (
+                  {logoUrl && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -1172,14 +1242,20 @@ function MediaTab({ business }: { business: Business }) {
 
           {/* Cover Card */}
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-            <p className="text-xs font-bold text-slate-800">Cover Header Bisnis</p>
-            <div className="relative aspect-video rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center border border-slate-300">
-              {business.cover ? (
-                <img src={business.cover} alt="Cover Bisnis" className="w-full h-full object-cover" />
-              ) : (
-                <ImageIcon className="size-8 text-slate-400" />
-              )}
-              <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity gap-2">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-bold text-slate-800">Cover Header Bisnis</p>
+                  {coverUrl && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      <CheckCircle2Icon className="size-3 text-emerald-600" />
+                      Tersimpan
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500">Rasio 16:9 direkomendasikan (Maks. 10MB sebelum crop).</p>
+              </div>
+              <div className="flex items-center gap-2">
                 <input
                   type="file"
                   ref={coverInputRef}
@@ -1187,29 +1263,98 @@ function MediaTab({ business }: { business: Business }) {
                   accept="image/png,image/jpeg,image/webp,image/jpg"
                   onChange={handleCoverFileChange}
                 />
-                <Button
-                  size="sm"
-                  disabled={isUploadingCover}
-                  className="bg-white text-slate-900 hover:bg-slate-100"
-                  onClick={() => coverInputRef.current?.click()}
-                >
-                  <UploadIcon className="mr-1 size-3.5" />
-                  {isUploadingCover ? "Mengunggah..." : business.cover ? "Ganti Cover" : "Upload Cover"}
-                </Button>
-                {business.cover && (
+                {coverUrl && (
                   <Button
                     size="sm"
-                    variant="destructive"
-                    disabled={isUploadingCover}
+                    variant="outline"
+                    disabled={isUploadingCover || isCropSaving}
+                    onClick={handleOpenCropExisting}
+                    title="Sesuaikan posisi atau crop gambar ini"
+                  >
+                    <CropIcon className="mr-1.5 size-3.5 text-[#008767]" />
+                    Sesuaikan / Crop
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isUploadingCover || isCropSaving}
+                  onClick={() => coverInputRef.current?.click()}
+                >
+                  <UploadIcon className="mr-1.5 size-3.5" />
+                  {isUploadingCover || isCropSaving ? "Memproses..." : coverUrl ? "Ganti Foto" : "Upload & Crop"}
+                </Button>
+                {coverUrl && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isUploadingCover || isCropSaving}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     onClick={handleDeleteCover}
+                    title="Hapus Cover"
                   >
                     <Trash2Icon className="size-3.5" />
                   </Button>
                 )}
               </div>
             </div>
-            <p className="text-[11px] text-slate-500">Rasio 16:9 direkomendasikan untuk hasil terbaik.</p>
+
+            <div className="relative aspect-video rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center border border-slate-300 group">
+              {coverUrl ? (
+                <img src={coverUrl} alt="Cover Bisnis" className="w-full h-full object-cover" />
+              ) : (
+                <div className="flex flex-col items-center gap-1.5 text-slate-400">
+                  <ImageIcon className="size-8" />
+                  <span className="text-xs">Belum ada cover header</span>
+                </div>
+              )}
+              {/* Optional overlay click on image */}
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                {coverUrl ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleOpenCropExisting}
+                      className="text-xs font-semibold text-white bg-black/75 hover:bg-black/90 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow transition-transform hover:scale-105"
+                    >
+                      <CropIcon className="size-3.5 text-emerald-400" /> Sesuaikan / Crop
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => coverInputRef.current?.click()}
+                      className="text-xs font-semibold text-white bg-black/75 hover:bg-black/90 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow transition-transform hover:scale-105"
+                    >
+                      <UploadIcon className="size-3.5" /> Ganti Gambar
+                    </button>
+                  </div>
+                ) : (
+                  <span
+                    onClick={() => coverInputRef.current?.click()}
+                    className="text-xs font-semibold text-white bg-black/60 px-3 py-1.5 rounded-full flex items-center gap-1.5"
+                  >
+                    <UploadIcon className="size-3.5" /> Klik untuk unggah gambar
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {coverUrl && (
+              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
+                <span className="flex items-center gap-1 text-emerald-700 font-medium">
+                  <CheckIcon className="size-3.5" /> Cover aktif terpasang pada tampilan publik
+                </span>
+                <span className="font-mono text-slate-400">Format 16:9 HD</span>
+              </div>
+            )}
           </div>
+
+          <CoverCropDialog
+            open={cropDialogOpen}
+            onOpenChange={setCropDialogOpen}
+            imageSrc={cropImageSrc}
+            onSave={handleSaveCroppedCover}
+            isSaving={isCropSaving}
+          />
         </CardContent>
       </Card>
 

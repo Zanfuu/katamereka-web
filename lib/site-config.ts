@@ -28,3 +28,18 @@ export function isBusinessHost(host: string | null | undefined): boolean {
 export function siteUrlForHost(host: string | null | undefined): string {
   return isBusinessHost(host) ? BUSINESS_SITE_URL : CONSUMER_SITE_URL;
 }
+
+/**
+ * Returns the consumer web app base URL.
+ * Automatically keeps development traffic on localhost instead of jumping to production.
+ */
+export function getConsumerSiteUrl(): string {
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    if (hostname.includes("localhost") || hostname.includes("127.0.0.1")) {
+      const port = window.location.port ? `:${window.location.port}` : "";
+      return `${window.location.protocol}//localhost${port}`;
+    }
+  }
+  return CONSUMER_SITE_URL;
+}

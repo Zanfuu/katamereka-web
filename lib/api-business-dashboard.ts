@@ -152,7 +152,7 @@ export async function uploadBusinessLogo(
     }
     return {
       success: true,
-      url: json?.url || json?.logoUrl || json?.data?.logoUrl,
+      url: json?.url || json?.logoUrl || json?.data?.logoUrl || json?.data?.logo_url,
       message: "Logo berhasil diperbarui",
     }
   } catch (err: any) {
@@ -179,7 +179,7 @@ export async function uploadBusinessCover(
     }
     return {
       success: true,
-      url: json?.url || json?.coverUrl || json?.data?.coverUrl,
+      url: json?.url || json?.coverUrl || json?.data?.coverUrl || json?.data?.cover_url,
       message: "Gambar sampul berhasil diperbarui",
     }
   } catch (err: any) {

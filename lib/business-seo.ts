@@ -5,7 +5,7 @@
  * identical metadata from the same rules — no risk of two pages describing
  * the same business differently.
  */
-import type { ApiBusinessDetail } from "./api-client";
+import { type ApiBusinessDetail, resolveMediaUrl } from "./api-client";
 
 export type BusinessCategoryGroup =
   | "RESTAURANT"
@@ -181,7 +181,7 @@ export function buildBusinessSchema(
 
   if (b.phone) schema.telephone = b.phone;
   if (b.website) schema.sameAs = [b.website];
-  if (b.logo_url || b.cover_url) schema.image = b.cover_url || b.logo_url;
+  if (b.logo_url || b.cover_url) schema.image = resolveMediaUrl(b.cover_url || b.logo_url);
   if (typeof b.latitude === "number" && typeof b.longitude === "number") {
     schema.geo = {
       "@type": "GeoCoordinates",

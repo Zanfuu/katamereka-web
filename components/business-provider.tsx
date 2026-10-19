@@ -19,9 +19,16 @@ export interface BusinessContextValue {
 
 const BusinessContext = React.createContext<BusinessContextValue | null>(null)
 
+import { API_BASE_URL } from "@/lib/api-client"
+import { useAuth } from "@/lib/auth-context"
+import { resolveMediaUrl } from "@/lib/cms-api"
+
 function mapMyBusinessToDomain(item: MyBusinessItem): Business {
   const ratingVal = Number(item.averageRating ?? item.rating ?? 0) || 0
   const reviewsVal = Number(item.totalReviews ?? item.reviewCount ?? 0) || 0
+
+  const rawLogo = item.logo || item.logo_url
+  const rawCover = item.cover || item.cover_url
 
   return {
     id: item.id,
@@ -32,8 +39,8 @@ function mapMyBusinessToDomain(item: MyBusinessItem): Business {
     website: item.website || undefined,
     phone: item.phone || undefined,
     email: item.email || undefined,
-    logo: item.logo || item.logo_url || undefined,
-    cover: item.cover || item.cover_url || undefined,
+    logo: rawLogo ? resolveMediaUrl(rawLogo) : undefined,
+    cover: rawCover ? resolveMediaUrl(rawCover) : undefined,
     address: item.address || "",
     city: item.city || "",
     province: item.province || "",
@@ -51,18 +58,17 @@ function mapMyBusinessToDomain(item: MyBusinessItem): Business {
   }
 }
 
-import { API_BASE_URL } from "@/lib/api-client"
-import { useAuth } from "@/lib/auth-context"
-
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoggedIn } = useAuth()
   const [businesses, setBusinesses] = React.useState<Business[]>([])
   const [selectedBusinessId, setSelectedBusinessIdState] = React.useState<string>("")
   const [isLoading, setIsLoading] = React.useState(true)
 
-  const loadBusinesses = React.useCallback(async () => {
+  const loadBusinesses = React.useCallback(async (showLoading = false) => {
     try {
-      setIsLoading(true)
+      if (showLoading) {
+        setIsLoading(true)
+      }
       const list = await fetchMyBusinesses()
       const mapped = list.map(mapMyBusinessToDomain)
       setBusinesses(mapped)
@@ -90,7 +96,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   React.useEffect(() => {
-    loadBusinesses()
+    loadBusinesses(true)
   }, [loadBusinesses, isLoggedIn, user?.id])
 
   const setSelectedBusinessId = React.useCallback((id: string) => {
@@ -138,7 +144,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
       setSelectedBusinessId,
       isLoading,
       hasApprovedBusiness,
-      refetch: loadBusinesses,
+      refetch: () => loadBusinesses(false),
     }),
     [businesses, selectedBusiness, selectedBusinessId, setSelectedBusinessId, isLoading, hasApprovedBusiness, loadBusinesses]
   )
