@@ -167,12 +167,10 @@ export function isKnownBusinessAccount(email?: string, username?: string): boole
   const cleanEmail = (email || "").trim().toLowerCase();
   const cleanUser = (username || "").trim().toLowerCase();
 
-  // Akun pengembang / pengelola bisnis bawaan
+  // Akun pengelola bisnis bawaan berdasar domain/nama
   if (
-    cleanEmail.startsWith("billyaz") ||
     cleanEmail.includes("katamereka.id") ||
     cleanEmail.includes("katamereka.com") ||
-    cleanUser === "billyaz" ||
     cleanEmail.includes("owner") ||
     cleanEmail.includes("bisnis")
   ) {

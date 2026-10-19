@@ -454,52 +454,20 @@ export default function Navbar({ isBusinessPage: forceBusinessView, floating }: 
               </Link>
             </div>
           ) : (
-            /* Main Customer Site Header: Clean Avatar Button (opens auth menu) matching mockup */
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center p-0.5 rounded-full border border-emerald-400/80 hover:ring-2 hover:ring-[#008767]/30 transition-all cursor-pointer shadow-2xs"
-                aria-label="Menu Akun"
+            /* Main Customer Site Header: 2 Buttons before login */
+            <div className="hidden sm:flex items-center gap-3">
+              <Link
+                href="/login"
+                className="px-4 py-2 rounded-xl text-slate-700 hover:text-[#008767] font-bold text-sm transition-colors hover:bg-slate-50"
               >
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#008767] text-white flex items-center justify-center font-bold text-sm shadow-inner">
-                  I
-                </div>
-              </button>
-
-              {profileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/80 py-2 z-50 animate-fadeIn">
-                  <div className="px-4 py-2.5 border-b border-slate-100">
-                    <p className="font-bold text-slate-900 text-sm">Akun</p>
-                    <p className="text-xs text-slate-500">Masuk untuk memberi ulasan</p>
-                  </div>
-                  <div className="py-1 text-xs font-semibold text-slate-700">
-                    <Link
-                      href="/login"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
-                    >
-                      <UserIcon className="w-4 h-4 text-slate-400" />
-                      <span>Masuk / Login</span>
-                    </Link>
-                    <Link
-                      href="/signup"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
-                    >
-                      <UserIcon className="w-4 h-4 text-slate-400" />
-                      <span>Daftar Akun Baru</span>
-                    </Link>
-                    <Link
-                      href={businessUrl}
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
-                    >
-                      <Store className="w-4 h-4 text-slate-400" />
-                      <span>Untuk Bisnis</span>
-                    </Link>
-                  </div>
-                </div>
-              )}
+                Login
+              </Link>
+              <Link
+                href={businessUrl || "/bisnis"}
+                className="px-5 py-2.5 rounded-xl bg-[#008767] hover:bg-[#007055] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all hover:scale-105"
+              >
+                Akun Bisnis
+              </Link>
             </div>
           )}
 
@@ -778,11 +746,11 @@ export default function Navbar({ isBusinessPage: forceBusinessView, floating }: 
                   Login
                 </Link>
                 <Link
-                  href={businessUrl}
+                  href={businessUrl || "/bisnis"}
                   onClick={() => setMobileMenuOpen(false)}
                   className="w-full block text-center py-2.5 rounded-xl bg-[#008767] hover:bg-[#007055] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all"
                 >
-                  For Business
+                  Akun Bisnis
                 </Link>
               </div>
             )}
