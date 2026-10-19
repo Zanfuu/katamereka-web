@@ -18,9 +18,26 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { auditLog } from "@/lib/mock/audit-log"
+import { auditLog as initialAuditLog } from "@/lib/mock/audit-log"
 import { formatDateTime } from "@/lib/format"
-import type { AuditLogEntry } from "@/lib/types"
+import type { AuditLogEntry, PlatformRole } from "@/lib/types"
+import { fetchAdminAuditLogs, type AdminAuditLogItem } from "@/lib/admin-api"
+
+function mapApiLogToAuditEntry(log: AdminAuditLogItem): AuditLogEntry {
+  const role = (log.user?.role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "USER") as PlatformRole;
+  const target = log.data?.target || log.data?.entity || log.data?.path || "System";
+  const action = log.data?.action || log.actionType || log.action_type || "ACTIVITY";
+  return {
+    id: log.id,
+    actorName: log.user?.name || log.user?.email || "Pengguna",
+    actorRole: role,
+    action: String(action),
+    target: String(target),
+    timestamp: log.createdAt || log.created_at || new Date().toISOString(),
+    ip: log.data?.ip || "127.0.0.1",
+    metadata: log.data ? JSON.stringify(log.data) : undefined,
+  };
+}
 
 const ROLE_OPTIONS = [
   { value: "all", label: "Semua Role" },
@@ -29,14 +46,34 @@ const ROLE_OPTIONS = [
 ]
 
 export default function AdminAuditLogsPage() {
+  const [logList, setLogList] = React.useState<AuditLogEntry[]>(initialAuditLog)
   const [search, setSearch] = React.useState("")
   const [actorFilter, setActorFilter] = React.useState("all")
   const [roleFilter, setRoleFilter] = React.useState("all")
   const [actionFilter, setActionFilter] = React.useState("all")
+  const [isLoading, setIsLoading] = React.useState(false)
+
+  const loadLogs = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetchAdminAuditLogs(100);
+      if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+        setLogList(res.data.map(mapApiLogToAuditEntry));
+      }
+    } catch (err) {
+      console.warn("Failed fetching customer logs, using mock fallback:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
 
   const actorOptions = [
     { value: "all", label: "Semua Actor" },
-    ...Array.from(new Set(auditLog.map((entry) => entry.actorName))).map((name) => ({
+    ...Array.from(new Set(logList.map((entry) => entry.actorName))).map((name) => ({
       value: name,
       label: name,
     })),
@@ -44,13 +81,13 @@ export default function AdminAuditLogsPage() {
 
   const actionOptions = [
     { value: "all", label: "Semua Action" },
-    ...Array.from(new Set(auditLog.map((entry) => entry.action))).map((action) => ({
+    ...Array.from(new Set(logList.map((entry) => entry.action))).map((action) => ({
       value: action,
       label: action,
     })),
   ]
 
-  const filtered = auditLog.filter((entry) => {
+  const filtered = logList.filter((entry) => {
     if (actorFilter !== "all" && entry.actorName !== actorFilter) return false
     if (roleFilter !== "all" && entry.actorRole !== roleFilter) return false
     if (actionFilter !== "all" && entry.action !== actionFilter) return false

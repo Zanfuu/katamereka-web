@@ -46,6 +46,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  fetchAdmins,
+  fetchCustomers,
+  fetchBusinesses,
+  fetchAdminReviewReports,
+} from "@/lib/admin-api"
+import { fetchAdminBusinessClaims } from "@/lib/api-client"
 import { formatDate, timeAgo } from "@/lib/format"
 import { platformActivity } from "@/lib/mock/activity"
 import { adminAccounts } from "@/lib/mock/admins"
@@ -129,14 +136,149 @@ export default function AdminOverviewPage() {
   const [growthPeriod, setGrowthPeriod] = React.useState(GROWTH_PERIODS[0])
   const [activityPeriod, setActivityPeriod] = React.useState(ACTIVITY_PERIODS[0])
 
-  const verifiedBusinesses = businesses.filter((b) => b.verificationStatus === "VERIFIED")
-  const pendingVerification = verificationRequests.filter((v) => v.status === "PENDING")
-  const reportedReviews = reviews.filter((r) => r.reportCount > 0)
-  const moderationQueue = reports.filter(
+  const initialVerifiedBusinesses = businesses.filter((b) => b.verificationStatus === "VERIFIED")
+  const initialPendingVerification = verificationRequests.filter((v) => v.status === "PENDING")
+  const initialReportedReviews = reviews.filter((r) => r.reportCount > 0)
+  const initialModerationQueue = reports.filter(
     (r) => r.status === "OPEN" || r.status === "UNDER_INVESTIGATION"
   )
   const openFraud = fraudFlags.filter((f) => f.status === "OPEN")
-  const totalReviews = businesses.reduce((sum, b) => sum + b.totalReviews, 0)
+  const initialTotalReviews = businesses.reduce((sum, b) => sum + b.totalReviews, 0)
+
+  const [stats, setStats] = React.useState({
+    totalAdmins: adminAccounts.length,
+    totalBusinesses: businesses.length,
+    verifiedBusinesses: initialVerifiedBusinesses.length,
+    totalCustomers: platformUsers.length,
+    totalReviews: initialTotalReviews,
+    pendingVerification: initialPendingVerification.length,
+    reportedReviews: initialReportedReviews.length,
+    pendingModeration: initialModerationQueue.length,
+  })
+
+  const [realRecentBusinesses, setRealRecentBusinesses] = React.useState<
+    Array<{ id: string; name: string; slug: string; category: string; status: string; createdAt: string }>
+  >([])
+
+  const [dynamicNeedsAttention, setDynamicNeedsAttention] = React.useState<NeedsAttentionItem[]>([])
+
+  React.useEffect(() => {
+    let active = true
+
+    async function loadDashboardMetrics() {
+      try {
+        const [adminsRes, custRes, bizRes, reportsRes, claimsRes] = await Promise.allSettled([
+          fetchAdmins({ limit: 1 }),
+          fetchCustomers({ limit: 1 }),
+          fetchBusinesses({ limit: 5 }),
+          fetchAdminReviewReports({ limit: 10 }),
+          fetchAdminBusinessClaims({ limit: 10 }),
+        ])
+
+        if (!active) return
+
+        let totalAdmins = adminAccounts.length
+        let totalCustomers = platformUsers.length
+        let totalBusinesses = businesses.length
+        let verifiedBusinesses = initialVerifiedBusinesses.length
+        let pendingVerification = initialPendingVerification.length
+        let reportedReviewsCount = initialReportedReviews.length
+        let pendingModerationCount = initialModerationQueue.length
+
+        const dynamicItems: NeedsAttentionItem[] = []
+
+        if (adminsRes.status === "fulfilled" && adminsRes.value?.stats?.total_admin != null) {
+          totalAdmins = adminsRes.value.stats.total_admin
+        }
+
+        if (custRes.status === "fulfilled" && custRes.value?.stats?.total_customer != null) {
+          totalCustomers = custRes.value.stats.total_customer
+        }
+
+        if (bizRes.status === "fulfilled" && bizRes.value) {
+          const biz = bizRes.value
+          if (biz.stats?.total_business != null) {
+            totalBusinesses = biz.stats.total_business
+          }
+          if (biz.data && biz.data.length > 0) {
+            const mappedRecent = biz.data.map((b) => ({
+              id: b.id,
+              name: b.name,
+              slug: b.slug,
+              category: b.category || "Hotel & Penginapan",
+              status: b.status === "SUSPENDED" ? "SUSPENDED" : "ACTIVE",
+              createdAt: b.created_at,
+            }))
+            setRealRecentBusinesses(mappedRecent)
+            const claimed = biz.data.filter((b) => b.status === "CLAIMED").length
+            if (claimed > 0) verifiedBusinesses = claimed
+          }
+        }
+
+        if (claimsRes.status === "fulfilled" && claimsRes.value) {
+          const claims = claimsRes.value?.data || []
+          const pending = claims.filter((c: any) => c.status === "PENDING")
+          if (pending.length > 0) {
+            pendingVerification = pending.length
+            pending.forEach((c: any) => {
+              dynamicItems.push({
+                id: c.id,
+                item: c.business?.name || "Pengajuan Klaim Bisnis",
+                type: "Verification",
+                priority: "High",
+                status: c.status,
+                createdAt: c.created_at || new Date().toISOString(),
+                href: "/admin/trust-safety",
+              })
+            })
+          }
+        }
+
+        if (reportsRes.status === "fulfilled" && reportsRes.value) {
+          const rep = reportsRes.value?.data || []
+          const pending = rep.filter((r) => r.status === "PENDING")
+          if (pending.length > 0) {
+            reportedReviewsCount = pending.length
+            pendingModerationCount = pending.length
+            pending.forEach((r) => {
+              dynamicItems.push({
+                id: r.id,
+                item: `${r.business?.name || "Review"} — ${r.reason}`,
+                type: "Report",
+                priority: "High",
+                status: r.status,
+                createdAt: r.created_at,
+                href: "/admin/trust-safety",
+              })
+            })
+          }
+        }
+
+        setStats({
+          totalAdmins,
+          totalBusinesses,
+          verifiedBusinesses,
+          totalCustomers,
+          totalReviews: initialTotalReviews,
+          pendingVerification,
+          reportedReviews: reportedReviewsCount,
+          pendingModeration: pendingModerationCount,
+        })
+
+        if (dynamicItems.length > 0) {
+          setDynamicNeedsAttention(dynamicItems)
+        }
+      } catch (err) {
+        console.error("Gagal memuat overview dashboard metrics:", err)
+      }
+    }
+
+    loadDashboardMetrics()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const ratingDistribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
   reviews.forEach((r) => {
@@ -150,8 +292,8 @@ export default function AdminOverviewPage() {
     { label: "1 Bintang", value: ratingDistribution[1], color: "#EF4444" },
   ]
 
-  const needsAttention: NeedsAttentionItem[] = [
-    ...pendingVerification.map((v): NeedsAttentionItem => ({
+  const fallbackNeedsAttention: NeedsAttentionItem[] = [
+    ...initialPendingVerification.map((v): NeedsAttentionItem => ({
       id: v.id,
       item: v.businessName,
       type: "Verification",
@@ -160,7 +302,7 @@ export default function AdminOverviewPage() {
       createdAt: v.submittedAt,
       href: "/admin/trust-safety",
     })),
-    ...moderationQueue.map((r): NeedsAttentionItem => ({
+    ...initialModerationQueue.map((r): NeedsAttentionItem => ({
       id: r.id,
       item: `${r.businessName} — ${r.reviewerName}`,
       type: r.status === "UNDER_INVESTIGATION" ? "Moderation" : "Report",
@@ -179,6 +321,8 @@ export default function AdminOverviewPage() {
       href: "/admin/trust-safety",
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+  const needsAttention = dynamicNeedsAttention.length > 0 ? dynamicNeedsAttention : fallbackNeedsAttention
 
   const needsAttentionColumns: ResourceTableColumn<NeedsAttentionItem>[] = [
     {
@@ -227,9 +371,11 @@ export default function AdminOverviewPage() {
     },
   ]
 
-  const recentBusinesses = [...businesses]
+  const fallbackRecentBusinesses = [...businesses]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5)
+
+  const recentBusinesses = realRecentBusinesses.length > 0 ? realRecentBusinesses : fallbackRecentBusinesses
 
   return (
     <div className="flex flex-col gap-6">
@@ -249,7 +395,7 @@ export default function AdminOverviewPage() {
         <StatCard
           label="Total Customers"
           sublabel="Business Admin"
-          value={adminAccounts.length.toLocaleString("id-ID")}
+          value={stats.totalAdmins.toLocaleString("id-ID")}
           delta="+12%"
           hint="dari bulan lalu"
           icon={UserCogIcon}
@@ -257,7 +403,7 @@ export default function AdminOverviewPage() {
         />
         <StatCard
           label="Total Businesses"
-          value={businesses.length.toLocaleString("id-ID")}
+          value={stats.totalBusinesses.toLocaleString("id-ID")}
           delta="+8%"
           hint="dari bulan lalu"
           icon={BuildingIcon}
@@ -265,7 +411,7 @@ export default function AdminOverviewPage() {
         />
         <StatCard
           label="Verified Businesses"
-          value={verifiedBusinesses.length.toLocaleString("id-ID")}
+          value={stats.verifiedBusinesses.toLocaleString("id-ID")}
           delta="+15%"
           hint="dari bulan lalu"
           icon={ShieldCheckIcon}
@@ -273,7 +419,7 @@ export default function AdminOverviewPage() {
         />
         <StatCard
           label="Total Users"
-          value={platformUsers.length.toLocaleString("id-ID")}
+          value={stats.totalCustomers.toLocaleString("id-ID")}
           delta="+18%"
           hint="dari bulan lalu"
           icon={UsersIcon}
@@ -281,7 +427,7 @@ export default function AdminOverviewPage() {
         />
         <StatCard
           label="Total Reviews"
-          value={totalReviews.toLocaleString("id-ID")}
+          value={stats.totalReviews.toLocaleString("id-ID")}
           delta="+22%"
           hint="dari bulan lalu"
           icon={StarIcon}
@@ -289,7 +435,7 @@ export default function AdminOverviewPage() {
         />
         <StatCard
           label="Pending Verification"
-          value={pendingVerification.length}
+          value={stats.pendingVerification}
           delta="-28%"
           deltaTone="negative"
           hint="dari bulan lalu"
@@ -298,7 +444,7 @@ export default function AdminOverviewPage() {
         />
         <StatCard
           label="Reported Reviews"
-          value={reportedReviews.length}
+          value={stats.reportedReviews}
           delta="+7%"
           hint="dari bulan lalu"
           icon={FlagIcon}
@@ -307,7 +453,7 @@ export default function AdminOverviewPage() {
         />
         <StatCard
           label="Pending Moderation"
-          value={moderationQueue.length}
+          value={stats.pendingModeration}
           delta="-14%"
           deltaTone="negative"
           hint="dari bulan lalu"
@@ -383,7 +529,7 @@ export default function AdminOverviewPage() {
           <CardContent>
             <StatusDonutChart
               segments={ratingSegments}
-              centerValue={totalReviews.toLocaleString("id-ID")}
+              centerValue={stats.totalReviews.toLocaleString("id-ID")}
               centerLabel="Total Review"
             />
           </CardContent>

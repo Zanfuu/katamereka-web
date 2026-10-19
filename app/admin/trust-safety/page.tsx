@@ -42,7 +42,34 @@ import { Textarea } from "@/components/ui/textarea"
 import { formatDateTime } from "@/lib/format"
 import { getBusinessById } from "@/lib/mock/businesses"
 import { reports as initialReports } from "@/lib/mock/reports"
-import type { Report, ReportTargetType } from "@/lib/types"
+import type { Report, ReportTargetType, ReportStatus } from "@/lib/types"
+import { fetchAdminReviewReports, type AdminReviewReportItem } from "@/lib/admin-api"
+
+function mapApiReportToDomain(item: AdminReviewReportItem): Report {
+  const rating = (Math.max(1, Math.min(5, Math.round(item.review?.rating || 1)))) as (1 | 2 | 3 | 4 | 5);
+  let status: ReportStatus = "OPEN";
+  if (item.status === "RESOLVED") status = "RESOLVED";
+  else if (item.status === "REJECTED") status = "REJECTED";
+
+  return {
+    id: item.id,
+    targetType: "REVIEW",
+    reviewId: item.review?.id || item.id,
+    reviewExcerpt: item.review?.content || "(Tidak ada isi ulasan)",
+    reviewRating: rating,
+    businessId: item.business?.id || "",
+    businessName: item.business?.name || "Bisnis",
+    reviewerName: item.review?.author?.name || "Anonim",
+    reporterName: item.reporter?.name || "Pelapor",
+    reporterEmail: item.reporter?.email,
+    reason: item.reason || item.description || "Laporan ulasan",
+    evidence: [],
+    status,
+    moderationStatus: item.resolution === "HIDE" ? "HIDDEN" : "KEPT",
+    internalNote: item.description || undefined,
+    createdAt: item.created_at || new Date().toISOString(),
+  };
+}
 
 const REPORT_STATUS_OPTIONS = [
   { value: "all", label: "Semua Status" },
@@ -73,7 +100,7 @@ const TARGET_META: Record<ReportTargetType, { label: string; icon: typeof FlagIc
 }
 
 function reportDisplayId(id: string) {
-  return `#R-${id.replace(/\D/g, "").padStart(6, "0")}`
+  return `#R-${id.replace(/\D/g, "").slice(-6).padStart(6, "0")}`
 }
 
 const AVATAR_TONES = [
@@ -104,6 +131,27 @@ export default function TrustSafetyPage() {
   const [detail, setDetail] = React.useState<Report | null>(null)
   const [noteDraft, setNoteDraft] = React.useState("")
   const [confirmAction, setConfirmAction] = React.useState<"RESOLVE" | "REJECT" | null>(null)
+  const [isLoading, setIsLoading] = React.useState(false)
+
+  const loadReports = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetchAdminReviewReports({
+        status: statusFilter !== "all" ? statusFilter : undefined,
+      });
+      if (res && Array.isArray(res.data) && res.data.length > 0) {
+        setReportList(res.data.map(mapApiReportToDomain));
+      }
+    } catch (err) {
+      console.warn("Failed fetching admin review reports, using mock fallback:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [statusFilter]);
+
+  React.useEffect(() => {
+    loadReports();
+  }, [loadReports]);
 
   const counts = {
     total: reportList.length,

@@ -241,41 +241,170 @@ export async function fetchBusinesses(params: BusinessQueryParams = {}): Promise
   if (params.search) qs.append("search", params.search);
   if (params.status) qs.append("status", params.status);
   const s = qs.toString();
-  const res = await fetch(`${API_BASE_URL}/admin/businesses${s ? `?${s}` : ""}`, {
+
+  const res = await fetch(`${API_BASE_URL}/businesses${s ? `?${s}` : ""}`, {
     method: "GET",
     headers: authHeaders(),
     cache: "no-store",
   });
-  return handle<BusinessListResponse>(res);
+
+  const raw = await handle<any>(res);
+  const rawList = Array.isArray(raw?.data) ? raw.data : (Array.isArray(raw) ? raw : []);
+  const data: BusinessListItem[] = rawList.map((b: any) => ({
+    id: b.id,
+    name: b.name,
+    slug: b.slug,
+    category: b.category || null,
+    address: b.address || null,
+    city: b.city || null,
+    province: b.province || null,
+    phone: b.phone || null,
+    email: b.email || null,
+    website: b.website || null,
+    description: b.description || null,
+    status: (b.status || (b.is_claimed ? "CLAIMED" : "ACTIVE")) as PlatformBusinessStatus,
+    average_rating: b.average_rating ?? b.rating ?? null,
+    review_count: b.review_count ?? b.reviews_count ?? 0,
+    created_at: b.created_at || b.updated_at || new Date().toISOString(),
+  }));
+
+  const total = raw?.pagination?.total ?? data.length;
+  const stats = raw?.stats || {
+    total_business: total,
+    active_business: data.filter((x) => x.status === "ACTIVE" || x.status === "CLAIMED").length || total,
+    pending_business: data.filter((x) => x.status === "PENDING").length,
+  };
+
+  return {
+    data,
+    stats,
+    pagination: raw?.pagination || {
+      page: params.page || 1,
+      limit: params.limit || 10,
+      total,
+      total_pages: Math.ceil(total / (params.limit || 10)) || 1,
+    },
+  };
 }
 
 export async function createBusiness(
   payload: BusinessPayload
 ): Promise<{ message: string; data: BusinessListItem }> {
-  const res = await fetch(`${API_BASE_URL}/admin/businesses`, {
+  const res = await fetch(`${API_BASE_URL}/businesses`, {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify(payload),
   });
-  return handle(res);
+
+  const result = await handle<any>(res);
+  return {
+    message: result.message || "Bisnis berhasil ditambahkan",
+    data: result.data || result,
+  };
 }
 
 export async function updateBusiness(
   id: string,
   payload: Partial<BusinessPayload>
 ): Promise<{ message: string; data: BusinessListItem }> {
-  const res = await fetch(`${API_BASE_URL}/admin/businesses/${id}`, {
+  const res = await fetch(`${API_BASE_URL}/businesses/${id}`, {
     method: "PATCH",
     headers: authHeaders(),
     body: JSON.stringify(payload),
   });
-  return handle(res);
+
+  const result = await handle<any>(res);
+  return {
+    message: result.message || "Bisnis berhasil diperbarui",
+    data: result.data || result,
+  };
 }
 
 export async function deleteBusiness(id: string): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE_URL}/admin/businesses/${id}`, {
+  const res = await fetch(`${API_BASE_URL}/businesses/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
+  });
+
+  return handle(res);
+}
+
+// --- Trust & Safety (Review Reports) ---
+
+export interface AdminReviewReportItem {
+  id: string;
+  reason: string;
+  description: string | null;
+  status: "PENDING" | "RESOLVED" | "REJECTED";
+  resolution: "KEEP" | "HIDE" | null;
+  created_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  reviewer_name: string | null;
+  business: { id: string; name: string; slug: string } | null;
+  review: {
+    id: string;
+    rating: number;
+    content: string;
+    status: string;
+    author: { id: string; name: string; email: string } | null;
+  } | null;
+  reporter: { id: string; name: string; email: string } | null;
+}
+
+export interface AdminReviewReportsResponse {
+  data: AdminReviewReportItem[];
+  pagination: ApiPagination;
+}
+
+export async function fetchAdminReviewReports(
+  params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    reason?: string;
+  } = {}
+): Promise<AdminReviewReportsResponse> {
+  const qs = new URLSearchParams();
+  if (params.page) qs.append("page", String(params.page));
+  if (params.limit) qs.append("limit", String(params.limit));
+  if (params.status && params.status !== "all") qs.append("status", params.status);
+  if (params.reason && params.reason !== "all") qs.append("reason", params.reason);
+  const s = qs.toString();
+  const res = await fetch(`${API_BASE_URL}/admin/review-reports${s ? `?${s}` : ""}`, {
+    method: "GET",
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  return handle<AdminReviewReportsResponse>(res);
+}
+
+// --- Audit Logs ---
+
+export interface AdminAuditLogItem {
+  id: string;
+  action_type?: string;
+  actionType?: string;
+  data: any;
+  created_at?: string;
+  createdAt?: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  } | null;
+}
+
+export async function fetchAdminAuditLogs(limit = 100): Promise<{
+  success: boolean;
+  message: string;
+  data: AdminAuditLogItem[];
+}> {
+  const res = await fetch(`${API_BASE_URL}/customer-logs?limit=${limit}`, {
+    method: "GET",
+    headers: authHeaders(),
+    cache: "no-store",
   });
   return handle(res);
 }
