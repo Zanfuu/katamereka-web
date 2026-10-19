@@ -55,6 +55,7 @@ export default function KlaimBisnisPage() {
   const [selectedCity, setSelectedCity] = useState("Semua Kota");
   const [selectedCategory, setSelectedCategory] = useState("Semua Kategori");
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [hasClaimedMatches, setHasClaimedMatches] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Claim Modal State
@@ -78,6 +79,22 @@ export default function KlaimBisnisPage() {
       if (res && res.data) {
         const mapped = res.data.map(mapApiBusinessToUiModel);
         setBusinesses(mapped);
+
+        // Jika 0 bisnis belum diklaim tapi ada query pencarian,
+        // cek apakah bisnis tersebut sebenarnya sudah terdaftar & sudah diklaim
+        if (mapped.length === 0 && searchQuery.trim()) {
+          try {
+            const allCheck = await fetchBusinesses({
+              search: searchQuery.trim(),
+              limit: 3,
+            });
+            setHasClaimedMatches(Boolean(allCheck?.data && allCheck.data.length > 0));
+          } catch {
+            setHasClaimedMatches(false);
+          }
+        } else {
+          setHasClaimedMatches(false);
+        }
       }
     } catch (err) {
       console.warn("Failed fetching unclaimed businesses:", err);
@@ -221,17 +238,40 @@ export default function KlaimBisnisPage() {
               ))}
             </div>
           ) : businesses.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-12 text-center max-w-lg mx-auto space-y-4">
-              <div className="size-14 rounded-2xl bg-emerald-50 text-[#008767] flex items-center justify-center mx-auto">
-                <Store className="size-7" />
+            <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-8 sm:p-12 text-center max-w-lg mx-auto space-y-4">
+              <div
+                className={`size-14 rounded-2xl flex items-center justify-center mx-auto ${
+                  hasClaimedMatches ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-[#008767]"
+                }`}
+              >
+                {hasClaimedMatches ? <ShieldCheck className="size-7" /> : <Store className="size-7" />}
               </div>
-              <h3 className="font-bold text-slate-800 text-base">Bisnis Anda Belum Terdaftar?</h3>
+              <h3 className="font-bold text-slate-800 text-base">
+                {hasClaimedMatches ? "Bisnis Sudah Diklaim" : "Bisnis Anda Belum Terdaftar?"}
+              </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Tidak menemukan bisnis yang Anda cari? Anda bisa mendaftarkan bisnis baru secara langsung ke platform KataMereka.
+                {hasClaimedMatches ? (
+                  <>
+                    Bisnis dengan kata kunci <span className="font-semibold text-slate-800">"{searchQuery}"</span> sudah terdaftar dan telah diklaim oleh pemilik resminya. Bisnis yang sudah terverifikasi tidak dapat diklaim kembali melalui halaman ini.
+                  </>
+                ) : (
+                  "Tidak menemukan bisnis yang Anda cari? Anda bisa mendaftarkan bisnis baru secara langsung ke platform KataMereka."
+                )}
               </p>
-              <Button render={<Link href="/bisnis" />} className="bg-[#008767] hover:bg-[#007458] text-white text-xs">
-                Daftarkan Bisnis Baru
-              </Button>
+              {hasClaimedMatches ? (
+                <div className="flex items-center justify-center pt-1">
+                  <Button
+                    render={<Link href="/dashboard" />}
+                    className="bg-[#008767] hover:bg-[#007458] text-white text-xs w-full sm:w-auto"
+                  >
+                    Buka Dashboard Bisnis
+                  </Button>
+                </div>
+              ) : (
+                <Button render={<Link href="/bisnis" />} className="bg-[#008767] hover:bg-[#007458] text-white text-xs">
+                  Daftarkan Bisnis Baru
+                </Button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
