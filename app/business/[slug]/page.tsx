@@ -24,6 +24,8 @@ import {
   toggleFavorite,
   unfavoriteBusiness,
   recordBusinessView,
+  toggleReviewHelpful,
+  fetchMyHelpfulVotes,
 } from "@/lib/api-profile";
 import { getCleanCategory, slugify } from "@/lib/slug";
 import {
@@ -157,6 +159,19 @@ export default function BusinessProfilePage() {
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [myHelpfulVoteIds, setMyHelpfulVoteIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setMyHelpfulVoteIds(new Set());
+      return;
+    }
+    fetchMyHelpfulVotes().then((ids) => {
+      if (Array.isArray(ids)) {
+        setMyHelpfulVoteIds(new Set(ids));
+      }
+    });
+  }, [isLoggedIn]);
 
   useEffect(() => {
     async function loadApiBusinessDetail() {
@@ -981,6 +996,7 @@ export default function BusinessProfilePage() {
                           review={rev}
                           businessSlug={slug}
                           currentUserId={user?.id}
+                          isInitiallyHelpful={myHelpfulVoteIds.has(rev.id)}
                           onDelete={(id) => setConfirmDeleteId(id)}
                           isDeleting={deletingReviewId === rev.id}
                         />
@@ -1062,6 +1078,7 @@ export default function BusinessProfilePage() {
                         review={rev}
                         businessSlug={slug}
                         currentUserId={user?.id}
+                        isInitiallyHelpful={myHelpfulVoteIds.has(rev.id)}
                         onDelete={(id) => setConfirmDeleteId(id)}
                         isDeleting={deletingReviewId === rev.id}
                       />
@@ -1638,28 +1655,70 @@ interface ReviewCardProps {
   };
   businessSlug?: string;
   currentUserId?: string;
+  isInitiallyHelpful?: boolean;
   onDelete?: (id: string) => void;
   isDeleting?: boolean;
 }
 
-function ReviewCard({ review, businessSlug, currentUserId, onDelete, isDeleting }: ReviewCardProps) {
+function ReviewCard({ review, businessSlug, currentUserId, isInitiallyHelpful, onDelete, isDeleting }: ReviewCardProps) {
   const rating = typeof review.rating === "number" ? review.rating : parseFloat(String(review.rating ?? 0));
   const safeRating = isNaN(rating) ? 0 : Math.min(5, Math.max(0, rating));
   const initials = review.user?.initials || review.user?.name?.split(" ").map((w: string) => w[0]).join("").substring(0, 2).toUpperCase() || "U";
   const displayName = review.user?.name || "Pengguna";
   const isOwnReview = Boolean(currentUserId && (review.user?.id === currentUserId || review.userId === currentUserId));
 
-  const [isHelpful, setIsHelpful] = useState<boolean>(false);
+  const [isHelpful, setIsHelpful] = useState<boolean>(Boolean(isInitiallyHelpful));
   const initialHelpfulCount = review.helpfulCount ?? (review as any).helpful_count ?? 0;
   const [helpfulCount, setHelpfulCount] = useState<number>(initialHelpfulCount);
+  const [helpfulLoading, setHelpfulLoading] = useState<boolean>(false);
 
-  const toggleHelpful = () => {
-    if (isHelpful) {
-      setIsHelpful(false);
-      setHelpfulCount((prev) => Math.max(0, prev - 1));
-    } else {
-      setIsHelpful(true);
-      setHelpfulCount((prev) => prev + 1);
+  useEffect(() => {
+    setHelpfulCount(review.helpfulCount ?? (review as any).helpful_count ?? 0);
+  }, [review.id, review.helpfulCount, (review as any).helpful_count]);
+
+  useEffect(() => {
+    if (isInitiallyHelpful !== undefined) {
+      setIsHelpful(Boolean(isInitiallyHelpful));
+    }
+  }, [isInitiallyHelpful]);
+
+  const toggleHelpful = async () => {
+    if (helpfulLoading) return;
+    if (!currentUserId) {
+      toast.error("Silakan login terlebih dahulu untuk menandai ulasan bermanfaat");
+      return;
+    }
+    if (isOwnReview) {
+      toast.error("Anda tidak dapat menandai ulasan milik sendiri");
+      return;
+    }
+
+    const nextState = !isHelpful;
+    setIsHelpful(nextState);
+    setHelpfulCount((prev) => (nextState ? prev + 1 : Math.max(0, prev - 1)));
+    setHelpfulLoading(true);
+
+    try {
+      const res = await toggleReviewHelpful(review.id);
+      if (res && res.success) {
+        if (typeof res.isHelpful === "boolean") setIsHelpful(res.isHelpful);
+        else if (typeof res.is_helpful === "boolean") setIsHelpful(res.is_helpful);
+        if (typeof res.helpfulCount === "number") setHelpfulCount(res.helpfulCount);
+        else if (typeof res.helpful_count === "number") setHelpfulCount(res.helpful_count);
+        toast.success(res.message || (nextState ? "Ulasan ditandai bermanfaat" : "Batal menandai bermanfaat"));
+      } else {
+        // Rollback
+        setIsHelpful(!nextState);
+        setHelpfulCount((prev) => (!nextState ? prev + 1 : Math.max(0, prev - 1)));
+        toast.error(res?.message || "Gagal memperbarui vote helpful");
+      }
+    } catch {
+      // Rollback
+      setIsHelpful(!nextState);
+      setHelpfulCount((prev) => (!nextState ? prev + 1 : Math.max(0, prev - 1)));
+      toast.error("Terjadi kesalahan saat memproses vote");
+    } finally {
+      setHelpfulLoading(false);
     }
   };
 

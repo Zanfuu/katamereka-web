@@ -493,6 +493,11 @@ export default function ProfilePage() {
                                     Bisnis: <span className="font-semibold">{log.data.businessName}</span>
                                   </p>
                                 )}
+                                {log.data?.reviewTitle && (
+                                  <p className="text-xs text-slate-500 truncate mt-0.5">
+                                    Ulasan: <span className="font-medium italic">&quot;{log.data.reviewTitle}&quot;</span>
+                                  </p>
+                                )}
                                 <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
                                   <Calendar className="w-3 h-3" />{formatRelativeDate(log.createdAt)}
                                 </p>
