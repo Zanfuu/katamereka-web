@@ -15,8 +15,8 @@ import { DateRangeSelector } from "@/components/date-range-selector"
 import { FilterDropdown } from "@/components/filter-dropdown"
 import { PageHeader } from "@/components/page-header"
 import { RatingStars } from "@/components/rating-stars"
+import { ReplyDialog } from "@/components/reply-dialog"
 import { ResourceTable, type ResourceTableColumn } from "@/components/resource-table"
-import { ReviewDetailPanel } from "@/components/review-detail-panel"
 import { SearchInput } from "@/components/search-input"
 import { StatCard } from "@/components/stat-card"
 import { StatusBadge } from "@/components/status-badge"
@@ -56,6 +56,7 @@ import {
   type DashboardReviewSource,
   type DashboardReviewsQuery,
 } from "@/lib/api-business-dashboard"
+import { useBusinessContext } from "@/components/business-provider"
 import type { ModerationStatus, Review } from "@/lib/types"
 
 // This page is the one menu wired to the real backend — everything else in
@@ -142,8 +143,6 @@ function mapApiReviewToUiReview(r: ApiDashboardReview, business: ActiveBusiness)
   }
 }
 
-import { useBusinessContext } from "@/components/business-provider"
-
 export default function DashboardReviewsPage() {
   const { isLoggedIn } = useAuth()
   const { selectedBusiness, isLoading: isBusinessLoading } = useBusinessContext()
@@ -167,7 +166,7 @@ export default function DashboardReviewsPage() {
   const [verifiedFilter, setVerifiedFilter] = React.useState("all")
   const [advancedOpen, setAdvancedOpen] = React.useState(false)
   const [sourceFilter, setSourceFilter] = React.useState("all")
-  const [selectedId, setSelectedId] = React.useState<string | null>(null)
+  const [detailReview, setDetailReview] = React.useState<Review | null>(null)
 
   const [apiReviews, setApiReviews] = React.useState<ApiDashboardReview[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
@@ -258,7 +257,6 @@ export default function DashboardReviewsPage() {
   const sorted = [...reviews].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   )
-  const selectedReview = sorted.find((r) => r.id === selectedId) ?? sorted[0] ?? null
 
   async function handleReply(reviewId: string, content: string): Promise<boolean> {
     if (!businessId) return false
@@ -268,6 +266,22 @@ export default function DashboardReviewsPage() {
       return false
     }
     toast.success("Balasan berhasil dikirim.")
+    setApiReviews((prev) =>
+      prev.map((r) =>
+        r.id === reviewId
+          ? {
+              ...r,
+              reply: {
+                id: res.data?.id || `reply-${Date.now()}`,
+                content,
+                created_at: new Date().toISOString(),
+                author: { id: "me", name: activeBusiness?.name || "Admin Bisnis" },
+              },
+            }
+          : r
+      )
+    )
+    setUnrepliedCount((c) => Math.max(0, c - 1))
     setRefreshKey((k) => k + 1)
     return true
   }
@@ -277,6 +291,8 @@ export default function DashboardReviewsPage() {
       key: "reviewerName",
       header: "Pelanggan",
       sortValue: (r) => r.reviewerName,
+      headerClassName: "w-[180px] min-w-[150px]",
+      className: "w-[180px] min-w-[150px]",
       render: (review) => (
         <div className="flex items-center gap-2.5">
           <Avatar size="sm">
@@ -293,7 +309,7 @@ export default function DashboardReviewsPage() {
               {review.reviewerName}
             </p>
             {review.source && (
-              <p className="text-xs text-muted-foreground">melalui {review.source}</p>
+              <p className="truncate text-xs text-muted-foreground">melalui {review.source}</p>
             )}
           </div>
         </div>
@@ -303,51 +319,75 @@ export default function DashboardReviewsPage() {
       key: "rating",
       header: "Rating",
       sortValue: (r) => r.rating,
+      headerClassName: "w-[120px] whitespace-nowrap",
+      className: "w-[120px] whitespace-nowrap",
       render: (review) => <RatingStars rating={review.rating} size="sm" />,
     },
     {
       key: "content",
       header: "Review",
+      headerClassName: "min-w-[220px]",
+      className: "min-w-[220px]",
       render: (review) => (
-        <span className="line-clamp-1 max-w-56 text-foreground/90">{review.content}</span>
+        <div className="flex flex-col gap-1 max-w-xl">
+          <p className="line-clamp-2 text-sm text-foreground/90">{review.content}</p>
+          {review.reply && (
+            <p className="line-clamp-1 text-xs text-emerald-600 dark:text-emerald-400">
+              <span className="font-semibold">Balasan Anda:</span> {review.reply.content}
+            </p>
+          )}
+        </div>
       ),
     },
     {
       key: "isVerified",
       header: "Verifikasi",
+      headerClassName: "w-[110px] hidden sm:table-cell",
+      className: "w-[110px] hidden sm:table-cell",
       render: (review) => <StatusBadge status={review.isVerified ? "VERIFIED" : "UNVERIFIED"} />,
     },
     {
       key: "status",
       header: "Status",
+      headerClassName: "w-[120px] hidden md:table-cell",
+      className: "w-[120px] hidden md:table-cell",
       render: (review) => <StatusBadge status={reviewStatus(review)} />,
     },
     {
       key: "createdAt",
       header: "Tanggal",
       sortValue: (r) => r.createdAt,
-      render: (review) => (
-        <span className="text-muted-foreground">{formatDateTime(review.createdAt)}</span>
-      ),
+      headerClassName: "w-[140px] whitespace-nowrap hidden lg:table-cell",
+      className: "w-[140px] whitespace-nowrap hidden lg:table-cell text-xs text-muted-foreground",
+      render: (review) => formatDateTime(review.createdAt),
     },
     {
       key: "actions",
-      header: "",
-      className: "text-right",
-      headerClassName: "text-right",
+      header: "Aksi",
+      className: "w-[110px] text-right whitespace-nowrap",
+      headerClassName: "w-[110px] text-right whitespace-nowrap",
       render: (review) => (
-        <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1.5" onClick={(event) => event.stopPropagation()}>
+          {!review.reply && (
+            <ReplyDialog
+              review={review}
+              triggerLabel="Balas"
+              triggerVariant="outline"
+              triggerSize="sm"
+              onSubmit={(content) => handleReply(review.id, content)}
+            />
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
               ⋮
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setSelectedId(review.id)}>
+              <DropdownMenuItem onClick={() => setDetailReview(review)}>
                 Lihat Detail
               </DropdownMenuItem>
               {!review.reply && (
-                <DropdownMenuItem onClick={() => setSelectedId(review.id)}>
-                  Balas
+                <DropdownMenuItem onClick={() => setDetailReview(review)}>
+                  Balas Review
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -454,31 +494,105 @@ export default function DashboardReviewsPage() {
         <DateRangeSelector />
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div className="min-w-0 flex-1">
-          <ResourceTable
-            data={sorted}
-            columns={columns}
-            getRowId={(r) => r.id}
-            onRowClick={(review) => setSelectedId(review.id)}
-            isLoading={isLoading}
-            error={loadError}
-            rowClassName={(review) =>
-              selectedReview?.id === review.id ? "bg-accent/40 hover:bg-accent/50" : undefined
-            }
-            itemLabel="review"
-            emptyTitle="Belum ada review."
-            emptyDescription="Review dari pelanggan akan muncul di sini."
-          />
-        </div>
-        {selectedReview && (
-          <ReviewDetailPanel
-            review={selectedReview}
-            onClose={() => setSelectedId(null)}
-            onReply={(content) => handleReply(selectedReview.id, content)}
-          />
-        )}
+      <div className="w-full">
+        <ResourceTable
+          data={sorted}
+          columns={columns}
+          getRowId={(r) => r.id}
+          onRowClick={(review) => setDetailReview(review)}
+          isLoading={isLoading}
+          error={loadError}
+          itemLabel="review"
+          emptyTitle="Belum ada review."
+          emptyDescription="Review dari pelanggan akan muncul di sini."
+        />
       </div>
+
+      <Dialog open={!!detailReview} onOpenChange={(open) => !open && setDetailReview(null)}>
+        <DialogContent className="max-w-lg">
+          {detailReview && (
+            <div className="flex flex-col gap-4">
+              <DialogHeader>
+                <div className="flex items-center gap-3">
+                  <Avatar>
+                    <AvatarFallback>
+                      {detailReview.reviewerName
+                        .split(" ")
+                        .map((p) => p[0])
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <DialogTitle className="text-base font-semibold text-foreground">
+                      {detailReview.reviewerName}
+                    </DialogTitle>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                      {detailReview.source && <span>melalui {detailReview.source}</span>}
+                      <span>•</span>
+                      <span>{formatDateTime(detailReview.createdAt)}</span>
+                    </div>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="flex items-center justify-between">
+                <RatingStars rating={detailReview.rating} />
+                <div className="flex items-center gap-1.5">
+                  <StatusBadge status={detailReview.isVerified ? "VERIFIED" : "UNVERIFIED"} />
+                  <StatusBadge status={reviewStatus(detailReview)} />
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-muted/40 p-3.5 border border-border/50 text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
+                {detailReview.content}
+              </div>
+
+              {detailReview.reply ? (
+                <div className="flex flex-col gap-1.5 rounded-lg bg-secondary/80 p-3.5 border border-border/50">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-foreground">Balasan Anda</p>
+                    {detailReview.reply.repliedAt && (
+                      <span className="text-[11px] text-muted-foreground">
+                        {formatDateTime(detailReview.reply.repliedAt)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-foreground/90 whitespace-pre-wrap">
+                    {detailReview.reply.content}
+                  </p>
+                </div>
+              ) : (
+                <div className="pt-1 flex justify-end">
+                  <ReplyDialog
+                    review={detailReview}
+                    triggerLabel="Balas Review Ini"
+                    onSubmit={async (content) => {
+                      const success = await handleReply(detailReview.id, content)
+                      if (success) {
+                        setDetailReview((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                reply: {
+                                  content,
+                                  repliedAt: new Date().toISOString(),
+                                  repliedBy: activeBusiness?.name || "Admin Bisnis",
+                                },
+                              }
+                            : null
+                        )
+                      }
+                      return success
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
         <DialogContent>

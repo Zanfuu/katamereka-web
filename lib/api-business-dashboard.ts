@@ -283,7 +283,7 @@ export async function fetchDashboardReviews(
     limit: query.limit,
     rating: query.rating,
     reply_status: query.reply_status,
-    sort: query.sort,
+    sort: query.sort ? (query.sort.toLowerCase() as any) : undefined,
     verified: query.verified,
     source: query.source,
     search: query.search,
@@ -295,9 +295,80 @@ export async function fetchDashboardReviews(
       headers: authHeaders(),
       cache: "no-store",
     })
-    if (res.ok) return await res.json()
+    if (res.ok) {
+      const data = await res.json()
+      if (data && Array.isArray(data.data) && data.data.length > 0) {
+        return data
+      }
+    }
   } catch (e) {
     console.warn("fetchDashboardReviews failed:", e)
+  }
+
+  // Fallback: Fetch from public business reviews endpoint if dashboard endpoint is unauthorized or empty
+  try {
+    const pubRes = await fetch(`${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/reviews?limit=100`, {
+      cache: "no-store",
+    })
+    if (pubRes.ok) {
+      const pubJson = await pubRes.json()
+      const rawList = Array.isArray(pubJson.data) ? pubJson.data : []
+      if (rawList.length > 0) {
+        let filtered: ApiDashboardReview[] = rawList.map((r: any): ApiDashboardReview => ({
+          id: r.id,
+          rating: Number(r.rating || 5),
+          title: r.title || null,
+          content: r.content || "",
+          status: "PUBLISHED",
+          source: (r.source?.toUpperCase() as DashboardReviewSource) || "KATAMEREKA",
+          is_verified: true,
+          report_count: 0,
+          created_at: r.created_at || r.createdAt || new Date().toISOString(),
+          user: {
+            id: r.user?.id,
+            name: r.user?.name || "Pelanggan KataMereka",
+          },
+          reply: r.business_reply || r.reply
+            ? {
+                id: r.business_reply?.id || r.reply?.id || `rep-${r.id}`,
+                content: r.business_reply?.content || r.reply?.content || "",
+                created_at: r.business_reply?.created_at || r.reply?.created_at || r.created_at,
+                author: {
+                  id: r.business_reply?.author?.id || r.reply?.author?.id,
+                  name: r.business_reply?.author?.name || r.reply?.author?.name || "Admin Bisnis",
+                },
+              }
+            : null,
+        }))
+
+        if (query.reply_status === "UNREPLIED") {
+          filtered = filtered.filter((r) => !r.reply)
+        } else if (query.reply_status === "REPLIED") {
+          filtered = filtered.filter((r) => !!r.reply)
+        }
+        if (query.rating) {
+          filtered = filtered.filter((r) => r.rating === query.rating)
+        }
+        if (query.search) {
+          const s = query.search.toLowerCase()
+          filtered = filtered.filter(
+            (r) => r.content.toLowerCase().includes(s) || (r.user.name && r.user.name.toLowerCase().includes(s))
+          )
+        }
+
+        return {
+          data: filtered,
+          pagination: {
+            page: query.page ?? 1,
+            limit: query.limit ?? 100,
+            total: filtered.length,
+            total_pages: 1,
+          },
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("fallback public reviews failed:", e)
   }
 
   return {

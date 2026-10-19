@@ -1652,6 +1652,20 @@ interface ReviewCardProps {
     userId?: string;
     helpfulCount?: number;
     helpful_count?: number;
+    business_reply?: {
+      id?: string;
+      content?: string;
+      reply?: string;
+      created_at?: string;
+      author?: { id?: string; name?: string } | null;
+    } | null;
+    reply?: {
+      id?: string;
+      content?: string;
+      reply?: string;
+      created_at?: string;
+      author?: { id?: string; name?: string } | null;
+    } | string | null;
   };
   businessSlug?: string;
   currentUserId?: string;
@@ -1789,6 +1803,29 @@ function ReviewCard({ review, businessSlug, currentUserId, isInitiallyHelpful, o
       )}
       {review.content && (
         <p className="text-sm text-slate-600 leading-relaxed break-words">{review.content}</p>
+      )}
+
+      {/* Business Reply Box if any */}
+      {(review.business_reply || review.reply) && (
+        <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl sm:rounded-2xl p-3 sm:p-4 space-y-1.5 mt-2">
+          <div className="flex items-center justify-between text-xs font-bold text-[#008767]">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Respon dari Pemilik Bisnis</span>
+            </div>
+            {(review.business_reply?.created_at || (typeof review.reply === "object" && review.reply?.created_at)) && (
+              <span className="text-[11px] font-normal text-slate-400">
+                {relativeDate(review.business_reply?.created_at || (typeof review.reply === "object" ? review.reply?.created_at : undefined))}
+              </span>
+            )}
+          </div>
+          <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line break-words">
+            {review.business_reply?.content ||
+              review.business_reply?.reply ||
+              (typeof review.reply === "object" ? review.reply?.content || review.reply?.reply : review.reply) ||
+              ""}
+          </p>
+        </div>
       )}
 
       {/* Footer */}

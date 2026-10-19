@@ -45,10 +45,18 @@ interface ReviewItem {
   helpfulCount?: number;
   helpful_count?: number;
   business_reply?: {
-    reply: string;
+    id?: string;
+    content?: string;
+    reply?: string;
     created_at?: string;
     replied_at?: string;
   } | null;
+  reply?: {
+    id?: string;
+    content?: string;
+    reply?: string;
+    created_at?: string;
+  } | string | null;
 }
 
 export default function BusinessReviewsPage() {
@@ -915,14 +923,24 @@ function ReviewCardItem({
       )}
 
       {/* Business Reply Box if any */}
-      {review.business_reply && review.business_reply.reply && (
-        <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-3.5 space-y-1 mt-2">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-[#008767]">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Respon dari Pemilik Bisnis</span>
+      {(review.business_reply || (review as any).reply) && (
+        <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-3.5 space-y-1.5 mt-2">
+          <div className="flex items-center justify-between text-xs font-bold text-[#008767]">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Respon dari Pemilik Bisnis</span>
+            </div>
+            {(review.business_reply?.created_at || (review as any).reply?.created_at) && (
+              <span className="text-[11px] font-normal text-slate-400">
+                {relativeDate(review.business_reply?.created_at || (review as any).reply?.created_at)}
+              </span>
+            )}
           </div>
-          <p className="text-xs text-slate-700 leading-relaxed">
-            {review.business_reply.reply}
+          <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line break-words">
+            {review.business_reply?.content ||
+              review.business_reply?.reply ||
+              (review as any).reply?.content ||
+              (typeof (review as any).reply === "string" ? (review as any).reply : "")}
           </p>
         </div>
       )}
