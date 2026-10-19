@@ -10,6 +10,8 @@
   --font-sans: var(--font-poppins), system-ui, -apple-system, sans-serif;
   --font-heading: var(--font-gabarito), system-ui, sans-serif;
   --font-serif: var(--font-gabarito), system-ui, sans-serif;
+  --font-gabarito: var(--font-gabarito), system-ui, sans-serif;
+  --font-poppins: var(--font-poppins), system-ui, -apple-system, sans-serif;
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -155,7 +157,13 @@
     @apply bg-background text-foreground;
   }
   h1, h2, h3, h4, h5, h6, .font-serif, .font-heading, .font-gabarito {
-    font-family: var(--font-gabarito), system-ui, sans-serif;
+    font-family: var(--font-gabarito), system-ui, sans-serif !important;
+  }
+  h1 *, h2 *, h3 *, h4 *, h5 *, h6 *, .font-heading *, .font-gabarito * {
+    font-family: inherit;
+  }
+  p, a, input, textarea, button, select, label, li {
+    font-family: var(--font-poppins), system-ui, -apple-system, sans-serif;
   }
 }
 
@@ -215,3 +223,43 @@
   animation: mobileFadeIn 0.2s ease-out forwards;
   will-change: opacity;
 }
+
+/* 3D Flip Card Utilities for FAQ */
+.faq-perspective {
+  perspective: 1200px;
+}
+
+.faq-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  transition: transform 0.65s cubic-bezier(0.4, 0.0, 0.2, 1);
+  will-change: transform;
+}
+
+.faq-card-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.faq-card-front,
+.faq-card-back {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  transform-style: preserve-3d;
+}
+
+.faq-card-front {
+  transform: rotateY(0deg) translateZ(1px);
+}
+
+.faq-card-back {
+  transform: rotateY(180deg) translateZ(1px);
+}
+

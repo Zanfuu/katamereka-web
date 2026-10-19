@@ -11,6 +11,7 @@ import { fetchCategoryFacets, ApiCategoryFacet } from "@/lib/api-client";
 import { slugify, categoryDisplayName } from "@/lib/slug";
 import {
   MessageSquare,
+  Search,
   ChevronDown,
   ChevronRight,
   Menu,
@@ -31,9 +32,10 @@ import {
 
 interface NavbarProps {
   isBusinessPage?: boolean;
+  floating?: boolean;
 }
 
-export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProps = {}) {
+export default function Navbar({ isBusinessPage: forceBusinessView, floating }: NavbarProps = {}) {
   const pathname = usePathname();
   const { user, isLoggedIn, logout } = useAuth();
 
@@ -66,7 +68,8 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
     };
-    window.addEventListener("scroll", handleScroll);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -93,6 +96,8 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
     pathname.startsWith("/untuk-bisnis") ||
     (mounted && typeof window !== "undefined" && isBusinessHost(window.location.hostname));
 
+  const isFloating = floating !== undefined ? floating : false;
+
   const isBusinessUser =
     mounted &&
     isLoggedIn &&
@@ -102,14 +107,35 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
 
   return (
     <header
-      className={`sticky top-0 z-50 transition-all duration-300 border-b ${
-        isScrolled
-          ? "bg-white/85 backdrop-blur-md shadow-md border-slate-200/80"
-          : "bg-white/95 backdrop-blur-sm border-slate-200/80 shadow-xs"
-      }`}
-      style={{ backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}
+      className={
+        isFloating
+          ? "fixed top-3 sm:top-4 left-0 right-0 z-50 transition-all duration-300 w-full px-3 sm:px-6 lg:px-8 pointer-events-none"
+          : `sticky top-0 z-50 transition-all duration-300 border-b ${
+              isScrolled
+                ? "bg-white/80 backdrop-blur-md border-slate-200/80 shadow-sm"
+                : "bg-white border-slate-100 shadow-2xs"
+            }`
+      }
+      style={
+        !isFloating
+          ? {
+              backdropFilter: isScrolled ? "blur(12px)" : "none",
+              WebkitBackdropFilter: isScrolled ? "blur(12px)" : "none",
+            }
+          : undefined
+      }
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+      <div
+        className={
+          isFloating
+            ? `max-w-7xl mx-auto rounded-full transition-all duration-300 px-4 sm:px-7 h-16 flex items-center justify-between gap-3 sm:gap-4 pointer-events-auto border ${
+                isScrolled
+                  ? "bg-white/75 backdrop-blur-xl shadow-xl shadow-slate-900/10 border-white/70"
+                  : "bg-white/95 backdrop-blur-md shadow-sm border-slate-100/90"
+              }`
+            : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-4"
+        }
+      >
         
         {/* Logo */}
         <Link href={isBusinessView ? "/bisnis" : "/"} className="flex items-center gap-2.5 group flex-shrink-0">
@@ -117,7 +143,7 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
             <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
-            <span className="text-2xl font-bold text-slate-900 tracking-tight leading-none">
+            <span className="font-heading text-2xl font-bold text-slate-900 tracking-tight leading-none">
               Kata<span className="text-[#008767]">mereka</span>
             </span>
             {isBusinessView && (
@@ -212,38 +238,52 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
             <>
               <Link
                 href="/"
-                className={`transition-colors hover:text-[#008767] ${
-                  isActive("/") && pathname === "/" ? "text-[#008767] font-bold" : ""
+                className={`relative py-1 text-sm transition-colors hover:text-[#008767] ${
+                  isActive("/") && pathname === "/" ? "text-slate-900 font-bold" : "text-slate-600 font-medium"
                 }`}
               >
-                Utama
-              </Link>
-
-              <Link
-                href="/businesses"
-                className={`relative group flex items-center gap-1 transition-colors hover:text-[#008767] ${
-                  isActive("/businesses") || (isActive("/business") && !isBusinessUser)
-                    ? "text-[#008767] font-bold"
-                    : ""
-                }`}
-              >
-                <span>Jelajahi</span>
-                <ChevronDown className="w-4 h-4 opacity-70 group-hover:rotate-180 transition-transform" />
+                <span>Beranda</span>
+                {isActive("/") && pathname === "/" && (
+                  <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-[#008767] rounded-full" />
+                )}
               </Link>
 
               <div className="relative group">
                 <Link
                   href="/businesses"
-                  className="flex items-center gap-1 transition-colors hover:text-[#008767]"
+                  className={`flex items-center gap-1 py-1 text-sm transition-colors hover:text-[#008767] ${
+                    isActive("/businesses") ? "text-[#008767] font-bold" : "text-slate-600 font-medium"
+                  }`}
+                >
+                  <span>Jelajahi</span>
+                </Link>
+                <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 absolute left-0 top-full pt-2 transition-all duration-150 z-50">
+                  <div className="w-52 bg-white rounded-2xl shadow-xl border border-slate-200/80 py-2">
+                    <Link
+                      href="/businesses"
+                      className="block px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-[#008767] transition-colors"
+                    >
+                      Semua Bisnis
+                    </Link>
+                    <Link
+                      href="/search"
+                      className="block px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-[#008767] transition-colors"
+                    >
+                      Pencarian Lanjutan
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              <div className="relative group">
+                <Link
+                  href="/businesses"
+                  className="flex items-center gap-1 py-1 text-sm transition-colors hover:text-[#008767] text-slate-600 font-medium"
                 >
                   <span>Kategori</span>
-                  <ChevronDown className="w-4 h-4 opacity-70 group-hover:rotate-180 transition-transform" />
                 </Link>
-                {/* Rendered unconditionally (not gated behind JS state) so
-                    every category link is present in the server HTML for
-                    crawlers, and only its visibility is toggled on hover. */}
                 <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 absolute left-0 top-full pt-2 transition-all duration-150 z-50">
-                  <div className="w-56 bg-white rounded-2xl shadow-xl border border-slate-200/80 py-2">
+                  <div className="w-56 bg-white rounded-2xl shadow-xl border border-slate-200/80 py-2 max-h-80 overflow-y-auto">
                     {categoryFacets.map((c) => (
                       <Link
                         key={c.category}
@@ -258,18 +298,9 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
               </div>
 
               <Link
-                href="/blogs"
-                className={`transition-colors hover:text-[#008767] ${
-                  isActive("/blogs") ? "text-[#008767] font-bold" : ""
-                }`}
-              >
-                Blog
-              </Link>
-
-              <Link
                 href="/tentang-kami"
-                className={`transition-colors hover:text-[#008767] ${
-                  isActive("/tentang-kami") ? "text-[#008767] font-bold" : ""
+                className={`py-1 text-sm transition-colors hover:text-[#008767] ${
+                  isActive("/tentang-kami") ? "text-[#008767] font-bold" : "text-slate-600 font-medium"
                 }`}
               >
                 Tentang Kami
@@ -279,7 +310,15 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
         </nav>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Search Icon Link from mockup */}
+          <Link
+            href="/search"
+            className="w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-600 hover:text-[#008767] transition-colors cursor-pointer"
+            aria-label="Pencarian"
+          >
+            <Search className="w-4 h-4 sm:w-5 sm:h-5" />
+          </Link>
           
           {/* Business Notification Bell (For Business Accounts) */}
           {isBusinessUser && (
@@ -309,10 +348,11 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
               {/* Profile Avatar Button */}
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2 p-1 rounded-full hover:bg-slate-100 transition-colors border border-slate-200/80 cursor-pointer"
+                className="flex items-center p-0.5 rounded-full border border-emerald-400/80 hover:ring-2 hover:ring-[#008767]/30 transition-all cursor-pointer shadow-2xs"
+                aria-label="Menu Profil"
               >
-                <div className="w-10 h-10 rounded-full bg-[#008767] text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                  {user.initials}
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#008767] text-white flex items-center justify-center font-bold text-sm shadow-inner">
+                  {user.initials || "I"}
                 </div>
               </button>
 
@@ -414,27 +454,59 @@ export default function Navbar({ isBusinessPage: forceBusinessView }: NavbarProp
               </Link>
             </div>
           ) : (
-            /* Main Customer Site Header Buttons: Login | For Business */
-            <div className="hidden sm:flex items-center gap-3">
-              <Link
-                href="/login"
-                className="px-4 py-2 rounded-xl text-slate-700 hover:text-[#008767] font-bold text-sm transition-colors"
+            /* Main Customer Site Header: Clean Avatar Button (opens auth menu) matching mockup */
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                className="flex items-center p-0.5 rounded-full border border-emerald-400/80 hover:ring-2 hover:ring-[#008767]/30 transition-all cursor-pointer shadow-2xs"
+                aria-label="Menu Akun"
               >
-                Login
-              </Link>
-              <Link
-                href={businessUrl}
-                className="px-5 py-2.5 rounded-xl bg-[#008767] hover:bg-[#007055] text-white font-bold text-sm shadow-md shadow-[#008767]/20 transition-all hover:scale-105"
-              >
-                For Business
-              </Link>
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#008767] text-white flex items-center justify-center font-bold text-sm shadow-inner">
+                  I
+                </div>
+              </button>
+
+              {profileDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/80 py-2 z-50 animate-fadeIn">
+                  <div className="px-4 py-2.5 border-b border-slate-100">
+                    <p className="font-bold text-slate-900 text-sm">Akun</p>
+                    <p className="text-xs text-slate-500">Masuk untuk memberi ulasan</p>
+                  </div>
+                  <div className="py-1 text-xs font-semibold text-slate-700">
+                    <Link
+                      href="/login"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
+                    >
+                      <UserIcon className="w-4 h-4 text-slate-400" />
+                      <span>Masuk / Login</span>
+                    </Link>
+                    <Link
+                      href="/signup"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
+                    >
+                      <UserIcon className="w-4 h-4 text-slate-400" />
+                      <span>Daftar Akun Baru</span>
+                    </Link>
+                    <Link
+                      href={businessUrl}
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 hover:text-[#008767] transition-colors"
+                    >
+                      <Store className="w-4 h-4 text-slate-400" />
+                      <span>Untuk Bisnis</span>
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {/* Mobile Menu Toggle Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 transition-colors flex-shrink-0"
+            className="md:hidden w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 transition-colors flex-shrink-0"
             aria-label="Toggle Menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}

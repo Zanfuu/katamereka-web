@@ -375,8 +375,20 @@ export async function fetchBusinesses(
                       cover_url: item.cover_url || item.coverUrl || detailJson.data.cover_url || detailJson.data.coverUrl || null,
                       logo_url: item.logo_url || item.logoUrl || detailJson.data.logo_url || detailJson.data.logoUrl || null,
                       photos: (Array.isArray(item.photos) && item.photos.length > 0) ? item.photos : (detailJson.data.photos || []),
-                      averageRating: detailJson.data.average_rating ?? detailJson.data.averageRating ?? detailJson.data.rating ?? null,
-                      reviewCount: detailJson.data.review_count ?? detailJson.data.reviewCount ?? detailJson.data.reviews_count ?? 0,
+                      averageRating:
+                        detailJson.data.average_rating ||
+                        detailJson.data.averageRating ||
+                        detailJson.data.rating ||
+                        (item as any).rating ||
+                        (item as any).averageRating ||
+                        null,
+                      reviewCount:
+                        detailJson.data.review_count ||
+                        detailJson.data.reviewCount ||
+                        detailJson.data.reviews_count ||
+                        (item as any).reviews_count ||
+                        (item as any).reviewCount ||
+                        0,
                     };
                   }
                 }
@@ -1087,8 +1099,16 @@ export async function rejectBusinessClaim(
  * UI Adapter to convert ApiBusinessListItem to UI Business Model
  */
 export function mapApiBusinessToUiModel(item: ApiBusinessListItem | ApiBusinessDetail | any): Business {
-  const rawRating = (item as any).averageRating ?? (item as any).average_rating ?? null;
-  const rawCount = (item as any).reviewCount ?? (item as any).review_count ?? null;
+  const rawRating =
+    (item as any).averageRating ||
+    (item as any).average_rating ||
+    (item as any).rating ||
+    null;
+  const rawCount =
+    (item as any).reviewCount ||
+    (item as any).review_count ||
+    (item as any).reviews_count ||
+    null;
 
   let parsedRating = 0;
   let reviewsCountVal = 0;
@@ -1100,10 +1120,12 @@ export function mapApiBusinessToUiModel(item: ApiBusinessListItem | ApiBusinessD
 
   if (rawRating !== null && rawRating !== undefined) {
     const r = typeof rawRating === "number" ? rawRating : parseFloat(String(rawRating));
-    if (!isNaN(r) && r > 0) parsedRating = r;
+    if (!isNaN(r) && r > 0) {
+      parsedRating = Math.min(5, Math.max(0, r));
+    }
   }
 
-  // Zero out if 0 reviews (ignore static Geoapify placeholder 4.50 / 12)
+  // Zero out if 0 reviews
   if (reviewsCountVal === 0) {
     parsedRating = 0;
   }
