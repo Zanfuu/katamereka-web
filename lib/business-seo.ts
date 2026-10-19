@@ -130,7 +130,13 @@ export function buildBusinessDescription(b: ApiBusinessDetail): string {
   }
 }
 
-/** Task 7: schema.org @type varies by category group instead of always LocalBusiness. */
+/**
+ * Task 7: schema.org @type varies by category group instead of always LocalBusiness.
+ * Every returned type must be LocalBusiness or a subtype of it — Google's
+ * Review snippet only accepts aggregateRating on supported parent types, and
+ * plain "Service" is not one (it triggers `Invalid object type for field
+ * "<parent_node>"`).
+ */
 export function businessSchemaType(group: BusinessCategoryGroup): string {
   switch (group) {
     case "RESTAURANT":
@@ -142,7 +148,6 @@ export function businessSchemaType(group: BusinessCategoryGroup): string {
     case "RETAIL":
       return "Store";
     case "SERVICE":
-      return "Service";
     default:
       return "LocalBusiness";
   }
@@ -191,6 +196,8 @@ export function buildBusinessSchema(
     schema.aggregateRating = {
       "@type": "AggregateRating",
       ratingValue,
+      bestRating: 5,
+      worstRating: 1,
       reviewCount,
     };
   }
