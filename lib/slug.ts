@@ -107,6 +107,12 @@ export function getCleanCategory(
   categories?: string[] | null,
   category?: string | null
 ): string {
+  // 1. Prioritize primary category set by owner
+  if (category && category.trim()) {
+    return categoryDisplayName(category);
+  }
+
+  // 2. Fallback to additional categories if primary is empty
   if (Array.isArray(categories) && categories.length > 0) {
     const valid = categories.filter(isRealBusinessCategory);
     // Prioritize specific category with sub-types (e.g., accommodation.hotel, catering.restaurant)
@@ -117,9 +123,5 @@ export function getCleanCategory(
     if (valid.length > 0) return categoryDisplayName(valid[0]);
   }
 
-  if (category && isRealBusinessCategory(category)) {
-    return categoryDisplayName(category);
-  }
-
-  return "Hotel & Akomodasi";
+  return "Bisnis & Layanan";
 }

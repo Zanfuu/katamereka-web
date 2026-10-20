@@ -54,6 +54,7 @@ import {
 
 import { CoverCropDialog } from "@/components/cover-crop-dialog"
 import { getConsumerSiteUrl } from "@/lib/site-config"
+import { categoryDisplayName, isRealBusinessCategory } from "@/lib/slug"
 
 import { useBusinessContext } from "@/components/business-provider"
 import { resolveMediaUrl } from "@/lib/cms-api"
@@ -733,23 +734,120 @@ function LokasiTab({ business }: { business: Business }) {
 /* ==================================================
  * TAB 3: KATEGORI & LAYANAN
  * ================================================== */
+const SUGGESTED_TAGS = [
+  "Wi-Fi Gratis",
+  "Area Parkir",
+  "AC",
+  "Layanan 24 Jam",
+  "Cashless / QRIS",
+  "Outdoor Area",
+  "Akses Kursi Roda",
+  "Reservasi Online",
+]
+
+const DEFAULT_BUSINESS_CATEGORIES = [
+  "Hotel & Penginapan",
+  "Hotel & Akomodasi",
+  "Restoran & Kafe",
+  "Kuliner & Makanan",
+  "Apartemen & Properti",
+  "Chalet",
+  "Guest House",
+  "Hostel",
+  "Rental Kendaraan",
+  "Layanan & Jasa",
+  "Pusat Perbelanjaan & Retail",
+  "Wisata & Rekreasi",
+  "Kesehatan & Medis",
+  "Pendidikan & Kursus",
+  "Kecantikan & Spa",
+  "Teknologi & Komputer",
+  "Bisnis & Keuangan",
+  "Bisnis & Makanan",
+  "Home Stay",
+]
+
 function KategoriTab({ business }: { business: Business }) {
   const { refetch } = useBusinessContext()
+  const [isEditing, setIsEditing] = React.useState(false)
   const [primaryCategory, setPrimaryCategory] = React.useState(business.category || "Bisnis")
-  const [categories, setCategories] = React.useState<string[]>(
-    business.additionalCategories || ["Layanan Unggulan", "Konsultasi"]
-  )
+  const [existingCategories, setExistingCategories] = React.useState<string[]>(DEFAULT_BUSINESS_CATEGORIES)
+  const [categories, setCategories] = React.useState<string[]>(() => {
+    if (Array.isArray(business.additionalCategories) && business.additionalCategories.length > 0) {
+      return business.additionalCategories
+    }
+    if (typeof window !== "undefined" && business.id) {
+      try {
+        const cached = localStorage.getItem(`katamereka_business_categories_${business.id}`)
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed
+        }
+      } catch {}
+    }
+    return []
+  })
   const [newCat, setNewCat] = React.useState("")
   const [saving, setSaving] = React.useState(false)
+
+  React.useEffect(() => {
+    fetch("/api/business/categories")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && Array.isArray(d.categories)) {
+          const names = d.categories
+            .map((c: string) => categoryDisplayName(c))
+            .filter((c: string) => isRealBusinessCategory(c))
+          const merged = Array.from(new Set([...DEFAULT_BUSINESS_CATEGORIES, ...names]))
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b))
+          setExistingCategories(merged)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   React.useEffect(() => {
     setPrimaryCategory(business.category || "Bisnis")
   }, [business.category])
 
-  const handleAddCategory = () => {
-    if (newCat.trim() && !categories.includes(newCat.trim())) {
-      setCategories([...categories, newCat.trim()])
-      setNewCat("")
+  React.useEffect(() => {
+    if (Array.isArray(business.additionalCategories) && business.additionalCategories.length > 0) {
+      setCategories(business.additionalCategories)
+    } else if (typeof window !== "undefined" && business.id) {
+      try {
+        const cached = localStorage.getItem(`katamereka_business_categories_${business.id}`)
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCategories(parsed)
+            return
+          }
+        }
+      } catch {}
+
+      fetch(`/api/business/categories?businessId=${encodeURIComponent(business.id)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && Array.isArray(d.categories) && d.categories.length > 0) {
+            setCategories(d.categories)
+            try {
+              localStorage.setItem(
+                `katamereka_business_categories_${business.id}`,
+                JSON.stringify(d.categories)
+              )
+            } catch {}
+          }
+        })
+        .catch(() => {})
+    }
+  }, [business.additionalCategories, business.id])
+
+  const handleAddCategory = (tag?: string) => {
+    const val = (tag || newCat).trim()
+    if (val && !categories.includes(val)) {
+      setCategories([...categories, val])
+      if (!tag) setNewCat("")
     }
   }
 
@@ -757,15 +855,35 @@ function KategoriTab({ business }: { business: Business }) {
     setCategories(categories.filter((c) => c !== cat))
   }
 
+  const handleCancel = () => {
+    setPrimaryCategory(business.category || "Bisnis")
+    setCategories(
+      Array.isArray(business.additionalCategories) ? business.additionalCategories : []
+    )
+    setNewCat("")
+    setIsEditing(false)
+  }
+
   const handleSave = async () => {
     if (!business.id) return
     setSaving(true)
     try {
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(
+            `katamereka_business_categories_${business.id}`,
+            JSON.stringify(categories)
+          )
+        } catch {}
+      }
+
       const res = await updateBusinessProfile(business.id, {
         category: primaryCategory.trim(),
+        categories: categories,
       })
       if (res.success) {
         toast.success(res.message || "Kategori & Layanan berhasil diperbarui.")
+        setIsEditing(false)
         await refetch()
       } else {
         toast.error(res.message || "Gagal memperbarui kategori.")
@@ -789,12 +907,44 @@ function KategoriTab({ business }: { business: Business }) {
         <CardContent className="space-y-6">
           <Field>
             <FieldLabel htmlFor="primary-cat">Kategori Utama</FieldLabel>
-            <Input
-              id="primary-cat"
-              value={primaryCategory}
-              onChange={(e) => setPrimaryCategory(e.target.value)}
-              placeholder="Contoh: Restoran & Kafe, Rental Mobil, Jasa Kebersihan"
-            />
+            <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
+              <div className="flex-1">
+                <Input
+                  id="primary-cat"
+                  value={primaryCategory}
+                  onChange={(e) => setPrimaryCategory(e.target.value)}
+                  placeholder="Ketik kategori utama baru atau pilih dari dropdown..."
+                  disabled={!isEditing}
+                  className={!isEditing ? "bg-slate-50 text-slate-700 disabled:opacity-90 disabled:cursor-default" : ""}
+                />
+              </div>
+              {isEditing && (
+                <div className="w-full sm:w-72 shrink-0">
+                  <Select
+                    value={existingCategories.includes(primaryCategory) ? primaryCategory : ""}
+                    onValueChange={(val) => {
+                      if (val) setPrimaryCategory(val)
+                    }}
+                  >
+                    <SelectTrigger className="w-full bg-white">
+                      <SelectValue placeholder="Pilih kategori yang ada..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 overflow-y-auto">
+                      {existingCategories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+            {isEditing && (
+              <p className="text-[11px] text-slate-500 mt-1">
+                *Pilih kategori dari dropdown atau ketik nama kategori baru Anda secara bebas pada kotak di sebelah kiri.
+              </p>
+            )}
           </Field>
 
           <div className="space-y-3">
@@ -806,44 +956,103 @@ function KategoriTab({ business }: { business: Business }) {
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-100 text-[#008767] font-bold text-xs border border-emerald-200"
                 >
                   {cat}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveCategory(cat)}
-                    className="hover:text-red-600 transition-colors"
-                  >
-                    <XIcon className="size-3.5" />
-                  </button>
+                  {isEditing && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCategory(cat)}
+                      className="hover:text-red-600 transition-colors cursor-pointer"
+                      title={`Hapus ${cat}`}
+                    >
+                      <XIcon className="size-3.5" />
+                    </button>
+                  )}
                 </span>
               ))}
               {categories.length === 0 && (
-                <span className="text-xs text-slate-400">Belum ada kategori tambahan.</span>
+                <span className="text-xs text-slate-400">Belum ada kategori tambahan atau tag layanan.</span>
               )}
             </div>
 
-            <div className="flex gap-2">
-              <Input
-                value={newCat}
-                onChange={(e) => setNewCat(e.target.value)}
-                placeholder="Tambah kategori baru (contoh: Wi-Fi Gratis, Outdoor Area)"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault()
-                    handleAddCategory()
-                  }
-                }}
-              />
-              <Button variant="outline" type="button" onClick={handleAddCategory}>
-                <PlusIcon className="mr-1 size-4" />
-                Tambah
-              </Button>
-            </div>
+            {isEditing && (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    value={newCat}
+                    onChange={(e) => setNewCat(e.target.value)}
+                    placeholder="Tambah kategori baru (contoh: Wi-Fi Gratis, Outdoor Area)"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        handleAddCategory()
+                      }
+                    }}
+                  />
+                  <Button variant="outline" type="button" onClick={() => handleAddCategory()}>
+                    <PlusIcon className="mr-1 size-4" />
+                    Tambah
+                  </Button>
+                </div>
+
+                {/* Quick Suggestions */}
+                <div className="pt-1">
+                  <p className="text-[11px] text-slate-500 font-medium mb-1.5">Saran Tag Populer (klik untuk menambahkan):</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SUGGESTED_TAGS.map((tag) => {
+                      const isAdded = categories.includes(tag)
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          disabled={isAdded}
+                          onClick={() => handleAddCategory(tag)}
+                          className={`text-[11px] px-2.5 py-1 rounded-full border transition-all ${
+                            isAdded
+                              ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
+                              : "bg-white text-slate-700 border-slate-200 hover:border-[#008767] hover:text-[#008767] hover:bg-emerald-50/50 cursor-pointer shadow-2xs"
+                          }`}
+                        >
+                          {isAdded ? `✓ ${tag}` : `+ ${tag}`}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
-          <div className="pt-2 flex justify-end">
-            <Button onClick={handleSave} disabled={saving} className="bg-[#008767] hover:bg-[#007055]">
-              <SaveIcon className="mr-1.5 size-4" />
-              {saving ? "Menyimpan..." : "Simpan Kategori"}
-            </Button>
+          <div className="pt-2 flex justify-end gap-2">
+            {!isEditing ? (
+              <Button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="bg-[#008767] hover:bg-[#007055] text-white cursor-pointer"
+              >
+                <PencilIcon className="mr-1.5 size-4" />
+                Edit
+              </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancel}
+                  disabled={saving}
+                  className="cursor-pointer"
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="bg-[#008767] hover:bg-[#007055] text-white cursor-pointer"
+                >
+                  <SaveIcon className="mr-1.5 size-4" />
+                  {saving ? "Menyimpan..." : "Simpan Kategori"}
+                </Button>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
