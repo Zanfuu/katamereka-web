@@ -582,6 +582,18 @@ export async function fetchPopularBusinesses(): Promise<ApiBusinessListItem[]> {
 
 export async function fetchCategoryFacets(): Promise<ApiCategoryFacet[]> {
   try {
+    if (typeof window !== "undefined") {
+      try {
+        const localRes = await fetch("/api/business/categories", { cache: "no-store" });
+        if (localRes.ok) {
+          const localJson = await localRes.json();
+          if (Array.isArray(localJson?.data) && localJson.data.length > 0) {
+            return localJson.data;
+          }
+        }
+      } catch {}
+    }
+
     const res = await fetch(`${API_BASE_URL}/businesses/categories`, { cache: "no-store" });
     if (res.ok) {
       const json = await res.json();

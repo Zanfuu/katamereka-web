@@ -44,6 +44,7 @@ export interface MyBusinessItem {
   is_claimed: boolean
   description?: string
   category?: string
+  categories?: string[]
   website?: string
   phone?: string
   email?: string
@@ -74,7 +75,26 @@ export async function fetchMyBusinesses(): Promise<MyBusinessItem[]> {
     })
     if (!res.ok) return []
     const data = await res.json()
-    return Array.isArray(data) ? data : []
+    const list: MyBusinessItem[] = Array.isArray(data) ? data : []
+
+    // Augment with categories from localStorage if remote server returns null/empty
+    if (typeof window !== "undefined") {
+      for (const item of list) {
+        if (!item.categories || !Array.isArray(item.categories) || item.categories.length === 0) {
+          try {
+            const cached = localStorage.getItem(`katamereka_business_categories_${item.id}`)
+            if (cached) {
+              const parsed = JSON.parse(cached)
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                item.categories = parsed
+              }
+            }
+          } catch {}
+        }
+      }
+    }
+
+    return list
   } catch (e) {
     console.warn("fetchMyBusinesses failed:", e)
     return []
@@ -108,6 +128,7 @@ export interface UpdateBusinessProfilePayload {
   province?: string
   postal_code?: string
   category?: string
+  categories?: string[]
   photos?: string[]
   opening_hours?: Record<string, any>
   social_media?: Record<string, any>
@@ -118,6 +139,31 @@ export async function updateBusinessProfile(
   payload: UpdateBusinessProfilePayload
 ): Promise<{ success: boolean; message: string; data?: any }> {
   try {
+    // If categories are being updated, sync them to localStorage and direct DB route
+    if (payload.categories !== undefined) {
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(
+            `katamereka_business_categories_${businessId}`,
+            JSON.stringify(payload.categories)
+          )
+        } catch {}
+      }
+      try {
+        await fetch("/api/business/categories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            businessId,
+            categories: payload.categories,
+            category: payload.category,
+          }),
+        })
+      } catch (syncErr) {
+        console.warn("Direct categories sync error:", syncErr)
+      }
+    }
+
     const res = await fetch(`${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/profile`, {
       method: "PATCH",
       headers: authHeaders(),

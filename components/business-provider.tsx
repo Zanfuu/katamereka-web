@@ -36,6 +36,21 @@ function mapMyBusinessToDomain(item: MyBusinessItem): Business {
     slug: item.slug,
     description: item.description || "",
     category: item.category || "Bisnis",
+    additionalCategories: (() => {
+      if (Array.isArray(item.categories) && item.categories.length > 0) {
+        return item.categories
+      }
+      if (typeof window !== "undefined" && item.id) {
+        try {
+          const cached = localStorage.getItem(`katamereka_business_categories_${item.id}`)
+          if (cached) {
+            const parsed = JSON.parse(cached)
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed
+          }
+        } catch {}
+      }
+      return []
+    })(),
     website: item.website || undefined,
     phone: item.phone || undefined,
     email: item.email || undefined,

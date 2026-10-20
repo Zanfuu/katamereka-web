@@ -8,7 +8,7 @@ import { useAuth, isKnownBusinessAccount } from "@/lib/auth-context";
 import { isBusinessHost } from "@/lib/site-config";
 import { getBusinessUrl } from "@/lib/domain";
 import { fetchCategoryFacets, ApiCategoryFacet } from "@/lib/api-client";
-import { slugify, categoryDisplayName } from "@/lib/slug";
+import { slugify, categoryDisplayName, isRealBusinessCategory } from "@/lib/slug";
 import {
   MessageSquare,
   Search,
@@ -51,7 +51,10 @@ export default function Navbar({ isBusinessPage: forceBusinessView, floating }: 
   useEffect(() => {
     setMounted(true);
     setBusinessUrl(getBusinessUrl());
-    fetchCategoryFacets().then((facets) => setCategoryFacets(facets.slice(0, 10)));
+    fetchCategoryFacets().then((facets) => {
+      const real = facets.filter((f) => isRealBusinessCategory(f.category));
+      setCategoryFacets(real);
+    });
 
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
