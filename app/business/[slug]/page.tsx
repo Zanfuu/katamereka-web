@@ -29,6 +29,8 @@ import {
   fetchMyHelpfulVotes,
 } from "@/lib/api-profile";
 import { getCleanCategory, slugify } from "@/lib/slug";
+import { LoginDialog } from "@/components/login-dialog";
+
 import {
   Dialog,
   DialogContent,
@@ -1688,6 +1690,7 @@ function ReviewCard({ review, businessSlug, currentUserId, isInitiallyHelpful, o
   const initialHelpfulCount = review.helpfulCount ?? (review as any).helpful_count ?? 0;
   const [helpfulCount, setHelpfulCount] = useState<number>(initialHelpfulCount);
   const [helpfulLoading, setHelpfulLoading] = useState<boolean>(false);
+  const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
 
   useEffect(() => {
     setHelpfulCount(review.helpfulCount ?? (review as any).helpful_count ?? 0);
@@ -1702,7 +1705,7 @@ function ReviewCard({ review, businessSlug, currentUserId, isInitiallyHelpful, o
   const toggleHelpful = async () => {
     if (helpfulLoading) return;
     if (!currentUserId) {
-      toast.error("Silakan login terlebih dahulu untuk menandai ulasan bermanfaat");
+      setShowLoginModal(true);
       return;
     }
     if (isOwnReview) {
@@ -1886,6 +1889,13 @@ function ReviewCard({ review, businessSlug, currentUserId, isInitiallyHelpful, o
           </div>
         )}
       </div>
+
+      <LoginDialog
+        open={showLoginModal}
+        onOpenChange={setShowLoginModal}
+        title="Masuk untuk Menandai Ulasan"
+        description="Silakan masuk dengan akun Google untuk menandai ulasan ini bermanfaat."
+      />
     </div>
   );
 }
