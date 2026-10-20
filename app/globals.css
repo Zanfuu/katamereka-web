@@ -263,3 +263,51 @@
   transform: rotateY(180deg) translateZ(1px);
 }
 
+
+/* ---- Business landing (/bisnis) motion ---- */
+.bis-reveal {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0);
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.bis-reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+@keyframes bis-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes bis-pop {
+  0% { opacity: 0; transform: translateY(8px) scale(0.97); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes bis-blob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(24px, -18px) scale(1.1); }
+}
+@keyframes bis-ring {
+  0% { transform: scale(1); opacity: 0.45; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+@keyframes bis-fill {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+.bis-float { animation: bis-float 6s ease-in-out infinite; }
+.bis-float-slow { animation: bis-float 8s ease-in-out infinite; animation-delay: -3s; }
+.bis-pop { animation: bis-pop 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.bis-blob { animation: bis-blob 14s ease-in-out infinite; }
+.bis-ring { animation: bis-ring 2.2s ease-out infinite; }
+.bis-fill { animation: bis-fill 3.8s linear forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bis-reveal { opacity: 1; transform: none; transition: none; }
+  .bis-float, .bis-float-slow, .bis-blob, .bis-ring, .bis-pop { animation: none; }
+  .bis-fill { animation: none; width: 100%; }
+}

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { Suspense, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Search,
@@ -47,11 +47,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import type { Business } from "@/lib/mock-data";
 
-export default function KlaimBisnisPage() {
+function KlaimBisnisContent() {
   const router = useRouter();
   const { isLoggedIn } = useAuth();
+  const searchParams = useSearchParams();
 
-  const [searchQuery, setSearchQuery] = useState("");
+  // ?q= comes from the search box on the /bisnis landing page
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
   const [selectedCity, setSelectedCity] = useState("Semua Kota");
   const [selectedCategory, setSelectedCategory] = useState("Semua Kategori");
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -414,5 +416,13 @@ export default function KlaimBisnisPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function KlaimBisnisPage() {
+  return (
+    <Suspense fallback={null}>
+      <KlaimBisnisContent />
+    </Suspense>
   );
 }
