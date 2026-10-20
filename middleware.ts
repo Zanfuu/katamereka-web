@@ -63,9 +63,43 @@ async function fetchSessionClaims(token: string): Promise<SessionClaims | null> 
   }
 }
 
+// Business slugs used to end with the provider place_id (32-40 hex chars),
+// e.g. /business/hotel-garuda-512ad99b...f001. The API now keeps those old
+// slugs in a redirect table; this 301s them to the clean slug, including
+// sub-pages such as /reviews. Same pattern as the API's helpers/business-slug.helper.ts.
+const LEGACY_BUSINESS_PATH = /^\/business\/([^/]+-[0-9a-f]{32,40})(\/.*)?$/;
+
+async function fetchCleanBusinessSlug(rawSlug: string): Promise<string | null> {
+  try {
+    const oldSlug = decodeURIComponent(rawSlug);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(`${API_BASE_URL}/businesses/slug-redirect/${encodeURIComponent(oldSlug)}`, {
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const json = await res.json();
+    return typeof json?.data?.slug === "string" ? json.data.slug : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get("host") || "";
   const { pathname } = request.nextUrl;
+
+  const legacyBusiness = LEGACY_BUSINESS_PATH.exec(pathname);
+  if (legacyBusiness) {
+    const cleanSlug = await fetchCleanBusinessSlug(legacyBusiness[1]);
+    if (cleanSlug) {
+      const target = request.nextUrl.clone();
+      target.pathname = `/business/${encodeURIComponent(cleanSlug)}${legacyBusiness[2] ?? ""}`;
+      return NextResponse.redirect(target, 301);
+    }
+  }
 
   const isBusinessSubdomain = isBusinessHost(hostname);
 
