@@ -195,6 +195,31 @@ export const invitations: Invitation[] = [
   },
 ]
 
-export function getInvitationsByBusiness(businessId: string) {
-  return invitations.filter((invitation) => invitation.businessId === businessId)
+export function getStoredInvitations(businessId: string): Invitation[] {
+  if (typeof window === "undefined" || !businessId) return []
+  try {
+    const raw = localStorage.getItem(`katamereka_business_invitations_${businessId}`)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed
+    }
+  } catch {}
+  return []
+}
+
+export function saveStoredInvitation(businessId: string, invitation: Invitation) {
+  if (typeof window === "undefined" || !businessId) return
+  try {
+    const existing = getStoredInvitations(businessId)
+    localStorage.setItem(
+      `katamereka_business_invitations_${businessId}`,
+      JSON.stringify([invitation, ...existing])
+    )
+  } catch {}
+}
+
+export function getInvitationsByBusiness(businessId: string): Invitation[] {
+  const stored = getStoredInvitations(businessId)
+  const mock = invitations.filter((invitation) => invitation.businessId === businessId)
+  return [...stored, ...mock]
 }

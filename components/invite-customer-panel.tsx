@@ -18,7 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { InvitationChannel } from "@/lib/types"
+import type { Invitation, InvitationChannel } from "@/lib/types"
+import { useBusinessContext } from "@/components/business-provider"
+import { saveStoredInvitation } from "@/lib/mock/invitations"
 import { cn } from "cn"
 
 const COUNTRY_CODES = ["+62", "+65", "+60", "+1"]
@@ -30,6 +32,7 @@ export function InviteCustomerPanel({
   businessName: string
   onClose: () => void
 }) {
+  const { selectedBusiness } = useBusinessContext()
   const [name, setName] = React.useState("")
   const [countryCode, setCountryCode] = React.useState("+62")
   const [contact, setContact] = React.useState("")
@@ -146,6 +149,20 @@ export function InviteCustomerPanel({
           <Button
             disabled={name.trim().length === 0 || contact.trim().length === 0}
             onClick={() => {
+              const bizId = selectedBusiness?.id || "default-business"
+              const newInv: Invitation = {
+                id: `inv-${Date.now()}`,
+                businessId: bizId,
+                businessName: selectedBusiness?.name || businessName,
+                customerName: name.trim(),
+                contact: `${countryCode} ${contact.trim()}`,
+                referenceId: reference.trim() || `INV-${Date.now().toString().slice(-4)}`,
+                channel,
+                sentAt: new Date().toISOString(),
+                status: "SENT",
+                reviewGenerated: false,
+              }
+              saveStoredInvitation(bizId, newInv)
               toast.success(`Undangan berhasil dikirim ke ${name}.`)
               setName("")
               setContact("")

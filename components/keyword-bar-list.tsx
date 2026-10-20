@@ -5,7 +5,16 @@ export function KeywordBarList({
 }: {
   items: { label: string; count: number }[]
 }) {
+  if (items.length === 0) {
+    return (
+      <div className="py-8 text-center text-xs text-muted-foreground">
+        Belum ada kata kunci review yang ditemukan.
+      </div>
+    )
+  }
+
   const max = Math.max(...items.map((item) => item.count), 1)
+
 
   return (
     <div className="flex flex-col gap-2.5">

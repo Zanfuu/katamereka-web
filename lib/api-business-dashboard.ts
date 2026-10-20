@@ -570,3 +570,39 @@ export async function fetchRatingTrend(
   }
   return null
 }
+
+export interface KeywordItem {
+  word: string
+  count: number
+  sentiment: "POSITIVE" | "NEGATIVE"
+}
+
+export interface KeywordsAnalyticsResponse {
+  success: boolean
+  data?: {
+    business_id: string
+    positive_keywords: KeywordItem[]
+    complaint_keywords: KeywordItem[]
+    total_reviews_analyzed: number
+  }
+}
+
+export async function fetchKeywordsAnalytics(
+  businessId: string
+): Promise<KeywordsAnalyticsResponse | null> {
+  if (!businessId || businessId === "default-empty-business") return null
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/analytics/keywords`,
+      {
+        headers: authHeaders(),
+        cache: "no-store",
+      }
+    )
+    if (res.ok) return await res.json()
+  } catch (err) {
+    console.warn("fetchKeywordsAnalytics failed:", err)
+  }
+  return null
+}
+

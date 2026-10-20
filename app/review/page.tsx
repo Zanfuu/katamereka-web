@@ -241,6 +241,8 @@ function WriteReviewContent() {
     setIsProcessingPhotos(true);
     try {
       const newPhotoUrls: string[] = [];
+      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+
       for (const file of filesToProcess) {
         if (!file.type.startsWith("image/")) {
           toast.error(`File "${file.name}" bukan format gambar yang valid.`);
@@ -250,9 +252,36 @@ function WriteReviewContent() {
           toast.error(`Ukuran "${file.name}" melebihi batas 10MB.`);
           continue;
         }
-        const compressed = await compressImage(file);
-        if (compressed) {
-          newPhotoUrls.push(compressed);
+
+        let uploadedUrl: string | null = null;
+        try {
+          const formData = new FormData();
+          formData.append("photo", file);
+          formData.append("file", file);
+
+          const uploadRes = await fetch(`${API_BASE_URL}/reviews/upload-photo`, {
+            method: "POST",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            body: formData,
+          });
+
+          if (uploadRes.ok) {
+            const data = await uploadRes.json();
+            if (data?.url) {
+              uploadedUrl = data.url;
+            }
+          }
+        } catch (uploadErr) {
+          console.warn("Backend S3 photo upload failed, falling back to local compression:", uploadErr);
+        }
+
+        if (uploadedUrl) {
+          newPhotoUrls.push(uploadedUrl);
+        } else {
+          const compressed = await compressImage(file);
+          if (compressed) {
+            newPhotoUrls.push(compressed);
+          }
         }
       }
 
