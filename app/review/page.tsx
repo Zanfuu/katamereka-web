@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Navbar from "@/components/navbar";
 import { getBusinessBySlug, businesses, Business } from "@/lib/mock-data";
-import { fetchBusinessBySlug, mapApiBusinessToUiModel, API_BASE_URL } from "@/lib/api-client";
+import { fetchBusinessBySlug, mapApiBusinessToUiModel, API_BASE_URL, getAuthToken, resolveMediaUrl } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import GoogleLoginButton from "@/components/google-login-button";
 import MobileAuthSheet from "@/components/review/mobile-auth-sheet";
@@ -110,7 +110,7 @@ function WriteReviewContent() {
 
   // Check if logged-in user already has a review for this business
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    const token = getAuthToken();
     if (!token || !isLoggedIn) {
       setExistingReview(null);
       if (isLoggedIn) setExistingChecked(true);
@@ -203,6 +203,7 @@ function WriteReviewContent() {
             resolve(event.target?.result as string);
             return;
           }
+          ctx.drawImage(img, 0, 0, width, height);
           const compressedDataUrl = canvas.toDataURL("image/webp", 0.82) || canvas.toDataURL("image/jpeg", 0.82);
           resolve(compressedDataUrl);
         };
@@ -241,7 +242,7 @@ function WriteReviewContent() {
     setIsProcessingPhotos(true);
     try {
       const newPhotoUrls: string[] = [];
-      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+      const token = getAuthToken();
 
       for (const file of filesToProcess) {
         if (!file.type.startsWith("image/")) {
@@ -299,6 +300,7 @@ function WriteReviewContent() {
 
   const handleRemovePhoto = (index: number) => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const scrollToField = (ref: React.RefObject<HTMLElement | null>) => {
@@ -369,7 +371,7 @@ function WriteReviewContent() {
     setIsSubmitting(true);
 
     try {
-      const token = localStorage.getItem("accessToken");
+      const token = getAuthToken();
       const targetId = realBusinessId || business.id;
 
       if (!token) {
@@ -386,6 +388,36 @@ function WriteReviewContent() {
         return;
       }
 
+      // Ensure any base64 images are uploaded to S3 before saving review
+      const finalPhotos: string[] = [];
+      for (const p of photos) {
+        if (p.startsWith("data:")) {
+          try {
+            const blobRes = await fetch(p);
+            const blob = await blobRes.blob();
+            const formData = new FormData();
+            formData.append("photo", blob, `review-${Date.now()}.webp`);
+            formData.append("file", blob, `review-${Date.now()}.webp`);
+
+            const uploadRes = await fetch(`${API_BASE_URL}/reviews/upload-photo`, {
+              method: "POST",
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+              body: formData,
+            });
+            if (uploadRes.ok) {
+              const data = await uploadRes.json();
+              if (data?.url) {
+                finalPhotos.push(data.url);
+                continue;
+              }
+            }
+          } catch (uploadErr) {
+            console.warn("Error uploading base64 photo to S3:", uploadErr);
+          }
+        }
+        finalPhotos.push(p);
+      }
+
       // If user already has a review, update it via PATCH /reviews/:id
       if (existingReview?.id) {
         const res = await fetch(`${API_BASE_URL}/reviews/${existingReview.id}`, {
@@ -398,7 +430,7 @@ function WriteReviewContent() {
             rating,
             title: title.trim(),
             content: content.trim(),
-            photos,
+            photos: finalPhotos,
           }),
         });
 
@@ -436,7 +468,7 @@ function WriteReviewContent() {
           rating,
           title: title.trim(),
           content: content.trim(),
-          photos,
+          photos: finalPhotos,
         }),
       });
 
@@ -940,7 +972,7 @@ function WriteReviewContent() {
                           className="relative group rounded-2xl overflow-hidden aspect-video sm:aspect-square bg-slate-100 border border-slate-200"
                         >
                           <img
-                            src={url}
+                            src={resolveMediaUrl(url)}
                             alt={`Foto ulasan ${idx + 1}`}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
