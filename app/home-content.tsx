@@ -58,8 +58,10 @@ import {
   fetchBusinessPlaceImage,
   mapApiBusinessToUiModel,
   ApiCategoryFacet,
-  ApiCityFacet
+  ApiCityFacet,
+  ApiLatestReview
 } from "@/lib/api-client";
+import PublicReviewCard from "@/components/public-review-card";
 import { Business } from "@/lib/mock-data";
 import { slugify, categoryDisplayName, isRealBusinessCategory } from "@/lib/slug";
 import { fetchRecentActivities, clearRecentActivities, RecentActivity } from "@/lib/recent-activity";
@@ -68,6 +70,7 @@ interface HomeContentProps {
   initialCategoryFacets?: ApiCategoryFacet[];
   initialCityFacets?: ApiCityFacet[];
   initialPopularBusinesses?: Business[];
+  initialRecentReviews?: ApiLatestReview[];
 }
 
 function getCategoryIconAndColor(categoryRaw: string, index: number) {
@@ -118,7 +121,8 @@ function getCategoryIconAndColor(categoryRaw: string, index: number) {
   return presets[index % presets.length];
 }
 
-export default function LandingPage({ initialCategoryFacets, initialCityFacets, initialPopularBusinesses }: HomeContentProps = {}) {
+export default function LandingPage({ initialCategoryFacets, initialCityFacets, initialPopularBusinesses, initialRecentReviews }: HomeContentProps = {}) {
+  const recentReviews = initialRecentReviews || [];
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeChoice, setActiveChoice] = useState<"recent" | "categories" | null>(null);
@@ -152,51 +156,6 @@ export default function LandingPage({ initialCategoryFacets, initialCityFacets, 
     { title: "Chalet", href: "/kategori/chalet", icon: Home },
     { title: "Guest House", href: "/kategori/guest-house", icon: Store },
     { title: "Rental Kendaraan", href: "/kategori/rental-kendaraan", icon: Car },
-  ];
-
-  const recentReviews = [
-    {
-      id: 1,
-      userName: "Rani Putri",
-      userAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80",
-      timeAgo: "2 hari lalu",
-      rating: 5,
-      comment: "Pelayanannya ramah, prosesnya cepat, dan tempatnya bersih. Rekomendasi banget!",
-      business: {
-        name: "Hotel Santika Bogor",
-        category: "Hotel",
-        slug: "hotel-santika-bogor",
-        imageUrl: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=120&auto=format&fit=crop&q=80",
-      },
-    },
-    {
-      id: 2,
-      userName: "Ahmad Fauzi",
-      userAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80",
-      timeAgo: "4 hari lalu",
-      rating: 5,
-      comment: "Unitnya bagus dan terawat. Cocok untuk liburan keluarga. Pasti sewa lagi!",
-      business: {
-        name: "DCK Rental Mobil Pontianak",
-        category: "Rental Kendaraan",
-        slug: "dck-rental-mobil-pontianak",
-        imageUrl: "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=120&auto=format&fit=crop&q=80",
-      },
-    },
-    {
-      id: 3,
-      userName: "Siti Aisyah",
-      userAvatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&auto=format&fit=crop&q=80",
-      timeAgo: "1 minggu lalu",
-      rating: 5,
-      comment: "Suasananya tenang, udara sejuk, dan lokasinya strategis. Sangat nyaman!",
-      business: {
-        name: "Vila Kayu Lembang",
-        category: "Guest House",
-        slug: "vila-kayu-lembang",
-        imageUrl: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=120&auto=format&fit=crop&q=80",
-      },
-    },
   ];
 
   const toggleWishlist = (id: string, e: React.MouseEvent) => {
@@ -660,6 +619,7 @@ export default function LandingPage({ initialCategoryFacets, initialCityFacets, 
       </section>
 
       {/* ================= SECTION: ULASAN TERBARU ================= */}
+      {recentReviews.length > 0 && (
       <section className="py-10 sm:py-14 bg-white border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           <div className="flex items-center justify-between">
@@ -677,66 +637,12 @@ export default function LandingPage({ initialCategoryFacets, initialCityFacets, 
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
             {recentReviews.map((rev) => (
-              <div
-                key={rev.id}
-                className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-5 sm:p-6 flex flex-col justify-between hover:shadow-lg hover:border-slate-300 transition-all space-y-4"
-              >
-                <div>
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={rev.userAvatar}
-                      alt={rev.userName}
-                      className="w-10 h-10 rounded-full object-cover shrink-0 border border-slate-100"
-                    />
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-sm sm:text-base leading-tight">
-                        {rev.userName}
-                      </h4>
-                      <span className="text-xs text-slate-400 font-normal">
-                        {rev.timeAgo}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-0.5 text-amber-400 my-2.5">
-                    {[...Array(rev.rating)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                    ))}
-                  </div>
-
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
-                    "{rev.comment}"
-                  </p>
-                </div>
-
-                <Link
-                  href={`/business/${rev.business.slug}`}
-                  className="bg-[#fafcfb] border border-slate-200/70 rounded-xl p-2.5 flex items-center justify-between group/biz hover:bg-[#f0f8f4] transition-colors mt-2"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <img
-                      src={rev.business.imageUrl}
-                      alt={rev.business.name}
-                      className="w-9 h-9 rounded-lg object-cover shrink-0 bg-slate-100"
-                    />
-                    <div className="min-w-0">
-                      <h5 className="font-bold text-slate-900 text-xs sm:text-sm truncate group-hover/biz:text-[#008767] transition-colors">
-                        {rev.business.name}
-                      </h5>
-                      <p className="text-[11px] text-slate-400 truncate">
-                        {rev.business.category}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="w-6 h-6 rounded-full bg-[#ecf8f3] text-[#008767] flex items-center justify-center shrink-0 group-hover/biz:bg-[#008767] group-hover/biz:text-white transition-colors ml-2">
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </div>
-                </Link>
-              </div>
+              <PublicReviewCard key={rev.id} review={rev} />
             ))}
           </div>
         </div>
       </section>
+      )}
       {/* ================= SECTION 5: FAQ ================= */}
       <section className="py-14 sm:py-16 lg:py-20 bg-white border-t border-[#d8ece4] relative overflow-hidden">
         {/* Background Decorative Graphic Components (Diperbesar sedikit sesuai permintaan) */}
