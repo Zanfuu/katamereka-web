@@ -61,14 +61,24 @@ interface ReviewItem {
   } | string | null;
 }
 
-export default function BusinessReviewsPage() {
+// `initialBusiness` / `initialReviews` are fetched by the server component
+// (page.tsx) so the first HTML response already contains the business header,
+// rating summary and every review — see the note in business-profile-client.tsx.
+export default function BusinessReviewsPage({
+  initialBusiness = null,
+  initialReviews = [],
+}: {
+  initialBusiness?: ApiBusinessDetail | null;
+  initialReviews?: ReviewItem[];
+}) {
   const params = useParams();
   const slug = (params?.slug as string) || "";
   const { user } = useAuth();
 
-  const [business, setBusiness] = useState<ApiBusinessDetail | null>(null);
-  const [reviews, setReviews] = useState<ReviewItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const hasInitialData = Boolean(initialBusiness);
+  const [business, setBusiness] = useState<ApiBusinessDetail | null>(initialBusiness);
+  const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews);
+  const [loading, setLoading] = useState<boolean>(!initialBusiness);
   const [selectedRatingFilter, setSelectedRatingFilter] = useState<number | null>(null);
   const [sortOption, setSortOption] = useState<"newest" | "highest" | "lowest">("newest");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -76,7 +86,7 @@ export default function BusinessReviewsPage() {
   const [mobileRatingModalOpen, setMobileRatingModalOpen] = useState<boolean>(false);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState<boolean>(false);
   const [sortDropdownOpen, setSortDropdownOpen] = useState<boolean>(false);
-  const [myHelpfulVoteIds, setMyHelpfulVoteIds] = useState<Set<string>>(() => new Set(getLocalHelpfulVotes()));
+  const [myHelpfulVoteIds, setMyHelpfulVoteIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     const local = getLocalHelpfulVotes();
@@ -111,7 +121,8 @@ export default function BusinessReviewsPage() {
   useEffect(() => {
     if (!slug) return;
     let isMounted = true;
-    setLoading(true);
+    // Refresh silently when the server already rendered the content.
+    if (!hasInitialData) setLoading(true);
 
     const loadData = async () => {
       try {
@@ -122,7 +133,7 @@ export default function BusinessReviewsPage() {
         if (isMounted) {
           if (bizData) {
             setBusiness(bizData);
-          } else {
+          } else if (!hasInitialData) {
             // Fallback to mock-data
             const mock = getBusinessBySlug(decodedSlug);
             setBusiness(mock as any);

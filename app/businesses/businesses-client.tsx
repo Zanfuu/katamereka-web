@@ -33,8 +33,23 @@ import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import { fetchMyFavorites, toggleFavorite, unfavoriteBusiness } from "@/lib/api-profile";
 
-export default function BusinessesPage() {
+interface InitialDirectoryData {
+  businesses: Business[];
+  totalCount: number;
+  totalPages: number;
+  categories: string[];
+}
+
+// `initial` is the first page (default filters) fetched on the server by
+// page.tsx, so the business names, ratings and categories are in the raw HTML.
+export default function BusinessesPage({
+  initial = { businesses: [], totalCount: 0, totalPages: 1, categories: [] },
+}: {
+  initial?: InitialDirectoryData;
+}) {
   const { isLoggedIn } = useAuth();
+  // First run of the fetch effect reuses `initial` instead of re-requesting it.
+  const usedInitialData = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Semua Kategori");
   const [selectedLocation, setSelectedLocation] = useState("Semua Lokasi");
@@ -42,7 +57,7 @@ export default function BusinessesPage() {
   const [sortBy, setSortBy] = useState("Terpopuler");
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
   const [togglingFavId, setTogglingFavId] = useState<string | null>(null);
-  const [apiBusinesses, setApiBusinesses] = useState<Business[]>([]);
+  const [apiBusinesses, setApiBusinesses] = useState<Business[]>(initial.businesses);
   const [currentPage, setCurrentPage] = useState(1);
   const [openCategoryDropdown, setOpenCategoryDropdown] = useState(false);
   const [openLocationDropdown, setOpenLocationDropdown] = useState(false);
@@ -84,9 +99,9 @@ export default function BusinessesPage() {
       }
     }
   }, [currentPage]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [fetchedCategories, setFetchedCategories] = useState<string[]>([]);
+  const [totalCount, setTotalCount] = useState(initial.totalCount);
+  const [totalPages, setTotalPages] = useState(initial.totalPages);
+  const [fetchedCategories, setFetchedCategories] = useState<string[]>(initial.categories);
 
   // Default Categories fallback
   const defaultCategories = [
@@ -151,6 +166,7 @@ export default function BusinessesPage() {
   ];
 
   useEffect(() => {
+    if (initial.categories.length > 0) return; // already provided by the server
     async function loadCategories() {
       try {
         const facets = await fetchCategoryFacets();
@@ -180,21 +196,32 @@ export default function BusinessesPage() {
             ? "reviews"
             : "popular";
 
-        const res = await fetchBusinesses({
-          search: searchQuery.trim() || undefined,
-          city: selectedLocation === "Semua Lokasi" ? undefined : selectedLocation,
-          category: selectedCategory === "Semua Kategori" ? undefined : selectedCategory,
-          sort: sortParam,
-          page: currentPage,
-          limit: 12,
-        });
+        // First run with default filters: the server already gave us this page.
+        // Skip the refetch (it would just replace identical rows) but still fall
+        // through to the lazy image loading below.
+        let mapped: Business[] | null = null;
+        if (!usedInitialData.current && initial.businesses.length > 0) {
+          usedInitialData.current = true;
+          mapped = initial.businesses;
+        } else {
+          usedInitialData.current = true;
+          const res = await fetchBusinesses({
+            search: searchQuery.trim() || undefined,
+            city: selectedLocation === "Semua Lokasi" ? undefined : selectedLocation,
+            category: selectedCategory === "Semua Kategori" ? undefined : selectedCategory,
+            sort: sortParam,
+            page: currentPage,
+            limit: 12,
+          });
+          if (res && res.data) {
+            mapped = res.data.map(mapApiBusinessToUiModel);
+            setApiBusinesses(mapped);
+            setTotalCount(res.pagination?.total || res.data.length);
+            setTotalPages(res.pagination?.total_pages || 1);
+          }
+        }
 
-        if (res && res.data) {
-          const mapped = res.data.map(mapApiBusinessToUiModel);
-          setApiBusinesses(mapped);
-          setTotalCount(res.pagination?.total || res.data.length);
-          setTotalPages(res.pagination?.total_pages || 1);
-
+        if (mapped) {
           // Lazy load dynamic place images from /business-places/search endpoint
           mapped.forEach((biz) => {
             if (!biz.imageUrl && biz.name) {

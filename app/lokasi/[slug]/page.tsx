@@ -6,13 +6,28 @@ import Navbar from "@/components/navbar";
 import { slugify } from "@/lib/slug";
 import { fetchBusinesses, fetchCityFacets, ApiCityFacet } from "@/lib/api-client";
 import { CONSUMER_SITE_URL } from "@/lib/site-config";
+import { JsonLd } from "@/lib/json-ld";
+import { buildBreadcrumbSchema, buildItemListSchema } from "@/lib/schema-org";
+import { buildPageMetadata } from "@/lib/seo-metadata";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+// ISR: city listings are rendered once and re-used for 5 minutes.
+export const revalidate = 300;
+
+// Opts the dynamic route into ISR (render on first hit, then cache).
+export async function generateStaticParams() {
+  return [];
+}
+
 async function findCity(slug: string): Promise<ApiCityFacet | null> {
   const facets = await fetchCityFacets();
+  // fetchCityFacets() returns [] when the API is unreachable. Throwing (instead
+  // of falling through to notFound()) stops ISR from caching a 404 for a real
+  // city during an outage — the last good page keeps being served.
+  if (facets.length === 0) throw new Error("City facets unavailable");
   return facets.find((c) => slugify(c.city) === slug) || null;
 }
 
@@ -21,13 +36,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const city = await findCity(slug);
   if (!city) return {};
 
-  return {
+  return buildPageMetadata({
     title: `Bisnis Terpercaya di ${city.city} — Ulasan Pelanggan | Katamereka`,
     description: `Temukan bisnis dan layanan terpercaya di ${city.city} berdasarkan ulasan nyata pelanggan di Katamereka.`,
-    alternates: {
-      canonical: `${CONSUMER_SITE_URL}/lokasi/${slug}`,
-    },
-  };
+    url: `${CONSUMER_SITE_URL}/lokasi/${slug}`,
+  });
 }
 
 export default async function LokasiPage({ params }: PageProps) {
@@ -37,8 +50,25 @@ export default async function LokasiPage({ params }: PageProps) {
 
   const { data: businesses } = await fetchBusinesses({ city: city.city, limit: 24 });
 
+  const cityUrl = `${CONSUMER_SITE_URL}/lokasi/${slug}`;
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 antialiased">
+      <JsonLd
+        data={[
+          buildBreadcrumbSchema([
+            { name: "Beranda", url: `${CONSUMER_SITE_URL}/` },
+            { name: city.city, url: cityUrl },
+          ]),
+          buildItemListSchema(
+            `Bisnis Terpercaya di ${city.city}`,
+            businesses.map((b) => ({
+              name: b.name,
+              url: `${CONSUMER_SITE_URL}/business/${b.slug}`,
+            }))
+          ),
+        ]}
+      />
       <Navbar />
 
       <main className="flex-1">

@@ -5,6 +5,9 @@ import Navbar from "@/components/navbar";
 import { slugify, categoryDisplayName } from "@/lib/slug";
 import { fetchBusinesses, fetchCategoryFacets, fetchCityFacets, ApiCategoryFacet } from "@/lib/api-client";
 import { CONSUMER_SITE_URL } from "@/lib/site-config";
+import { JsonLd } from "@/lib/json-ld";
+import { buildBreadcrumbSchema, buildItemListSchema } from "@/lib/schema-org";
+import { buildPageMetadata } from "@/lib/seo-metadata";
 import CategoryClient from "./category-client";
 
 interface PageProps {
@@ -32,19 +35,25 @@ async function findCategory(slug: string): Promise<ApiCategoryFacet | null> {
   return null;
 }
 
+// ISR: category listings are rendered once and re-used for 5 minutes.
+export const revalidate = 300;
+
+// Opts the dynamic route into ISR (render on first hit, then cache).
+export async function generateStaticParams() {
+  return [];
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const category = await findCategory(slug);
   if (!category) return {};
 
   const name = categoryDisplayName(category.category);
-  return {
+  return buildPageMetadata({
     title: `${name} di Indonesia — Katamereka`,
     description: `Temukan ${name.toLowerCase()} berdasarkan lokasi, rating, dan pengalaman pelanggan di Katamereka.`,
-    alternates: {
-      canonical: `${CONSUMER_SITE_URL}/kategori/${slug}`,
-    },
-  };
+    url: `${CONSUMER_SITE_URL}/kategori/${slug}`,
+  });
 }
 
 export default async function KategoriPage({ params }: PageProps) {
@@ -57,8 +66,25 @@ export default async function KategoriPage({ params }: PageProps) {
   const cityFacets = await fetchCityFacets();
   const cityList = cityFacets.map((c) => c.city).filter(Boolean);
 
+  const categoryUrl = `${CONSUMER_SITE_URL}/kategori/${slug}`;
+
   return (
     <div className="min-h-screen bg-slate-50/50 flex flex-col font-sans text-slate-800 antialiased">
+      <JsonLd
+        data={[
+          buildBreadcrumbSchema([
+            { name: "Beranda", url: `${CONSUMER_SITE_URL}/` },
+            { name, url: categoryUrl },
+          ]),
+          buildItemListSchema(
+            `${name} di Indonesia`,
+            (businesses || []).map((b) => ({
+              name: b.name,
+              url: `${CONSUMER_SITE_URL}/business/${b.slug}`,
+            }))
+          ),
+        ]}
+      />
       <Navbar />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-8">

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { isBusinessHost } from "@/lib/site-config";
 import BusinessTrustScoreView from "@/components/business-trustscore-view";
@@ -104,25 +104,64 @@ import Navbar from "@/components/navbar";
 import { useAuth } from "@/lib/auth-context";
 import ShareBusinessModal from "@/components/share-business-modal";
 
-export default function BusinessProfilePage() {
+interface BusinessReview {
+  id: string;
+  rating: number;
+  title: string;
+  content: string;
+  status: string;
+  createdAt: string;
+  created_at?: string;
+  userId?: string;
+  user_id?: string;
+  user?: { id?: string; name?: string; initials?: string };
+  helpfulCount?: number;
+  helpful_count?: number;
+}
+
+function coverOf(detail: ApiBusinessDetail | null): string | null {
+  if (!detail) return null;
+  const raw =
+    detail.coverUrl ||
+    detail.cover_url ||
+    (Array.isArray(detail.photos) && detail.photos.length > 0 ? detail.photos[0] : null) ||
+    detail.logoUrl ||
+    detail.logo_url;
+  return raw ? resolveMediaUrl(raw) : null;
+}
+
+/**
+ * `initialDetail` / `initialReviews` come from the server component (page.tsx),
+ * so the first HTML response already contains the business name, rating,
+ * address and reviews for crawlers that don't run JavaScript. The effects below
+ * still refresh the data in the background once the page hydrates.
+ */
+export default function BusinessProfilePage({
+  initialDetail = null,
+  initialReviews = [],
+}: {
+  initialDetail?: ApiBusinessDetail | null;
+  initialReviews?: BusinessReview[];
+}) {
   const params = useParams();
-  const searchParams = useSearchParams();
   const slug = (params.slug as string) || "";
   const { user, isLoggedIn } = useAuth();
 
   const [isBusinessDomain, setIsBusinessDomain] = useState(false);
 
+  // Read ?from= from window instead of useSearchParams(): useSearchParams()
+  // forces the nearest Suspense boundary to client-render on a statically
+  // generated page, which would drop the SSR'd content again.
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const fromParam = searchParams.get("from");
-      const isBizHost = isBusinessHost(window.location.hostname);
-      setIsBusinessDomain(isBizHost || fromParam === "business" || fromParam === "bisnis");
-    }
-  }, [searchParams]);
+    const fromParam = new URLSearchParams(window.location.search).get("from");
+    const isBizHost = isBusinessHost(window.location.hostname);
+    setIsBusinessDomain(isBizHost || fromParam === "business" || fromParam === "bisnis");
+  }, []);
 
-  const [apiDetail, setApiDetail] = useState<ApiBusinessDetail | null>(null);
-  const [placeImageUrl, setPlaceImageUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const hasInitialDetail = Boolean(initialDetail);
+  const [apiDetail, setApiDetail] = useState<ApiBusinessDetail | null>(initialDetail);
+  const [placeImageUrl, setPlaceImageUrl] = useState<string | null>(coverOf(initialDetail));
+  const [loading, setLoading] = useState(!initialDetail);
   const [notFoundState, setNotFoundState] = useState(false);
   const [activeTab, setActiveTab] = useState<"profil" | "review" | "foto" | "info">("profil");
   const [isSaved, setIsSaved] = useState(false);
@@ -144,21 +183,7 @@ export default function BusinessProfilePage() {
   }>({ verification_method: "DOCUMENT", proof_url: "", message: "" });
 
   // ── Business Reviews State ──────────────────────────────────────────────────
-  interface BusinessReview {
-    id: string;
-    rating: number;
-    title: string;
-    content: string;
-    status: string;
-    createdAt: string;
-    created_at?: string;
-    userId?: string;
-    user_id?: string;
-    user?: { id?: string; name?: string; initials?: string };
-    helpfulCount?: number;
-    helpful_count?: number;
-  }
-  const [businessReviews, setBusinessReviews] = useState<BusinessReview[]>([]);
+  const [businessReviews, setBusinessReviews] = useState<BusinessReview[]>(initialReviews);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -179,9 +204,13 @@ export default function BusinessProfilePage() {
   useEffect(() => {
     async function loadApiBusinessDetail() {
       if (!slug) return;
-      setLoading(true);
+      // With server-provided data we refresh silently: no spinner, no flash of
+      // "not found", and the SSR'd image/text stay on screen.
+      if (!hasInitialDetail) {
+        setLoading(true);
+        setPlaceImageUrl(null);
+      }
       setNotFoundState(false);
-      setPlaceImageUrl(null);
       try {
         const res = await fetchBusinessBySlug(slug);
         if (res && res.data) {
@@ -190,15 +219,10 @@ export default function BusinessProfilePage() {
             recordBusinessView(res.data.id);
           }
           // Prioritize backend cover_url / photos[0] / logo_url
-          const existingCover =
-            res.data.coverUrl ||
-            res.data.cover_url ||
-            (Array.isArray(res.data.photos) && res.data.photos.length > 0 ? res.data.photos[0] : null) ||
-            res.data.logoUrl ||
-            res.data.logo_url;
+          const existingCover = coverOf(res.data);
 
           if (existingCover) {
-            setPlaceImageUrl(resolveMediaUrl(existingCover));
+            setPlaceImageUrl(existingCover);
           } else if (res.data.name) {
             const loc = res.data.city || res.data.province || "Palembang";
             fetchBusinessPlaceImage(
@@ -212,14 +236,16 @@ export default function BusinessProfilePage() {
               })
               .catch(() => { });
           }
-        } else {
+        } else if (!hasInitialDetail) {
           setApiDetail(null);
           setNotFoundState(true);
         }
       } catch (err) {
         console.warn("Error loading business detail:", err);
-        setApiDetail(null);
-        setNotFoundState(true);
+        if (!hasInitialDetail) {
+          setApiDetail(null);
+          setNotFoundState(true);
+        }
       } finally {
         setLoading(false);
       }
@@ -296,7 +322,8 @@ export default function BusinessProfilePage() {
   // ── Fetch Reviews ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (!apiDetail?.id) return;
-    setLoadingReviews(true);
+    // Only show the skeleton when there is nothing server-rendered to keep.
+    if (initialReviews.length === 0) setLoadingReviews(true);
     fetch(`${API_BASE_URL}/businesses/${apiDetail.id}/reviews`, {
       cache: "no-store",
     })
