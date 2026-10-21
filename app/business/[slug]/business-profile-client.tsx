@@ -180,6 +180,13 @@ export default function BusinessProfilePage({
   const [isBusinessMember, setIsBusinessMember] = useState(false);
   const [claimStatusLoading, setClaimStatusLoading] = useState(false);
   // Owner state comes from GET /businesses/slug/:slug (is_claimed = flag OR an OWNER member).
+  const claimedSinceLabel = (() => {
+    if (!apiDetail?.claimed_at) return null;
+    const d = new Date(apiDetail.claimed_at);
+    return isNaN(d.getTime())
+      ? null
+      : d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+  })();
   const isClaimedByOwner =
     apiDetail?.is_claimed === true ||
     apiDetail?.isClaimed === true ||
@@ -1475,7 +1482,10 @@ export default function BusinessProfilePage({
                   <span>Bisnis Terverifikasi</span>
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Bisnis ini sudah terdaftar resmi dan dikelola oleh pemilik terverifikasi.
+                  {apiDetail?.owner_name
+                    ? `Bisnis ini sudah diklaim dan diverifikasi oleh ${apiDetail.owner_name}`
+                    : "Bisnis ini sudah diklaim dan dikelola oleh pemilik terverifikasi"}
+                  {claimedSinceLabel ? ` sejak ${claimedSinceLabel}.` : "."}
                 </p>
               </div>
             ) : !isLoggedIn ? (
