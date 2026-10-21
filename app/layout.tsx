@@ -21,12 +21,22 @@ const gabarito = Gabarito({
   display: "swap",
 });
 
+// No `alternates.canonical` here: a layout-level canonical is inherited by every
+// route that doesn't set its own, which would point them all at the home page.
+// Each public route sets its own canonical (see lib/seo-metadata.ts).
 export const metadata: Metadata = {
   metadataBase: new URL(CONSUMER_SITE_URL),
   title: "Katamereka — Dengarkan Ulasan Sebelum Memilih Bisnis",
   description: "Temukan bisnis terpercaya berdasarkan pengalaman nyata pelanggan.",
-  alternates: {
-    canonical: "/",
+  openGraph: {
+    siteName: "Katamereka",
+    locale: "id_ID",
+    type: "website",
+    images: [{ url: "/logo.png" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/logo.png"],
   },
   icons: {
     icon: "/logo.png",

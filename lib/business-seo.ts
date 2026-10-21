@@ -6,6 +6,7 @@
  * the same business differently.
  */
 import { type ApiBusinessDetail, resolveMediaUrl } from "./api-client";
+import { buildReviewSchemas, type SchemaReviewInput } from "./schema-org";
 
 export type BusinessCategoryGroup =
   | "RESTAURANT"
@@ -153,35 +154,63 @@ export function businessSchemaType(group: BusinessCategoryGroup): string {
   }
 }
 
-/** Task 7: full JSON-LD entity for one business — never shared across businesses. */
+/**
+ * Task 7: full JSON-LD entity for one business — never shared across businesses.
+ * `reviews` (public, already-published) are nested as `review` so the entity
+ * carries its own evidence; pass [] when none are loaded.
+ */
 export function buildBusinessSchema(
   b: ApiBusinessDetail,
-  businessUrl: string
+  businessUrl: string,
+  reviews: SchemaReviewInput[] = []
 ): Record<string, unknown> {
   const group = classifyBusinessCategory(b.category, b.name);
-  const ratingValue =
-    typeof b.rating === "number"
-      ? b.rating
-      : parseFloat(String(b.rating ?? b.externalRating ?? "")) || undefined;
-  const reviewCount = b.reviews_count ?? b.externalReviewsCount ?? 0;
+  const rawRating = b.averageRating ?? b.rating ?? b.externalRating;
+  const parsedRating =
+    typeof rawRating === "number" ? rawRating : parseFloat(String(rawRating ?? ""));
+  const ratingValue = Number.isFinite(parsedRating)
+    ? Math.round(parsedRating * 10) / 10
+    : undefined;
+  const reviewCount = b.reviewCount ?? b.reviews_count ?? b.externalReviewsCount ?? 0;
+
+  const images = Array.from(
+    new Set(
+      [
+        b.coverUrl || b.cover_url,
+        ...(Array.isArray(b.photos) ? b.photos.slice(0, 5) : []),
+        b.logoUrl || b.logo_url,
+      ]
+        .map((u) => resolveMediaUrl(u))
+        .filter(Boolean)
+    )
+  );
 
   const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": businessSchemaType(group),
+    "@id": `${businessUrl}#business`,
     name: b.name,
+    description: (b.description || "").trim() || buildBusinessDescription(b),
     url: businessUrl,
     address: {
       "@type": "PostalAddress",
       streetAddress: b.address,
       addressLocality: b.city,
       addressRegion: b.province,
+      ...(b.postalCode ? { postalCode: b.postalCode } : {}),
       addressCountry: b.country || "ID",
     },
   };
 
   if (b.phone) schema.telephone = b.phone;
+  if (b.email) schema.email = b.email;
   if (b.website) schema.sameAs = [b.website];
-  if (b.logo_url || b.cover_url) schema.image = resolveMediaUrl(b.cover_url || b.logo_url);
+  if (images.length > 0) schema.image = images;
+  const priceRange = b.priceRange || b.price_range;
+  if (priceRange) schema.priceRange = priceRange;
+  if (group === "RESTAURANT" && b.catering?.cuisine) {
+    schema.servesCuisine = b.catering.cuisine;
+  }
   if (typeof b.latitude === "number" && typeof b.longitude === "number") {
     schema.geo = {
       "@type": "GeoCoordinates",
@@ -196,11 +225,13 @@ export function buildBusinessSchema(
     schema.aggregateRating = {
       "@type": "AggregateRating",
       ratingValue,
-      bestRating: 5,
-      worstRating: 1,
       reviewCount,
+      bestRating: "5",
+      worstRating: "1",
     };
   }
+  const reviewNodes = buildReviewSchemas(reviews);
+  if (reviewNodes.length > 0) schema.review = reviewNodes;
 
   return schema;
 }

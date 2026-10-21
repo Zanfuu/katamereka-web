@@ -27,6 +27,21 @@ export const GOOGLE_CLIENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
   "4365266507-2gh2oo3qqf6o8k9fdgigtdde68fag3ce.apps.googleusercontent.com";
 
+/** How long (seconds) server-side renders may reuse a public API response. */
+export const PUBLIC_REVALIDATE_SECONDS = 300;
+
+/**
+ * fetch() options for public, non-personalised GETs. On the server this opts
+ * into Next's data cache (ISR-style, stale-while-revalidate) so crawler hits on
+ * directory/profile pages don't each fan out to the API — that was the main
+ * TTFB cost, since every fetch here used to be `cache: "no-store"`. In the
+ * browser `next` is ignored, so we keep `no-store` to always show fresh data.
+ */
+export function publicGetInit(tags?: string[]): RequestInit {
+  if (typeof window !== "undefined") return { cache: "no-store" };
+  return { next: { revalidate: PUBLIC_REVALIDATE_SECONDS, tags } };
+}
+
 /**
  * Resolves relative media paths (e.g., /uploads/covers/x.jpg) to full absolute API URLs.
  */
@@ -201,6 +216,9 @@ export interface ApiBusinessDetail {
   rating?: string | number | null;
   reviews_count?: number | null;
   description?: string | null;
+  /** schema.org priceRange, e.g. "Rp25.000 - Rp75.000" or "$$". Not provided by the API yet. */
+  priceRange?: string | null;
+  price_range?: string | null;
   logoUrl?: string | null;
   coverUrl?: string | null;
   /** legacy snake_case aliases */
@@ -363,7 +381,7 @@ export async function fetchBusinesses(
       headers: {
         "Content-Type": "application/json",
       },
-      cache: "no-store",
+      ...publicGetInit(["businesses"]),
     });
 
     if (res.ok) {
@@ -373,9 +391,10 @@ export async function fetchBusinesses(
           data.data.map(async (item: ApiBusinessListItem) => {
             if (item.slug) {
               try {
-                const detailRes = await fetch(`${API_BASE_URL}/businesses/slug/${encodeURIComponent(item.slug)}`, {
-                  cache: "no-store",
-                });
+                const detailRes = await fetch(
+                  `${API_BASE_URL}/businesses/slug/${encodeURIComponent(item.slug)}`,
+                  publicGetInit(["businesses"])
+                );
                 if (detailRes.ok) {
                   const detailJson = await detailRes.json();
                   if (detailJson.success && detailJson.data) {
@@ -566,7 +585,7 @@ export async function fetchSitemapBusinesses(): Promise<ApiSitemapBusinessItem[]
  */
 export async function fetchPopularBusinesses(): Promise<ApiBusinessListItem[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/businesses/popular`, { cache: "no-store" });
+    const res = await fetch(`${API_BASE_URL}/businesses/popular`, publicGetInit(["businesses"]));
     if (res.ok) {
       const json = await res.json();
       if (json?.success && Array.isArray(json?.data)) return json.data;
@@ -594,7 +613,7 @@ export async function fetchCategoryFacets(): Promise<ApiCategoryFacet[]> {
       } catch {}
     }
 
-    const res = await fetch(`${API_BASE_URL}/businesses/categories`, { cache: "no-store" });
+    const res = await fetch(`${API_BASE_URL}/businesses/categories`, publicGetInit(["facets"]));
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json?.data)) return json.data;
@@ -613,7 +632,7 @@ export async function fetchCategoryFacets(): Promise<ApiCategoryFacet[]> {
  */
 export async function fetchCityFacets(): Promise<ApiCityFacet[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/businesses/cities`, { cache: "no-store" });
+    const res = await fetch(`${API_BASE_URL}/businesses/cities`, publicGetInit(["facets"]));
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json?.data)) return json.data;
@@ -649,7 +668,7 @@ export async function fetchBusinessBySlug(
       headers: {
         "Content-Type": "application/json",
       },
-      cache: "no-store",
+      ...publicGetInit(["businesses", `business:${cleanSlug}`]),
     });
 
     if (res.ok) {

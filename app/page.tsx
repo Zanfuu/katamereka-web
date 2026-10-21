@@ -6,6 +6,20 @@ import {
   fetchBusinessPlaceImage,
   mapApiBusinessToUiModel,
 } from "@/lib/api-client";
+import { JsonLd } from "@/lib/json-ld";
+import { buildOrganizationSchema, buildWebSiteSchema } from "@/lib/schema-org";
+import { buildPageMetadata } from "@/lib/seo-metadata";
+import { CONSUMER_SITE_URL } from "@/lib/site-config";
+
+export const metadata = buildPageMetadata({
+  title: "Katamereka — Dengarkan Ulasan Sebelum Memilih Bisnis",
+  description: "Temukan bisnis terpercaya berdasarkan pengalaman nyata pelanggan.",
+  url: `${CONSUMER_SITE_URL}/`,
+});
+
+// ISR: the home page (incl. the place-image lookups below) is rendered once
+// and re-used for 5 minutes instead of on every crawler hit.
+export const revalidate = 300;
 
 export default async function Page() {
   const [categoryFacets, cityFacets, popularRes] = await Promise.all([
@@ -51,11 +65,14 @@ export default async function Page() {
   }
 
   return (
-    <LandingPage
-      initialCategoryFacets={categoryFacets}
-      initialCityFacets={cityFacets}
-      initialPopularBusinesses={initialPopularBusinesses}
-    />
+    <>
+      <JsonLd data={[buildOrganizationSchema(), buildWebSiteSchema()]} />
+      <LandingPage
+        initialCategoryFacets={categoryFacets}
+        initialCityFacets={cityFacets}
+        initialPopularBusinesses={initialPopularBusinesses}
+      />
+    </>
   );
 }
 

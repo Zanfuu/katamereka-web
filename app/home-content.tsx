@@ -273,6 +273,9 @@ export default function LandingPage({ initialCategoryFacets, initialCityFacets, 
   }, [initialCategoryFacets]);
 
   useEffect(() => {
+    // The server already fetched (and resolved images for) the popular list;
+    // re-requesting it here costs ~50 API calls per visitor for identical data.
+    if (initialPopularBusinesses && initialPopularBusinesses.length > 0) return;
     async function loadPopular() {
       try {
         const res = await fetchBusinesses({ limit: 50, sort: "popular" });

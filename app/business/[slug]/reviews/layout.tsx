@@ -1,25 +1,28 @@
 import type { Metadata } from "next";
-import { fetchBusinessBySlug } from "@/lib/api-client";
+import { notFound } from "next/navigation";
+import { resolveMediaUrl } from "@/lib/api-client";
+import { getBusinessForSsr } from "@/lib/business-ssr";
 import { CONSUMER_SITE_URL } from "@/lib/site-config";
+import { buildPageMetadata } from "@/lib/seo-metadata";
 
+// Canonical points at the profile page on purpose: it already carries the
+// Review[] schema and the same reviews, so this page consolidates into it
+// instead of competing as duplicate content.
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const res = await fetchBusinessBySlug(slug);
-  const b = res?.data;
+  const b = await getBusinessForSsr(slug);
+  if (!b) notFound();
 
-  return {
-    title: b ? `Semua Ulasan: ${b.name} | Katamereka` : `Semua Ulasan | Katamereka`,
-    description: b
-      ? `Baca semua ulasan dan rating pelanggan untuk ${b.name} di Katamereka.`
-      : `Baca semua ulasan dan rating bisnis di Katamereka.`,
-    alternates: {
-      canonical: `${CONSUMER_SITE_URL}/business/${slug}`,
-    },
-  };
+  return buildPageMetadata({
+    title: `Semua Ulasan: ${b.name} | Katamereka`,
+    description: `Baca semua ulasan dan rating pelanggan untuk ${b.name} di Katamereka.`,
+    url: `${CONSUMER_SITE_URL}/business/${b.slug}`,
+    image: resolveMediaUrl(b.coverUrl || b.cover_url || b.photos?.[0] || b.logoUrl || b.logo_url),
+  });
 }
 
 export default function BusinessReviewsLayout({ children }: { children: React.ReactNode }) {
