@@ -101,11 +101,6 @@ import type { Business, Location } from "@/lib/types"
 
 const TABS = [
   { value: "informasi", label: "Informasi" },
-  { value: "lokasi", label: "Lokasi" },
-  { value: "kategori", label: "Kategori & Layanan" },
-  { value: "fasilitas", label: "Fasilitas" },
-  { value: "jam", label: "Jam Operasional" },
-  { value: "media", label: "Media & Sosmed" },
   { value: "pengaturan", label: "Pengaturan & Kelengkapan" },
 ] as const
 
@@ -114,7 +109,10 @@ export default function DashboardBusinessPage() {
   const [activeTab, setActiveTab] = React.useState<string>(() => {
     if (typeof window !== "undefined") {
       const urlTab = new URLSearchParams(window.location.search).get("tab")
-      if (urlTab) return urlTab
+      if (urlTab === "pengaturan" || urlTab === "informasi") return urlTab
+      if (urlTab && ["lokasi", "kategori", "fasilitas", "jam", "media", "kelola"].includes(urlTab)) {
+        return "pengaturan"
+      }
     }
     return "informasi"
   })
@@ -184,7 +182,7 @@ export default function DashboardBusinessPage() {
       <Tabs value={activeTab} onValueChange={(val) => typeof val === "string" && handleTabChange(val)}>
         <TabsList variant="line" className="w-full justify-start overflow-x-auto border-b">
           {TABS.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value}>
+            <TabsTrigger key={tab.value} value={tab.value} className="text-sm font-semibold">
               {tab.label}
             </TabsTrigger>
           ))}
@@ -193,23 +191,70 @@ export default function DashboardBusinessPage() {
         <TabsContent value="informasi" className="pt-4">
           <InformasiTab key={selectedBusiness.id} business={selectedBusiness} />
         </TabsContent>
-        <TabsContent value="lokasi" className="pt-4">
-          <LokasiTab key={selectedBusiness.id} business={selectedBusiness} />
-        </TabsContent>
-        <TabsContent value="kategori" className="pt-4">
-          <KategoriTab key={selectedBusiness.id} business={selectedBusiness} />
-        </TabsContent>
-        <TabsContent value="fasilitas" className="pt-4">
-          <FasilitasTab key={selectedBusiness.id} business={selectedBusiness} />
-        </TabsContent>
-        <TabsContent value="jam" className="pt-4">
-          <JamOperasionalTab key={selectedBusiness.id} business={selectedBusiness} />
-        </TabsContent>
-        <TabsContent value="media" className="pt-4">
-          <MediaTab key={selectedBusiness.id} business={selectedBusiness} />
-        </TabsContent>
-        <TabsContent value="pengaturan" className="pt-4">
-          <PengaturanTab key={selectedBusiness.id} business={selectedBusiness} />
+
+        <TabsContent value="pengaturan" className="pt-4 space-y-10">
+          {/* Section 1: Informasi Profil & Kontak Bisnis */}
+          <div id="section-informasi-utama" className="space-y-3">
+            <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
+              <BuildingIcon className="size-5 text-[#008767]" />
+              <h2 className="text-base font-bold text-slate-900">1. Informasi Profil &amp; Kontak Bisnis</h2>
+            </div>
+            <InformasiUtamaTab key={`info-${selectedBusiness.id}`} business={selectedBusiness} />
+          </div>
+
+          {/* Section 2: Lokasi */}
+          <div id="section-lokasi" className="space-y-3">
+            <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
+              <MapPinIcon className="size-5 text-[#008767]" />
+              <h2 className="text-base font-bold text-slate-900">2. Alamat &amp; Wilayah Operasional</h2>
+            </div>
+            <LokasiTab key={`lokasi-${selectedBusiness.id}`} business={selectedBusiness} />
+          </div>
+
+          {/* Section 3: Kategori & Layanan */}
+          <div id="section-kategori" className="space-y-3">
+            <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
+              <TagsIcon className="size-5 text-[#008767]" />
+              <h2 className="text-base font-bold text-slate-900">3. Kategori &amp; Layanan Bisnis</h2>
+            </div>
+            <KategoriTab key={`kategori-${selectedBusiness.id}`} business={selectedBusiness} />
+          </div>
+
+          {/* Section 4: Fasilitas */}
+          <div id="section-fasilitas" className="space-y-3">
+            <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
+              <SparklesIcon className="size-5 text-[#008767]" />
+              <h2 className="text-base font-bold text-slate-900">4. Fasilitas Usaha</h2>
+            </div>
+            <FasilitasTab key={`fasilitas-${selectedBusiness.id}`} business={selectedBusiness} />
+          </div>
+
+          {/* Section 5: Jam Operasional */}
+          <div id="section-jam" className="space-y-3">
+            <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
+              <ClockIcon className="size-5 text-[#008767]" />
+              <h2 className="text-base font-bold text-slate-900">5. Jam Operasional</h2>
+            </div>
+            <JamOperasionalTab key={`jam-${selectedBusiness.id}`} business={selectedBusiness} />
+          </div>
+
+          {/* Section 6: Media & Sosmed */}
+          <div id="section-media" className="space-y-3">
+            <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
+              <Share2Icon className="size-5 text-[#008767]" />
+              <h2 className="text-base font-bold text-slate-900">6. Media &amp; Sosial Media</h2>
+            </div>
+            <MediaTab key={`media-${selectedBusiness.id}`} business={selectedBusiness} />
+          </div>
+
+          {/* Section 7: Pengaturan & Kelengkapan */}
+          <div id="section-pengaturan" className="space-y-3">
+            <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
+              <ShieldCheckIcon className="size-5 text-[#008767]" />
+              <h2 className="text-base font-bold text-slate-900">7. Kelengkapan Profil &amp; Kebijakan</h2>
+            </div>
+            <PengaturanTab key={`pengaturan-${selectedBusiness.id}`} business={selectedBusiness} />
+          </div>
         </TabsContent>
       </Tabs>
     </div>
@@ -239,12 +284,134 @@ function InfoRow({
 }
 
 /* ==================================================
- * TAB 1: INFORMASI
+ * SHARED DATA HELPERS FOR SUMMARY & EDIT TABS
+ * ================================================== */
+interface DaySchedule {
+  day: string
+  label: string
+  open: string
+  close: string
+  closed: boolean
+}
+
+const DEFAULT_SCHEDULE: DaySchedule[] = [
+  { day: "monday", label: "Senin", open: "08:00", close: "21:00", closed: false },
+  { day: "tuesday", label: "Selasa", open: "08:00", close: "21:00", closed: false },
+  { day: "wednesday", label: "Rabu", open: "08:00", close: "21:00", closed: false },
+  { day: "thursday", label: "Kamis", open: "08:00", close: "21:00", closed: false },
+  { day: "friday", label: "Jumat", open: "08:00", close: "22:00", closed: false },
+  { day: "saturday", label: "Sabtu", open: "09:00", close: "22:00", closed: false },
+  { day: "sunday", label: "Minggu", open: "09:00", close: "18:00", closed: true },
+]
+
+function parseOpeningHours(raw: any): DaySchedule[] {
+  if (!raw || typeof raw !== "object") return DEFAULT_SCHEDULE
+  return DEFAULT_SCHEDULE.map((item) => {
+    const dayData = raw[item.day]
+    if (dayData && typeof dayData === "object") {
+      return {
+        ...item,
+        open: dayData.open || item.open,
+        close: dayData.close || item.close,
+        closed: typeof dayData.closed === "boolean" ? dayData.closed : false,
+      }
+    }
+    return item
+  })
+}
+
+function getTodayOpeningStatus(schedule: DaySchedule[]) {
+  const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+  const todayKey = dayNames[new Date().getDay()]
+  const todaySched = schedule.find((s) => s.day === todayKey)
+  if (!todaySched) return { isOpen: false, text: "Jadwal belum diatur" }
+  if (todaySched.closed) return { isOpen: false, text: "Tutup hari ini" }
+  return {
+    isOpen: true,
+    text: `Buka hari ini: ${todaySched.open} – ${todaySched.close}`,
+  }
+}
+
+function parseInitialFacilities(raw: any): string[] {
+  if (!raw) return []
+  if (Array.isArray(raw)) {
+    return raw.filter((f) => typeof f === "string" && f.trim() !== "")
+  }
+  if (typeof raw === "object") {
+    const list: string[] = []
+    if (raw.wifi || raw.internet_access) list.push("Wi-Fi Gratis")
+    if (raw.ac || raw.air_conditioning) list.push("Ruangan Ber-AC")
+    if (raw.parking || raw.area_parkir) list.push("Area Parkir Luas")
+    if (raw.wheelchair) list.push("Akses Kursi Roda / Disabilitas")
+    if (raw.musholla || raw.masjid) list.push("Musholla / Tempat Ibadah")
+    if (raw.toilet) list.push("Toilet Bersih")
+    if (raw.qris || raw.cashless) list.push("Pembayaran Non-Tunai / QRIS")
+    if (raw.reception_24h || raw.front_desk) list.push("Resepsionis 24 Jam")
+    Object.entries(raw).forEach(([k, v]) => {
+      if (typeof v === "string" && !list.includes(v)) list.push(v)
+    })
+    return list
+  }
+  if (typeof raw === "string") {
+    return raw.split(",").map((s) => s.trim()).filter(Boolean)
+  }
+  return []
+}
+
+function cleanSocialUsername(platform: string, val: string | undefined | null): string {
+  if (!val) return ""
+  let text = String(val).trim()
+  if (!text) return ""
+
+  try {
+    if (text.startsWith("http://") || text.startsWith("https://")) {
+      const parsed = new URL(text)
+      const pathname = parsed.pathname.replace(/^\/+|\/+$/g, "")
+      const segments = pathname.split("/").filter(Boolean)
+      if (segments.length > 0) {
+        if (segments[0] === "company" || segments[0] === "in") {
+          return segments[1] || segments[0]
+        }
+        return segments[segments.length - 1].replace(/^@/, "")
+      }
+    }
+  } catch {}
+
+  text = text.replace(/^(?:https?:\/\/)?(?:www\.)?(?:instagram\.com|facebook\.com|tiktok\.com|linkedin\.com|youtube\.com)\/?/i, "")
+  text = text.replace(/^company\//i, "")
+  text = text.replace(/^in\//i, "")
+  text = text.replace(/^@/, "")
+  return text.trim()
+}
+
+function formatSocialToFullUrl(platform: string, usernameOrUrl: string | undefined | null): string {
+  if (!usernameOrUrl) return ""
+  const text = String(usernameOrUrl).trim()
+  if (!text) return ""
+
+  const cleanUser = cleanSocialUsername(platform, text)
+  if (!cleanUser) return ""
+
+  switch (platform.toLowerCase()) {
+    case "instagram":
+      return `https://instagram.com/${cleanUser}`
+    case "facebook":
+      return `https://facebook.com/${cleanUser}`
+    case "tiktok":
+      return `https://tiktok.com/@${cleanUser}`
+    case "linkedin":
+      return `https://linkedin.com/company/${cleanUser}`
+    case "youtube":
+      return `https://youtube.com/@${cleanUser}`
+    default:
+      return text
+  }
+}
+
+/* ==================================================
+ * TAB 1: INFORMASI (RINGKASAN LENGKAP SEMUA PENGATURAN)
  * ================================================== */
 function InformasiTab({ business }: { business: Business }) {
-  const [editBasicOpen, setEditBasicOpen] = React.useState(false)
-  const [editDetailOpen, setEditDetailOpen] = React.useState(false)
-
   // Dynamic claim state
   const [claim, setClaim] = React.useState<ApiMyBusinessClaim | null>(null)
   const [loadingClaim, setLoadingClaim] = React.useState(true)
@@ -311,30 +478,75 @@ function InformasiTab({ business }: { business: Business }) {
     .join("")
     .toUpperCase()
 
+  const coverUrl = business.cover ? resolveMediaUrl(business.cover) : ""
+  const logoUrl = business.logo ? resolveMediaUrl(business.logo) : ""
+
+  const facilities = React.useMemo(
+    () => parseInitialFacilities(business.facilities),
+    [business.facilities]
+  )
+
+  const schedule = React.useMemo(
+    () => parseOpeningHours(business.opening_hours),
+    [business.opening_hours]
+  )
+  const todayStatus = React.useMemo(() => getTodayOpeningStatus(schedule), [schedule])
+
+  const socialEntries = React.useMemo(() => {
+    const sm = (business.socialMedia || (business as any).social_media) as Record<string, string> | undefined
+    const fromLinks = Object.fromEntries((business.socialLinks ?? []).map((l) => [l.platform, l.url]))
+    const platforms = [
+      { key: "instagram", name: "Instagram" },
+      { key: "facebook", name: "Facebook" },
+      { key: "tiktok", name: "TikTok" },
+      { key: "youtube", name: "YouTube" },
+      { key: "linkedin", name: "LinkedIn" },
+    ]
+    return platforms
+      .map((p) => {
+        const val = sm?.[p.key] ?? fromLinks[p.key]
+        const clean = cleanSocialUsername(p.key, val)
+        const fullUrl = formatSocialToFullUrl(p.key, val)
+        return { ...p, username: clean, url: fullUrl }
+      })
+      .filter((p) => Boolean(p.username))
+  }, [business.socialMedia, business.socialLinks])
+
+  // Profile completion meter
+  const completionItems = [
+    { label: "Nama Bisnis", completed: Boolean(business.name) },
+    { label: "Deskripsi Bisnis", completed: Boolean(business.description) },
+    { label: "Nomor Telepon / WhatsApp", completed: Boolean(business.phone) },
+    { label: "Alamat Lengkap", completed: Boolean(business.address) },
+    { label: "Kota / Kabupaten", completed: Boolean(business.city) },
+    { label: "Kategori Utama", completed: Boolean(business.category) },
+    { label: "Logo Bisnis", completed: Boolean(logoUrl) },
+    { label: "Cover Header", completed: Boolean(coverUrl) },
+    { label: "Fasilitas Usaha", completed: facilities.length > 0 },
+    { label: "Jam Operasional", completed: Boolean(business.opening_hours) },
+  ]
+  const completedCount = completionItems.filter((i) => i.completed).length
+  const percentage = Math.round((completedCount / completionItems.length) * 100)
+
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <div className="flex flex-col gap-4 lg:col-span-2">
-        <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-2">
-            <div>
-              <CardTitle>Informasi Utama</CardTitle>
-              <CardDescription>
-                Informasi utama bisnis yang ditampilkan kepada calon pelanggan.
+    <div className="flex flex-col gap-6">
+      {/* Main 2-Column Summary Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column (2 cols): Core Details */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* 1. Informasi Utama & Kontak */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <BuildingIcon className="size-4 text-[#008767]" />
+                Informasi Kontak &amp; Deskripsi
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Data utama identitas bisnis yang ditampilkan di profil publik Katamereka.
               </CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setEditBasicOpen(true)}>
-              <PencilIcon className="mr-1 size-3.5" />
-              Edit
-            </Button>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start">
-            <Avatar className="size-20 shrink-0">
-              <AvatarFallback className="bg-[#008767] text-xl font-semibold text-white">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1 divide-y divide-border">
-              <InfoRow icon={BuildingIcon} label="Nama Bisnis (Owner Managed)" value={business.name} />
+            </CardHeader>
+            <CardContent className="divide-y divide-border pt-0">
+              <InfoRow icon={BuildingIcon} label="Nama Bisnis" value={business.name} />
               <InfoRow icon={FileTextIcon} label="Deskripsi Bisnis" value={business.description || "Belum ada deskripsi bisnis."} />
               <InfoRow icon={MailIcon} label="Email Kontak" value={business.email || "Belum diisi"} />
               <InfoRow icon={PhoneIcon} label="No. Telepon / WhatsApp" value={business.phone || "Belum diisi"} />
@@ -357,177 +569,325 @@ function InformasiTab({ business }: { business: Business }) {
                   )
                 }
               />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-2">
-            <div>
-              <CardTitle>Detail Bisnis</CardTitle>
-              <CardDescription>
-                Kategori dan detail tambahan profil usaha Anda.
+          {/* 2. Lokasi & Alamat */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <MapPinIcon className="size-4 text-[#008767]" />
+                Lokasi &amp; Wilayah Operasional
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Alamat fisik dan titik koordinat tempat usaha Anda.
               </CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setEditDetailOpen(true)}>
-              <PencilIcon className="mr-1 size-3.5" />
-              Edit
-            </Button>
-          </CardHeader>
-          <CardContent className="divide-y divide-border">
-            <InfoRow
-              icon={BriefcaseIcon}
-              label="Kategori Utama"
-              value={<Badge className="bg-[#008767] text-white">{business.category}</Badge>}
-            />
-            <InfoRow
-              icon={MapPinIcon}
-              label="Alamat Bisnis"
-              value={`${business.address}, ${business.city} ${business.postalCode ?? ""}`}
-            />
-            <InfoRow
-              icon={SparklesIcon}
-              label="Fasilitas Usaha"
-              value={
-                Array.isArray(business.facilities) && business.facilities.length > 0 ? (
-                  <Badge variant="outline" className="border-emerald-300 text-[#008767] bg-emerald-50">
-                    {business.facilities.length} Fasilitas Aktif
-                  </Badge>
+            </CardHeader>
+            <CardContent className="divide-y divide-border pt-0">
+              <InfoRow icon={MapPinIcon} label="Alamat Lengkap" value={business.address || "Belum diisi"} />
+              <InfoRow
+                icon={BuildingIcon}
+                label="Kota &amp; Provinsi"
+                value={`${business.city || "-"}, ${business.province || "Indonesia"}`}
+              />
+              <InfoRow icon={FileTextIcon} label="Kode Pos" value={business.postalCode || "Belum diisi"} />
+              <InfoRow
+                icon={MapPinIcon}
+                label="Koordinat GPS"
+                value={
+                  <span className="font-mono text-xs">
+                    Lat: {business.latitude ?? "-6.2088"} • Lon: {business.longitude ?? "106.8456"}
+                  </span>
+                }
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column (1 col): Visuals, Medsos & Claim Status */}
+        <div className="space-y-6">
+          {/* Logo & Cover Summary */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <ImageIcon className="size-4 text-[#008767]" />
+                Logo &amp; Cover
+              </CardTitle>
+              <CardDescription className="text-xs">Identitas visual brand Anda.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-1">
+              <div className="relative aspect-video rounded-xl bg-slate-100 overflow-hidden border border-slate-200 flex items-center justify-center">
+                {coverUrl ? (
+                  <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
                 ) : (
-                  "Belum diisi"
-                )
-              }
-            />
-          </CardContent>
-        </Card>
+                  <span className="text-xs text-slate-400 flex items-center gap-1">
+                    <ImageIcon className="size-4" /> Belum ada cover
+                  </span>
+                )}
+                <span className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded backdrop-blur-xs">
+                  Cover Header
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                <Avatar className="size-12 border border-slate-300">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt={business.name} className="size-full object-cover" />
+                  ) : (
+                    <AvatarFallback className="bg-[#008767] text-white font-bold text-sm">
+                      {initials}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                <div className="min-w-0 flex-1 text-xs">
+                  <p className="font-bold text-slate-900 truncate">{business.name}</p>
+                  <p className="text-slate-500">{logoUrl ? "Logo resmi aktif" : "Belum ada logo resmi"}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Social Media Links Summary */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Share2Icon className="size-4 text-[#008767]" />
+                Media Sosial
+              </CardTitle>
+              <CardDescription className="text-xs">Tautan medsos resmi bisnis.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-1 space-y-2">
+              {socialEntries.length === 0 ? (
+                <div className="p-3 text-center rounded-xl bg-slate-50 border border-dashed border-slate-200 text-xs text-slate-400">
+                  Belum ada akun media sosial yang terhubung.
+                </div>
+              ) : (
+                socialEntries.map((s) => (
+                  <a
+                    key={s.key}
+                    href={s.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 hover:border-[#008767] hover:bg-emerald-50/50 transition-colors group text-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-800">{s.name}</span>
+                      <span className="text-slate-500 font-mono text-[11px]">@{s.username}</span>
+                    </div>
+                    <ExternalLinkIcon className="size-3.5 text-slate-400 group-hover:text-[#008767]" />
+                  </a>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Status Owner Card */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <ShieldCheckIcon className="size-4 text-[#008767]" />
+                Status Pemilik (Owner)
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Verifikasi kepemilikan bisnis di platform KataMereka.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-1">
+              {loadingClaim ? (
+                <div className="p-4 border rounded-xl animate-pulse text-xs text-muted-foreground text-center">
+                  Memeriksa status verifikasi klaim...
+                </div>
+              ) : isVerified ? (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2Icon className="size-4 text-[#008767] shrink-0" />
+                      <p className="text-xs font-bold text-[#008767]">Bisnis Terverifikasi</p>
+                    </div>
+                    <Badge className="bg-[#008767] text-white text-[10px]">Aktif</Badge>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Anda memiliki hak akses penuh sebagai Owner Resmi untuk mengelola profil, membalas ulasan, dan menerima notifikasi pelanggan.
+                  </p>
+                </div>
+              ) : isPending ? (
+                <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ClockIcon className="size-4 text-amber-600 shrink-0" />
+                      <p className="text-xs font-bold text-amber-900">Menunggu Review Admin</p>
+                    </div>
+                    <Badge className="bg-amber-500 text-white text-[10px]">Pending</Badge>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Pengajuan klaim sedang dalam antrean verifikasi tim admin (1-2 hari kerja).
+                  </p>
+                </div>
+              ) : isRejected ? (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangleIcon className="size-4 text-rose-600 shrink-0" />
+                      <p className="text-xs font-bold text-rose-900">Klaim Ditolak</p>
+                    </div>
+                    <Badge variant="destructive" className="text-[10px]">Ditolak</Badge>
+                  </div>
+                  <p className="text-[11px] text-rose-800">
+                    {claim?.admin_notes || "Dokumen bukti kepemilikan belum memenuhi syarat verifikasi."}
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => setReclaimOpen(true)}
+                    className="w-full bg-[#008767] hover:bg-[#007055] text-white text-xs cursor-pointer"
+                  >
+                    Ajukan Ulang Klaim
+                  </Button>
+                </div>
+              ) : (
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                  <p className="text-xs text-slate-600">Bisnis belum diklaim sebagai milik Anda.</p>
+                  <Button
+                    size="sm"
+                    render={<Link href="/klaim-bisnis" />}
+                    className="w-full bg-[#008767] hover:bg-[#007055] text-white text-xs cursor-pointer"
+                  >
+                    Klaim Bisnis Ini
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-4">
-        {/* Quick Logo & Cover Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Logo &amp; Sampul Bisnis</CardTitle>
-            <CardDescription>
-              Tampilkan identitas visual brand Anda di profil Katamereka.
+      {/* Row Lebar Penuh: Kategori, Fasilitas & Jam Operasional (Rata Kanan Kiri) */}
+      <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Kategori Bisnis & Layanan */}
+        <Card className="flex flex-col h-[270px]">
+          <CardHeader className="pb-3 shrink-0">
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <TagsIcon className="size-4 text-[#008767]" />
+              Kategori Bisnis &amp; Layanan
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Kategori utama dan tag layanan untuk filter pencarian.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <div className="relative overflow-hidden rounded-xl bg-slate-100 border border-slate-200 aspect-video flex items-center justify-center">
-              <ImageIcon className="size-8 text-slate-400" />
-              <span className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded backdrop-blur-xs">
-                Gambar Sampul (Cover)
-              </span>
+          <CardContent className="space-y-4 pt-0 flex-1 overflow-y-auto">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5 font-medium">Kategori Utama:</p>
+              <Badge className="bg-[#008767] text-white px-3 py-1 text-xs font-semibold">
+                {business.category || "Bisnis"}
+              </Badge>
             </div>
-            <div className="flex items-center gap-3">
-              <Avatar className="size-14 border-2 border-white shadow-md">
-                <AvatarFallback className="bg-[#008767] text-white font-bold text-sm">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="text-xs space-y-0.5">
-                <p className="font-semibold text-slate-900">{business.name}</p>
-                <p className="text-slate-500">Logo Bisnis Resmi</p>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5 font-medium">Kategori Tambahan / Tag Layanan:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {Array.isArray(business.additionalCategories) && business.additionalCategories.length > 0 ? (
+                  business.additionalCategories.map((cat) => (
+                    <span
+                      key={cat}
+                      className="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-50 text-[#008767] font-semibold text-xs border border-emerald-200"
+                    >
+                      {cat}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-slate-400 italic">Belum ada tag layanan tambahan</span>
+                )}
               </div>
-            </div>
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full text-xs"
-                onClick={() => toast.success("Foto logo & cover dapat diperbarui di tab Media.")}
-              >
-                Kelola Media &rarr;
-              </Button>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Status Pemilik (Owner)</CardTitle>
-            <CardDescription>
-              Status verifikasi klaim kepemilikan bisnis Anda.
+        {/* Fasilitas Usaha */}
+        <Card className="flex flex-col h-[270px]">
+          <CardHeader className="pb-3 shrink-0">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <SparklesIcon className="size-4 text-[#008767]" />
+                Fasilitas Usaha
+              </CardTitle>
+              <Badge className="bg-emerald-50 text-[#008767] border border-emerald-200 text-[11px] font-semibold">
+                {facilities.length} Fasilitas Aktif
+              </Badge>
+            </div>
+            <CardDescription className="text-xs">
+              Fasilitas yang tersedia untuk pengunjung/pelanggan Anda.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {loadingClaim ? (
-              <div className="p-4 border rounded-xl animate-pulse text-xs text-muted-foreground text-center">
-                Memeriksa status verifikasi klaim...
-              </div>
-            ) : isVerified ? (
-              <div className="flex items-center justify-between p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl">
-                <div className="flex items-center gap-2.5">
-                  <CheckCircle2Icon className="size-5 text-[#008767] shrink-0" />
-                  <div>
-                    <p className="text-xs font-bold text-[#008767]">Bisnis Terverifikasi (Owner Resmi)</p>
-                    <p className="text-[11px] text-slate-600">ID Bisnis: {business.id.slice(0, 8)} • Hak Akses Penuh</p>
-                  </div>
-                </div>
-                <Badge className="bg-[#008767] text-white text-[10px] shrink-0">Aktif</Badge>
-              </div>
-            ) : isPending ? (
-              <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <ClockIcon className="size-4.5 text-amber-600 shrink-0" />
-                    <p className="text-xs font-bold text-amber-900">Menunggu Review Admin</p>
-                  </div>
-                  <Badge className="bg-amber-500 text-white text-[10px] shrink-0">Pending</Badge>
-                </div>
-                <p className="text-[11px] text-amber-800 leading-relaxed">
-                  Pengajuan klaim bisnis Anda sedang dalam proses peninjauan oleh tim admin (estimasi 1–2 hari kerja).
-                </p>
-              </div>
-            ) : isRejected ? (
-              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangleIcon className="size-4.5 text-rose-600 shrink-0" />
-                    <p className="text-xs font-bold text-rose-900">Klaim Ditolak</p>
-                  </div>
-                  <Badge variant="destructive" className="text-[10px] shrink-0">Ditolak</Badge>
-                </div>
-                <div className="text-[11px] text-rose-800 bg-rose-100/60 p-2 rounded-lg space-y-0.5">
-                  <span className="font-semibold text-rose-900 block">Alasan Penolakan:</span>
-                  <p>{claim?.admin_notes || "Dokumen bukti kepemilikan yang dilampirkan belum memenuhi syarat validasi."}</p>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => setReclaimOpen(true)}
-                  className="w-full bg-[#008767] hover:bg-[#007458] text-white text-xs cursor-pointer"
-                >
-                  Ajukan Ulang Klaim
-                </Button>
+          <CardContent className="pt-0 flex-1 overflow-y-auto">
+            {facilities.length === 0 ? (
+              <div className="p-4 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
+                Belum ada fasilitas usaha yang ditambahkan.
               </div>
             ) : (
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <InfoIcon className="size-4.5 text-slate-500 shrink-0" />
-                    <p className="text-xs font-bold text-slate-800">Belum Terverifikasi</p>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] shrink-0">Belum Diklaim</Badge>
-                </div>
-                <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Bisnis ini belum diklaim atau diverifikasi sebagai milik Anda di sistem KataMereka.
-                </p>
-                <Button
-                  size="sm"
-                  render={<Link href="/klaim-bisnis" />}
-                  className="w-full bg-[#008767] hover:bg-[#007458] text-white text-xs cursor-pointer"
-                >
-                  Cari & Klaim Bisnis Ini
-                </Button>
+              <div className="flex flex-wrap gap-2">
+                {facilities.map((fac) => (
+                  <span
+                    key={fac}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-[#008767] text-xs font-semibold shadow-2xs"
+                  >
+                    <CheckCircle2Icon className="size-3.5 text-[#008767]" />
+                    {fac}
+                  </span>
+                ))}
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Jam Operasional - Sama besar dan bisa di-scroll ke bawah */}
+        <Card className="flex flex-col h-[270px]">
+          <CardHeader className="pb-3 shrink-0">
+            <div className="flex items-center justify-between gap-1 flex-wrap">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <ClockIcon className="size-4 text-[#008767]" />
+                Jam Operasional
+              </CardTitle>
+              <span
+                className={cn(
+                  "text-[10px] px-2 py-0.5 rounded-full font-bold",
+                  todayStatus.isOpen
+                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                    : "bg-red-100 text-red-800 border border-red-300"
+                )}
+              >
+                {todayStatus.text}
+              </span>
+            </div>
+            <CardDescription className="text-xs">
+              Jadwal buka dan tutup operasional toko atau kantor.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0 flex-1 overflow-y-auto space-y-1.5 pr-1.5">
+            {schedule.map((item) => (
+              <div
+                key={item.day}
+                className={cn(
+                  "flex items-center justify-between p-2 rounded-lg border text-xs",
+                  item.closed
+                    ? "bg-slate-50 border-slate-200 text-slate-400"
+                    : "bg-white border-slate-200 text-slate-800"
+                )}
+              >
+                <span className="font-semibold">{item.label}</span>
+                {item.closed ? (
+                  <span className="font-semibold text-red-500 bg-red-50 px-2 py-0.5 rounded text-[11px]">
+                    Tutup
+                  </span>
+                ) : (
+                  <span className="font-mono font-medium text-slate-700 text-xs">
+                    {item.open} - {item.close}
+                  </span>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
 
-      <EditBasicInfoDialog open={editBasicOpen} onOpenChange={setEditBasicOpen} business={business} />
-      <EditDetailDialog open={editDetailOpen} onOpenChange={setEditDetailOpen} business={business} />
-
-      {/* Dialog Ajukan Ulang Klaim */}
+      {/* Reclaim Dialog */}
       <Dialog open={reclaimOpen} onOpenChange={setReclaimOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -591,7 +951,7 @@ function InformasiTab({ business }: { business: Business }) {
               size="sm"
               onClick={handleConfirmReclaim}
               disabled={reclaimSubmitting}
-              className="bg-[#008767] hover:bg-[#007458] text-white"
+              className="bg-[#008767] hover:bg-[#007458] text-white cursor-pointer"
             >
               {reclaimSubmitting ? "Mengirim..." : "Kirim Pengajuan Ulang"}
             </Button>
@@ -599,6 +959,129 @@ function InformasiTab({ business }: { business: Business }) {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+/* ==================================================
+ * SECTION 1 DI TAB PENGATURAN: INFORMASI UTAMA & KONTAK
+ * ================================================== */
+function InformasiUtamaTab({ business }: { business: Business }) {
+  const { refetch } = useBusinessContext()
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [form, setForm] = React.useState({
+    name: business.name || "",
+    description: business.description || "",
+    email: business.email ?? "",
+    phone: business.phone ?? "",
+    website: business.website ?? "",
+  })
+
+  React.useEffect(() => {
+    setForm({
+      name: business.name || "",
+      description: business.description || "",
+      email: business.email ?? "",
+      phone: business.phone ?? "",
+      website: business.website ?? "",
+    })
+  }, [business])
+
+  async function handleSave() {
+    if (!business.id) return
+    setIsSubmitting(true)
+    try {
+      const res = await updateBusinessProfile(business.id, {
+        name: form.name.trim(),
+        description: form.description.trim(),
+        email: form.email.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+        website: form.website.trim() || undefined,
+      })
+      if (res.success) {
+        toast.success(res.message || "Informasi utama berhasil disimpan.")
+        await refetch()
+      } else {
+        toast.error(res.message || "Gagal menyimpan informasi")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat menyimpan informasi.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Informasi Profil &amp; Kontak Bisnis</CardTitle>
+        <CardDescription>
+          Perbarui nama resmi bisnis, deskripsi profil usaha, dan kontak yang dapat dihubungi pelanggan.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="info-name">Nama Bisnis</FieldLabel>
+            <Input
+              id="info-name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Nama Resmi Bisnis Anda"
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="info-desc">Deskripsi Bisnis</FieldLabel>
+            <Textarea
+              id="info-desc"
+              rows={3}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="Ceritakan tentang profil, keunggulan, atau sejarah bisnis Anda..."
+            />
+          </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Field>
+              <FieldLabel htmlFor="info-email">Email Kontak</FieldLabel>
+              <Input
+                id="info-email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder="kontak@bisnis.com"
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="info-phone">No. Telepon / WA</FieldLabel>
+              <Input
+                id="info-phone"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder="08123456789"
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="info-web">Website Resmi</FieldLabel>
+              <Input
+                id="info-web"
+                value={form.website}
+                onChange={(e) => setForm({ ...form, website: e.target.value })}
+                placeholder="https://bisnisanda.com"
+              />
+            </Field>
+          </div>
+        </FieldGroup>
+        <div className="pt-2 flex justify-end">
+          <Button
+            onClick={handleSave}
+            disabled={isSubmitting}
+            className="bg-[#008767] hover:bg-[#007055] text-white cursor-pointer"
+          >
+            <SaveIcon className="mr-1.5 size-4" />
+            {isSubmitting ? "Menyimpan..." : "Simpan Informasi"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -612,8 +1095,8 @@ function LokasiTab({ business }: { business: Business }) {
     city: business.city || "",
     province: business.province || "Indonesia",
     postalCode: business.postalCode || "",
-    latitude: "-6.2088",
-    longitude: "106.8456",
+    latitude: business.latitude ? String(business.latitude) : "-6.2088",
+    longitude: business.longitude ? String(business.longitude) : "106.8456",
   })
 
   React.useEffect(() => {
@@ -622,8 +1105,8 @@ function LokasiTab({ business }: { business: Business }) {
       city: business.city || "",
       province: business.province || "Indonesia",
       postalCode: business.postalCode || "",
-      latitude: "-6.2088",
-      longitude: "106.8456",
+      latitude: business.latitude ? String(business.latitude) : "-6.2088",
+      longitude: business.longitude ? String(business.longitude) : "106.8456",
     })
   }, [business])
 
@@ -1080,32 +1563,6 @@ function KategoriTab({ business }: { business: Business }) {
 /* ==================================================
  * TAB: FASILITAS
  * ================================================== */
-function parseInitialFacilities(raw: any): string[] {
-  if (!raw) return []
-  if (Array.isArray(raw)) {
-    return raw.filter((f) => typeof f === "string" && f.trim() !== "")
-  }
-  if (typeof raw === "object") {
-    const list: string[] = []
-    if (raw.wifi || raw.internet_access) list.push("Wi-Fi Gratis")
-    if (raw.ac || raw.air_conditioning) list.push("Ruangan Ber-AC")
-    if (raw.parking || raw.area_parkir) list.push("Area Parkir Luas")
-    if (raw.wheelchair) list.push("Akses Kursi Roda / Disabilitas")
-    if (raw.musholla || raw.masjid) list.push("Musholla / Tempat Ibadah")
-    if (raw.toilet) list.push("Toilet Bersih")
-    if (raw.qris || raw.cashless) list.push("Pembayaran Non-Tunai / QRIS")
-    if (raw.reception_24h || raw.front_desk) list.push("Resepsionis 24 Jam")
-    Object.entries(raw).forEach(([k, v]) => {
-      if (typeof v === "string" && !list.includes(v)) list.push(v)
-    })
-    return list
-  }
-  if (typeof raw === "string") {
-    return raw.split(",").map((s) => s.trim()).filter(Boolean)
-  }
-  return []
-}
-
 function FasilitasTab({ business }: { business: Business }) {
   const { refetch } = useBusinessContext()
   const initialFacilities = React.useMemo(
@@ -1381,25 +1838,17 @@ function FasilitasTab({ business }: { business: Business }) {
 /* ==================================================
  * TAB 4: JAM OPERASIONAL
  * ================================================== */
-interface DaySchedule {
-  day: string
-  label: string
-  open: string
-  close: string
-  closed: boolean
-}
-
 function JamOperasionalTab({ business }: { business: Business }) {
   const { refetch } = useBusinessContext()
-  const [schedule, setSchedule] = React.useState<DaySchedule[]>([
-    { day: "monday", label: "Senin", open: "08:00", close: "21:00", closed: false },
-    { day: "tuesday", label: "Selasa", open: "08:00", close: "21:00", closed: false },
-    { day: "wednesday", label: "Rabu", open: "08:00", close: "21:00", closed: false },
-    { day: "thursday", label: "Kamis", open: "08:00", close: "21:00", closed: false },
-    { day: "friday", label: "Jumat", open: "08:00", close: "22:00", closed: false },
-    { day: "saturday", label: "Sabtu", open: "09:00", close: "22:00", closed: false },
-    { day: "sunday", label: "Minggu", open: "09:00", close: "18:00", closed: true },
-  ])
+  const [schedule, setSchedule] = React.useState<DaySchedule[]>(() =>
+    parseOpeningHours(business.opening_hours)
+  )
+
+  React.useEffect(() => {
+    if (business.opening_hours) {
+      setSchedule(parseOpeningHours(business.opening_hours))
+    }
+  }, [business.opening_hours])
 
   const [saving, setSaving] = React.useState(false)
 
@@ -1535,56 +1984,6 @@ function JamOperasionalTab({ business }: { business: Business }) {
       </Card>
     </div>
   )
-}
-
-function cleanSocialUsername(platform: string, val: string | undefined | null): string {
-  if (!val) return ""
-  let text = String(val).trim()
-  if (!text) return ""
-
-  try {
-    if (text.startsWith("http://") || text.startsWith("https://")) {
-      const parsed = new URL(text)
-      const pathname = parsed.pathname.replace(/^\/+|\/+$/g, "")
-      const segments = pathname.split("/").filter(Boolean)
-      if (segments.length > 0) {
-        if (segments[0] === "company" || segments[0] === "in") {
-          return segments[1] || segments[0]
-        }
-        return segments[segments.length - 1].replace(/^@/, "")
-      }
-    }
-  } catch {}
-
-  text = text.replace(/^(?:https?:\/\/)?(?:www\.)?(?:instagram\.com|facebook\.com|tiktok\.com|linkedin\.com|youtube\.com)\/?/i, "")
-  text = text.replace(/^company\//i, "")
-  text = text.replace(/^in\//i, "")
-  text = text.replace(/^@/, "")
-  return text.trim()
-}
-
-function formatSocialToFullUrl(platform: string, usernameOrUrl: string | undefined | null): string {
-  if (!usernameOrUrl) return ""
-  const text = String(usernameOrUrl).trim()
-  if (!text) return ""
-
-  const cleanUser = cleanSocialUsername(platform, text)
-  if (!cleanUser) return ""
-
-  switch (platform.toLowerCase()) {
-    case "instagram":
-      return `https://instagram.com/${cleanUser}`
-    case "facebook":
-      return `https://facebook.com/${cleanUser}`
-    case "tiktok":
-      return `https://tiktok.com/@${cleanUser}`
-    case "linkedin":
-      return `https://linkedin.com/company/${cleanUser}`
-    case "youtube":
-      return `https://youtube.com/@${cleanUser}`
-    default:
-      return text
-  }
 }
 
 /* ==================================================
@@ -2190,201 +2589,3 @@ function PengaturanTab({ business }: { business: Business }) {
   )
 }
 
-function EditBasicInfoDialog({
-  open,
-  onOpenChange,
-  business,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  business: Business
-}) {
-  const { refetch } = useBusinessContext()
-  const [isSubmitting, setIsSubmitting] = React.useState(false)
-  const [form, setForm] = React.useState({
-    name: business.name,
-    description: business.description,
-    email: business.email ?? "",
-    phone: business.phone ?? "",
-    website: business.website ?? "",
-  })
-
-  React.useEffect(() => {
-    setForm({
-      name: business.name,
-      description: business.description,
-      email: business.email ?? "",
-      phone: business.phone ?? "",
-      website: business.website ?? "",
-    })
-  }, [business])
-
-  function update<K extends keyof typeof form>(key: K, value: string) {
-    setForm((prev) => ({ ...prev, [key]: value }))
-  }
-
-  async function handleSave() {
-    if (!business.id) return
-    setIsSubmitting(true)
-    try {
-      const res = await updateBusinessProfile(business.id, {
-        name: form.name.trim(),
-        description: form.description.trim(),
-        email: form.email.trim() || undefined,
-        phone: form.phone.trim() || undefined,
-        website: form.website.trim() || undefined,
-      })
-      if (res.success) {
-        toast.success(res.message || "Informasi utama berhasil disimpan.")
-        await refetch()
-        onOpenChange(false)
-      } else {
-        toast.error(res.message || "Gagal menyimpan informasi")
-      }
-    } catch {
-      toast.error("Terjadi kesalahan saat menyimpan informasi.")
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Informasi Utama</DialogTitle>
-        </DialogHeader>
-        <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="edit-name">Nama Bisnis</FieldLabel>
-            <Input id="edit-name" value={form.name} onChange={(e) => update("name", e.target.value)} />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="edit-description">Deskripsi</FieldLabel>
-            <Textarea
-              id="edit-description"
-              rows={3}
-              value={form.description}
-              onChange={(e) => update("description", e.target.value)}
-            />
-          </Field>
-          <Field orientation="responsive">
-            <FieldLabel htmlFor="edit-email">Email Kontak</FieldLabel>
-            <Input id="edit-email" value={form.email} onChange={(e) => update("email", e.target.value)} />
-          </Field>
-          <Field orientation="responsive">
-            <FieldLabel htmlFor="edit-phone">No. Telepon / WA</FieldLabel>
-            <Input id="edit-phone" value={form.phone} onChange={(e) => update("phone", e.target.value)} />
-          </Field>
-          <Field orientation="responsive">
-            <FieldLabel htmlFor="edit-website">Website</FieldLabel>
-            <Input id="edit-website" value={form.website} onChange={(e) => update("website", e.target.value)} />
-          </Field>
-        </FieldGroup>
-        <DialogFooter>
-          <Button variant="outline" disabled={isSubmitting} onClick={() => onOpenChange(false)}>
-            Batal
-          </Button>
-          <Button
-            className="bg-[#008767] hover:bg-[#007055]"
-            disabled={isSubmitting}
-            onClick={handleSave}
-          >
-            {isSubmitting ? "Menyimpan..." : "Simpan"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function EditDetailDialog({
-  open,
-  onOpenChange,
-  business,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  business: Business
-}) {
-  const { refetch } = useBusinessContext()
-  const [isSubmitting, setIsSubmitting] = React.useState(false)
-  const [form, setForm] = React.useState({
-    category: business.category,
-    address: business.address,
-  })
-
-  React.useEffect(() => {
-    setForm({
-      category: business.category,
-      address: business.address,
-    })
-  }, [business])
-
-  function update<K extends keyof typeof form>(key: K, value: string) {
-    setForm((prev) => ({ ...prev, [key]: value }))
-  }
-
-  async function handleSave() {
-    if (!business.id) return
-    setIsSubmitting(true)
-    try {
-      const res = await updateBusinessProfile(business.id, {
-        category: form.category.trim() || undefined,
-        address: form.address.trim() || undefined,
-      })
-      if (res.success) {
-        toast.success(res.message || "Detail bisnis berhasil disimpan.")
-        await refetch()
-        onOpenChange(false)
-      } else {
-        toast.error(res.message || "Gagal menyimpan detail bisnis")
-      }
-    } catch {
-      toast.error("Terjadi kesalahan saat menyimpan detail bisnis.")
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Detail Bisnis</DialogTitle>
-        </DialogHeader>
-        <FieldGroup>
-          <Field orientation="responsive">
-            <FieldLabel htmlFor="edit-category">Kategori Utama</FieldLabel>
-            <Input
-              id="edit-category"
-              value={form.category}
-              onChange={(e) => update("category", e.target.value)}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="edit-address">Alamat Bisnis</FieldLabel>
-            <Textarea
-              id="edit-address"
-              rows={2}
-              value={form.address}
-              onChange={(e) => update("address", e.target.value)}
-            />
-          </Field>
-        </FieldGroup>
-        <DialogFooter>
-          <Button variant="outline" disabled={isSubmitting} onClick={() => onOpenChange(false)}>
-            Batal
-          </Button>
-          <Button
-            className="bg-[#008767] hover:bg-[#007055]"
-            disabled={isSubmitting}
-            onClick={handleSave}
-          >
-            {isSubmitting ? "Menyimpan..." : "Simpan"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}

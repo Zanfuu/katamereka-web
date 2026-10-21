@@ -66,6 +66,9 @@ export interface Business {
   socialLinks?: { platform: string; url: string }[]
   socialMedia?: Record<string, string>
   operatingHours?: { day: string; hours: string }[]
+  opening_hours?: Record<string, any>
+  latitude?: number | null
+  longitude?: number | null
   facilities?: string[] | Record<string, any>
   additionalCategories?: string[]
   foundedYear?: number

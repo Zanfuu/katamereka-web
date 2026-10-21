@@ -66,6 +66,10 @@ export interface MyBusinessItem {
   sourceOfTruth?: string
   social_media?: Record<string, string>
   facilities?: string[] | Record<string, any>
+  latitude?: number | null
+  longitude?: number | null
+  opening_hours?: Record<string, any> | null
+  openingHours?: Record<string, any> | null
   createdAt?: string
 }
 
