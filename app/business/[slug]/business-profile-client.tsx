@@ -158,6 +158,11 @@ export default function BusinessProfilePage({
   const { user, isLoggedIn } = useAuth();
 
   const [isBusinessDomain, setIsBusinessDomain] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Read ?from= from window instead of useSearchParams(): useSearchParams()
   // forces the nearest Suspense boundary to client-render on a statically
@@ -1574,7 +1579,7 @@ export default function BusinessProfilePage({
                   Bisnis ini sudah terdaftar resmi dan dikelola oleh pemilik terverifikasi.
                 </p>
               </div>
-            ) : !isLoggedIn ? (
+            ) : !mounted || !isLoggedIn ? (
               <div className="bg-[#f0faf7] border border-[#008767]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                   <ShieldCheck className="w-5 h-5 text-[#008767]" />
@@ -1585,6 +1590,7 @@ export default function BusinessProfilePage({
                 </p>
                 <Link
                   href={`/login?redirect=${encodeURIComponent(`/business/${slug}`)}`}
+                  suppressHydrationWarning
                   className="block w-full text-center py-3 rounded-full bg-[#008767] hover:bg-[#007458] text-white text-xs font-bold shadow-xs transition-all active:scale-95"
                 >
                   Klaim Bisnis Ini
