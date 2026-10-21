@@ -29,7 +29,7 @@ import {
   fetchMyHelpfulVotes,
 } from "@/lib/api-profile";
 import { recordBusinessViewActivity } from "@/lib/recent-activity";
-import { resolveFacilities } from "@/lib/facilities";
+import { resolveFacilitiesDescription } from "@/lib/facilities";
 import { getCleanCategory, slugify } from "@/lib/slug";
 import { LoginDialog } from "@/components/login-dialog";
 
@@ -591,27 +591,9 @@ export default function BusinessProfilePage({
     return <Store className="w-3.5 h-3.5 text-[#008767]" />;
   };
 
-  const renderFacilityIcon = (facilityName: string) => {
-    const f = (facilityName || "").toLowerCase();
-    if (f.includes("wifi") || f.includes("internet") || f.includes("wi-fi")) return <Wifi className="w-4 h-4 text-[#008767]" />;
-    if (f.includes("parkir") || f.includes("parking") || f.includes("mobil") || f.includes("motor") || f.includes("valet")) return <Car className="w-4 h-4 text-[#008767]" />;
-    if (f.includes("ac") || f.includes("dingin") || f.includes("air cond")) return <Snowflake className="w-4 h-4 text-[#008767]" />;
-    if (f.includes("resepsionis") || f.includes("front desk") || f.includes("concierge") || f.includes("layanan") || f.includes("staff")) return <UserCheck className="w-4 h-4 text-[#008767]" />;
-    if (f.includes("kopi") || f.includes("cafe") || f.includes("coffee") || f.includes("sarapan") || f.includes("breakfast")) return <Coffee className="w-4 h-4 text-[#008767]" />;
-    if (f.includes("restoran") || f.includes("makan") || f.includes("resto") || f.includes("kuliner") || f.includes("dining")) return <Utensils className="w-4 h-4 text-[#008767]" />;
-    if (f.includes("kamar") || f.includes("bed") || f.includes("tidur") || f.includes("room") || f.includes("suite")) return <BedDouble className="w-4 h-4 text-[#008767]" />;
-    if (f.includes("kolam") || f.includes("renang") || f.includes("pool") || f.includes("spa") || f.includes("sauna")) return <Waves className="w-4 h-4 text-[#008767]" />;
-    if (f.includes("gym") || f.includes("fitness") || f.includes("olahraga") || f.includes("sport")) return <Dumbbell className="w-4 h-4 text-[#008767]" />;
-    if (f.includes("rapat") || f.includes("meeting") || f.includes("aula") || f.includes("hall") || f.includes("conference")) return <Users className="w-4 h-4 text-[#008767]" />;
-    if (f.includes("tv") || f.includes("televisi") || f.includes("bioskop") || f.includes("cinema")) return <Tv className="w-4 h-4 text-[#008767]" />;
-    if (f.includes("kursi roda") || f.includes("wheelchair") || f.includes("disabilitas") || f.includes("aksesibel")) return <Accessibility className="w-4 h-4 text-[#008767]" />;
-    if (f.includes("kartu") || f.includes("qris") || f.includes("cashless") || f.includes("pembayaran") || f.includes("debit") || f.includes("credit")) return <CreditCard className="w-4 h-4 text-[#008767]" />;
-    if (f.includes("ibadah") || f.includes("musholla") || f.includes("masjid") || f.includes("sholat")) return <Sparkles className="w-4 h-4 text-[#008767]" />;
-    if (f.includes("cctv") || f.includes("security") || f.includes("keamanan") || f.includes("satpam")) return <ShieldCheck className="w-4 h-4 text-[#008767]" />;
-    return <CheckCircle2 className="w-4 h-4 text-[#008767]" />;
-  };
-
-  const facilitiesList = resolveFacilities(apiDetail);
+  // Owner-written facilities description (set from the claiming owner's dashboard).
+  // No description => the whole card is hidden.
+  const facilitiesDescription = resolveFacilitiesDescription(apiDetail);
 
   const shareUrl =
     typeof window !== "undefined"
@@ -925,51 +907,34 @@ export default function BusinessProfilePage({
                   )}
                 </div>
 
-                {/* Card 2: Fasilitas (Collapsible Dropdown Accordion) */}
-                <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden transition-all">
-                  <button
-                    type="button"
-                    onClick={() => setIsFasilitasOpen(!isFasilitasOpen)}
-                    className="w-full p-5 sm:p-6 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
+                {/* Card 2: Fasilitas (only when the owner has written a description) */}
+                {facilitiesDescription && (
+                  <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden transition-all">
+                    <button
+                      type="button"
+                      onClick={() => setIsFasilitasOpen(!isFasilitasOpen)}
+                      className="w-full p-5 sm:p-6 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors cursor-pointer"
+                    >
                       <h3 className="font-bold text-slate-900 text-base sm:text-lg">
                         Fasilitas
                       </h3>
-                      {facilitiesList.length > 0 && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-[#008767] border border-emerald-100">
-                          {facilitiesList.length}
-                        </span>
-                      )}
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 transition-transform flex-shrink-0">
-                      <ChevronDown
-                        className={`w-4 h-4 transition-transform duration-300 ${isFasilitasOpen ? "rotate-180 text-[#008767]" : ""
-                          }`}
-                      />
-                    </div>
-                  </button>
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 transition-transform flex-shrink-0">
+                        <ChevronDown
+                          className={`w-4 h-4 transition-transform duration-300 ${isFasilitasOpen ? "rotate-180 text-[#008767]" : ""
+                            }`}
+                        />
+                      </div>
+                    </button>
 
-                  {isFasilitasOpen && (
-                    <div className="px-5 sm:px-6 pb-5 sm:pb-6 pt-1 border-t border-slate-100 animate-in fade-in duration-200">
-                      {facilitiesList.length > 0 ? (
-                        <div className="flex flex-wrap gap-2.5 mt-2">
-                          {facilitiesList.map((item, idx) => (
-                            <span
-                              key={idx}
-                              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50/60 border border-emerald-100 text-slate-700 text-xs sm:text-sm font-medium"
-                            >
-                              {renderFacilityIcon(item)}
-                              <span>{item}</span>
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-slate-500 text-sm font-medium mt-2">Belum ada informasi fasilitas.</p>
-                      )}
-                    </div>
-                  )}
-                </div>
+                    {isFasilitasOpen && (
+                      <div className="px-5 sm:px-6 pb-5 sm:pb-6 pt-3 border-t border-slate-100 animate-in fade-in duration-200">
+                        <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line">
+                          {facilitiesDescription}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Card 3: Ulasan Pelanggan */}
                 <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-7 shadow-xs space-y-4 sm:space-y-6">

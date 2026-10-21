@@ -226,9 +226,8 @@ export interface ApiBusinessDetail {
   cover_url?: string | null;
   photos?: string[];
   openingHours?: Record<string, unknown> | null;
-  facilities?: ApiFacilities | string[] | null;
-  /** Backend-normalized, display-ready labels (see api_service facilities.helper). */
-  facilitiesList?: string[];
+  /** Owner-written text, or an object carrying it as `description`. */
+  facilities?: ApiFacilities | string | null;
   catering?: ApiCatering | null;
   externalMetadata?: ApiExternalMetadata | null;
   socialMedia?: Record<string, unknown> | null;
