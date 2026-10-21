@@ -52,6 +52,7 @@ export function ResourceTable<T>({
   itemLabel = "data",
   pageSize = DEFAULT_PAGE_SIZE_OPTIONS[0],
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
+  hidePagination = false,
 }: {
   data: T[]
   columns: ResourceTableColumn<T>[]
@@ -71,6 +72,8 @@ export function ResourceTable<T>({
   itemLabel?: string
   pageSize?: number
   pageSizeOptions?: number[]
+  /** Hide internal client-side pagination when using custom server-side controls */
+  hidePagination?: boolean
 }) {
   const [sort, setSort] = React.useState<{ key: string; direction: "asc" | "desc" } | null>(
     null
@@ -95,7 +98,9 @@ export function ResourceTable<T>({
 
   const pageCount = Math.max(1, Math.ceil(sortedData.length / size))
   const clampedPage = Math.min(page, pageCount - 1)
-  const pageData = sortedData.slice(clampedPage * size, clampedPage * size + size)
+  const pageData = hidePagination
+    ? sortedData
+    : sortedData.slice(clampedPage * size, clampedPage * size + size)
   const rangeStart = sortedData.length === 0 ? 0 : clampedPage * size + 1
   const rangeEnd = Math.min(sortedData.length, clampedPage * size + size)
 
@@ -219,7 +224,7 @@ export function ResourceTable<T>({
         </Table>
       </div>
 
-      {!isLoading && sortedData.length > 0 && (
+      {!hidePagination && !isLoading && sortedData.length > 0 && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-sm text-muted-foreground">
             Menampilkan {rangeStart}–{rangeEnd} dari {sortedData.length} {itemLabel}

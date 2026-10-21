@@ -16,6 +16,8 @@ import {
   StarIcon,
   ThumbsUpIcon,
   Trash2Icon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -43,6 +45,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import {
   Sheet,
@@ -106,6 +115,28 @@ function avatarTone(id?: string | null) {
   return AVATAR_TONES[hash]
 }
 
+const PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50]
+
+function getPageNumbers(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 5) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+
+  const pages = new Set<number>([1, total, current, current - 1, current + 1])
+  const sorted = Array.from(pages)
+    .filter((n) => n >= 1 && n <= total)
+    .sort((a, b) => a - b)
+
+  const result: (number | "ellipsis")[] = []
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i] - sorted[i - 1] > 1) {
+      result.push("ellipsis")
+    }
+    result.push(sorted[i])
+  }
+  return result
+}
+
 export default function AdminGlobalReviewsPage() {
   const [reviews, setReviews] = React.useState<AdminReviewItem[]>([])
   const [meta, setMeta] = React.useState({
@@ -113,6 +144,15 @@ export default function AdminGlobalReviewsPage() {
     page: 1,
     limit: 20,
     totalPages: 1,
+  })
+  const [limit, setLimit] = React.useState(20)
+
+  // Status breakdown across whole database
+  const [statusCounts, setStatusCounts] = React.useState({
+    total: 0,
+    published: 0,
+    hidden: 0,
+    removed: 0,
   })
 
   // Filter states
@@ -191,6 +231,7 @@ export default function AdminGlobalReviewsPage() {
     setStatusFilter("all")
     setDateRange({ preset: "30d" })
     setApiPage(1)
+    setLimit(20)
   }
 
   // Fetch reviews from API
@@ -203,7 +244,7 @@ export default function AdminGlobalReviewsPage() {
       try {
         const res = await fetchAdminReviews({
           page: apiPage,
-          limit: 20,
+          limit: limit,
           search: debouncedSearch || undefined,
           businessName: debouncedBusinessName || undefined,
           rating: ratingFilter !== "all" ? parseInt(ratingFilter, 10) : undefined,
@@ -236,6 +277,7 @@ export default function AdminGlobalReviewsPage() {
     }
   }, [
     apiPage,
+    limit,
     debouncedSearch,
     debouncedBusinessName,
     ratingFilter,
@@ -244,13 +286,75 @@ export default function AdminGlobalReviewsPage() {
     refreshTick,
   ])
 
-  // Count helper for tabs
-  const counts = {
-    total: meta.total,
-    published: reviews.filter((r) => r.status === "PUBLISHED").length,
-    hidden: reviews.filter((r) => r.status === "HIDDEN").length,
-    removed: reviews.filter((r) => r.status === "REMOVED").length,
-  }
+  // Ambil ringkasan status ulasan nasional secara akurat (PUBLISHED = Total - Hidden - Removed)
+  React.useEffect(() => {
+    let active = true
+
+    async function loadStatusCounts() {
+      try {
+        const [allRes, hiddenRes, removedRes] = await Promise.all([
+          fetchAdminReviews({
+            limit: 1,
+            search: debouncedSearch || undefined,
+            businessName: debouncedBusinessName || undefined,
+            rating: ratingFilter !== "all" ? parseInt(ratingFilter, 10) : undefined,
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate,
+          }),
+          fetchAdminReviews({
+            status: "HIDDEN",
+            limit: 1,
+            search: debouncedSearch || undefined,
+            businessName: debouncedBusinessName || undefined,
+            rating: ratingFilter !== "all" ? parseInt(ratingFilter, 10) : undefined,
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate,
+          }),
+          fetchAdminReviews({
+            status: "REMOVED",
+            limit: 1,
+            search: debouncedSearch || undefined,
+            businessName: debouncedBusinessName || undefined,
+            rating: ratingFilter !== "all" ? parseInt(ratingFilter, 10) : undefined,
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate,
+          }),
+        ])
+
+        if (!active) return
+
+        const total = allRes?.meta?.total ?? 0
+        const hidden = hiddenRes?.meta?.total ?? 0
+        const removed = removedRes?.meta?.total ?? 0
+        // Published sama dengan total review, terkecuali ada yang di-hidden dan removed
+        const published = Math.max(0, total - (hidden + removed))
+
+        setStatusCounts({
+          total,
+          published,
+          hidden,
+          removed,
+        })
+      } catch (err) {
+        console.error("Gagal memuat ringkasan status ulasan:", err)
+      }
+    }
+
+    loadStatusCounts()
+
+    return () => {
+      active = false
+    }
+  }, [
+    debouncedSearch,
+    debouncedBusinessName,
+    ratingFilter,
+    dateRange,
+    refreshTick,
+  ])
+
+  // Count helper for tabs and stat cards
+  const counts = statusCounts
 
   // Handle moderation confirm
   async function handleConfirmAction() {
@@ -466,7 +570,7 @@ export default function AdminGlobalReviewsPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 @5xl/main:grid-cols-4">
         <StatCard
           label="Total Review"
-          value={meta.total.toLocaleString("id-ID")}
+          value={(counts.total || meta.total).toLocaleString("id-ID")}
           delta={`Halaman ${meta.page} dari ${meta.totalPages}`}
           hint="ulasan tersimpan"
           icon={StarIcon}
@@ -500,16 +604,24 @@ export default function AdminGlobalReviewsPage() {
       {/* Tabs Filter */}
       <Tabs value={tab} onValueChange={handleTabChange}>
         <TabsList variant="line">
-          {TABS.map((t) => (
-            <TabsTrigger key={t.value} value={t.value}>
-              {t.label}
-              {t.value === "all" && (
+          {TABS.map((t) => {
+            const tabCount =
+              t.value === "all"
+                ? counts.total || meta.total
+                : t.value === "PUBLISHED"
+                ? counts.published
+                : t.value === "HIDDEN"
+                ? counts.hidden
+                : counts.removed
+            return (
+              <TabsTrigger key={t.value} value={t.value}>
+                {t.label}
                 <span className="ml-1.5 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground font-semibold">
-                  {meta.total.toLocaleString("id-ID")}
+                  {tabCount.toLocaleString("id-ID")}
                 </span>
-              )}
-            </TabsTrigger>
-          ))}
+              </TabsTrigger>
+            )
+          })}
         </TabsList>
       </Tabs>
 
@@ -589,37 +701,108 @@ export default function AdminGlobalReviewsPage() {
           setSelectedIds(checked ? new Set(reviews.map((r) => r.id)) : new Set())
         }
         itemLabel="ulasan"
-        pageSize={meta.limit}
-        pageSizeOptions={[meta.limit]}
+        hidePagination={true}
         emptyTitle="Tidak ada review ditemukan."
         emptyDescription="Coba ubah kata kunci pencarian atau sesuaikan filter rentang tanggal dan status."
       />
 
-      {/* Pagination Server-Side */}
-      {!isLoading && meta.totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground pt-2">
-          <span>
-            Menampilkan halaman <strong className="text-foreground">{meta.page}</strong> dari{" "}
-            <strong className="text-foreground">{meta.totalPages}</strong> (Total{" "}
-            {meta.total.toLocaleString("id-ID")} ulasan)
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={apiPage <= 1}
-              onClick={() => setApiPage((p) => Math.max(1, p - 1))}
-            >
-              Sebelumnya
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={apiPage >= meta.totalPages}
-              onClick={() => setApiPage((p) => Math.min(meta.totalPages, p + 1))}
-            >
-              Selanjutnya
-            </Button>
+      {/* Paginasi & Filter Dropdown Data per Halaman */}
+      {!isLoading && meta.total > 0 && (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-2">
+          {/* Info range ulasan yang ditampilkan */}
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span>
+              Menampilkan{" "}
+              <strong className="text-foreground">
+                {(meta.page - 1) * meta.limit + 1}
+              </strong>
+              –
+              <strong className="text-foreground">
+                {Math.min(meta.page * meta.limit, meta.total)}
+              </strong>{" "}
+              dari <strong className="text-foreground">{meta.total.toLocaleString("id-ID")}</strong> ulasan
+            </span>
+            <span>•</span>
+            <span>
+              Halaman <strong className="text-foreground">{meta.page}</strong> dari{" "}
+              <strong className="text-foreground">{meta.totalPages}</strong>
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Filter Dropdown 10 20 30 40 50 */}
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <span>Tampilkan</span>
+              <Select
+                value={String(limit)}
+                onValueChange={(val) => {
+                  setLimit(Number(val))
+                  setApiPage(1)
+                }}
+              >
+                <SelectTrigger size="sm" className="w-[4.75rem] h-8 bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={String(opt)}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span>per halaman</span>
+            </div>
+
+            {/* Pagination Controls */}
+            {meta.totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="size-8 p-0"
+                  disabled={apiPage <= 1}
+                  onClick={() => setApiPage((p) => Math.max(1, p - 1))}
+                  title="Halaman sebelumnya"
+                  aria-label="Halaman sebelumnya"
+                >
+                  <ChevronLeftIcon className="size-4" />
+                </Button>
+
+                {getPageNumbers(meta.page, meta.totalPages).map((item, idx) =>
+                  item === "ellipsis" ? (
+                    <span
+                      key={`ellipsis-${idx}`}
+                      className="flex size-8 items-center justify-center text-xs text-muted-foreground"
+                    >
+                      …
+                    </span>
+                  ) : (
+                    <Button
+                      key={item}
+                      variant={item === meta.page ? "default" : "outline"}
+                      size="sm"
+                      className="size-8 p-0 text-xs font-semibold"
+                      onClick={() => setApiPage(item)}
+                    >
+                      {item}
+                    </Button>
+                  )
+                )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="size-8 p-0"
+                  disabled={apiPage >= meta.totalPages}
+                  onClick={() => setApiPage((p) => Math.min(meta.totalPages, p + 1))}
+                  title="Halaman selanjutnya"
+                  aria-label="Halaman selanjutnya"
+                >
+                  <ChevronRightIcon className="size-4" />
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
