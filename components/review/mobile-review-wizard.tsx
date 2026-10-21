@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft, ArrowRight, Camera, Check, Star, X } from "lucide-react";
+import { resolveMediaUrl } from "@/lib/api-client";
 
 export const MOBILE_MIN_CONTENT = 15;
 
@@ -325,7 +326,7 @@ export default function MobileReviewWizard({
                       className="relative aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
                     >
                       <img
-                        src={url}
+                        src={resolveMediaUrl(url)}
                         alt={`Foto ulasan ${index + 1}`}
                         className="w-full h-full object-cover"
                       />

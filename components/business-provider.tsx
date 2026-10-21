@@ -73,6 +73,7 @@ function mapMyBusinessToDomain(item: MyBusinessItem): Business {
     socialLinks: Object.entries(item.social_media ?? {})
       .filter(([, url]) => typeof url === "string" && url.trim() !== "")
       .map(([platform, url]) => ({ platform, url: url as string })),
+    socialMedia: item.social_media,
     createdAt: item.createdAt || new Date().toISOString(),
   }
 }

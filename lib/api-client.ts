@@ -930,7 +930,7 @@ export async function loginUserApi(payload: {
  *    GET /my-business-claims, and the /admin/business-claims moderation queue)
  */
 
-function getAuthToken(): string | null {
+export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
     const direct = localStorage.getItem("accessToken");

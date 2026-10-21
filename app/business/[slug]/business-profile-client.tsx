@@ -603,7 +603,7 @@ export default function BusinessProfilePage({
   const facilitiesList = resolveFacilitiesList(apiDetail);
   const facilitiesDescription = resolveFacilitiesDescription(apiDetail);
   const hasFacilities = facilitiesList.length > 0 || Boolean(facilitiesDescription);
-  const socialLinks = resolveSocialLinks(apiDetail?.socialMedia);
+  const socialLinks = resolveSocialLinks(apiDetail?.socialMedia ?? (apiDetail as any)?.social_media);
 
   const shareUrl =
     typeof window !== "undefined"
@@ -1845,6 +1845,27 @@ function ReviewCard({ review, businessSlug, currentUserId, isInitiallyHelpful, o
       )}
       {review.content && (
         <p className="text-sm text-slate-600 leading-relaxed break-words">{review.content}</p>
+      )}
+
+      {/* Review photos */}
+      {Array.isArray(review.photos) && review.photos.length > 0 && (
+        <div className="flex gap-2 flex-wrap pt-1">
+          {review.photos.map((photo: string, idx: number) => (
+            <a
+              key={idx}
+              href={resolveMediaUrl(photo)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative group rounded-xl overflow-hidden w-16 h-16 sm:w-20 sm:h-20 border border-slate-200 block shadow-2xs hover:border-[#008767] transition-all"
+            >
+              <img
+                src={resolveMediaUrl(photo)}
+                alt={`Foto ulasan ${idx + 1}`}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+              />
+            </a>
+          ))}
+        </div>
       )}
 
       {/* Business Reply Box if any */}

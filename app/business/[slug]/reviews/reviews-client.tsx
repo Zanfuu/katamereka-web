@@ -26,6 +26,7 @@ import {
   fetchBusinessBySlug,
   API_BASE_URL,
   ApiBusinessDetail,
+  resolveMediaUrl,
 } from "@/lib/api-client";
 import { deleteReview, toggleReviewHelpful, fetchMyHelpfulVotes, getLocalHelpfulVotes, getCachedHelpfulCount, saveLocalHelpfulVote } from "@/lib/api-profile";
 import { getCleanCategory, slugify } from "@/lib/slug";
@@ -934,6 +935,27 @@ function ReviewCardItem({
         <p className="text-sm text-slate-600 leading-relaxed break-words whitespace-pre-line">
           {review.content}
         </p>
+      )}
+
+      {/* Review photos */}
+      {Array.isArray((review as any).photos) && (review as any).photos.length > 0 && (
+        <div className="flex gap-2 flex-wrap pt-1">
+          {(review as any).photos.map((photo: string, idx: number) => (
+            <a
+              key={idx}
+              href={resolveMediaUrl(photo)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative group rounded-xl overflow-hidden w-16 h-16 sm:w-20 sm:h-20 border border-slate-200 block shadow-2xs hover:border-[#008767] transition-all"
+            >
+              <img
+                src={resolveMediaUrl(photo)}
+                alt={`Foto ulasan ${idx + 1}`}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+              />
+            </a>
+          ))}
+        </div>
       )}
 
       {/* Business Reply Box if any */}
