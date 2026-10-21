@@ -9,9 +9,8 @@ import { JsonLd } from "@/lib/json-ld";
 import { buildBreadcrumbSchema, buildItemListSchema } from "@/lib/schema-org";
 import BusinessesClient from "./businesses-client";
 
-// ISR: directory is served from cache and refreshed in the background, so bots
-// get a fast TTFB instead of waiting on the API (and its per-row detail fetches).
-export const revalidate = 300;
+// ISR: directory revalidates frequently so owner updates reflect quickly
+export const revalidate = 10;
 
 export default async function BusinessesPage() {
   const [listRes, facets] = await Promise.all([

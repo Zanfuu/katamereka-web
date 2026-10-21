@@ -1311,13 +1311,19 @@ export function mapApiBusinessToUiModel(item: ApiBusinessListItem | ApiBusinessD
   const computedFullAddress = addrParts.length > 0 ? addrParts.join(", ") : (regionParts.length > 0 ? regionParts.join(", ") : "-");
   const computedLocation = effectiveCity ? `${effectiveCity}${effectiveState ? `, ${effectiveState}` : ""}` : (computedFullAddress || "-");
   
-  // Prioritize cover_url / photos[0] / logo_url directly from backend
+  const isUsableMedia = (u?: string | null) => {
+    if (!u) return false;
+    if (typeof u === "string" && u.includes("/uploads/")) return false;
+    return true;
+  };
+
+  // Prioritize valid cover_url / photos[0] / logo_url directly from backend
   const rawCoverImg =
-    item.cover_url ||
-    item.coverUrl ||
-    (Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : undefined) ||
-    item.logo_url ||
-    item.logoUrl ||
+    (isUsableMedia(item.cover_url) ? item.cover_url : undefined) ||
+    (isUsableMedia(item.coverUrl) ? item.coverUrl : undefined) ||
+    (Array.isArray(item.photos) ? item.photos.find(isUsableMedia) : undefined) ||
+    (isUsableMedia(item.logo_url) ? item.logo_url : undefined) ||
+    (isUsableMedia(item.logoUrl) ? item.logoUrl : undefined) ||
     undefined;
   const coverImg = rawCoverImg ? resolveMediaUrl(rawCoverImg) : undefined;
 
@@ -1340,6 +1346,8 @@ export function mapApiBusinessToUiModel(item: ApiBusinessListItem | ApiBusinessD
     color: "bg-emerald-100 text-emerald-900 border-emerald-200",
     features: [],
     imageUrl: coverImg,
+    logoUrl: isUsableMedia(item.logo_url || item.logoUrl) ? resolveMediaUrl(item.logo_url || item.logoUrl) : undefined,
+    photos: Array.isArray(item.photos) ? item.photos.filter(isUsableMedia).map(resolveMediaUrl) : [],
     latitude: latVal,
     longitude: lonVal,
   };

@@ -17,6 +17,8 @@ export interface Business {
   color: string;
   features?: string[];
   imageUrl?: string | null;
+  logoUrl?: string | null;
+  photos?: string[];
   latitude?: number;
   longitude?: number;
 }

@@ -40,6 +40,75 @@ interface InitialDirectoryData {
   categories: string[];
 }
 
+function BusinessCardBanner({ biz }: { biz: Business }) {
+  const isUsable = (u?: string | null) => {
+    if (!u) return false;
+    if (typeof u === "string" && u.includes("/uploads/")) return false;
+    return true;
+  };
+
+  const getBestSrc = () => {
+    if (biz.imageUrl && isUsable(biz.imageUrl)) return biz.imageUrl;
+    if (biz.logoUrl && isUsable(biz.logoUrl)) return biz.logoUrl;
+    if (biz.photos && biz.photos[0] && isUsable(biz.photos[0])) return biz.photos[0];
+    return null;
+  };
+
+  const [src, setSrc] = useState<string | null>(getBestSrc);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setSrc(getBestSrc());
+    setFailed(false);
+  }, [biz.imageUrl, biz.logoUrl, biz.photos]);
+
+  const handleError = () => {
+    // 1. Try logoUrl if cover failed
+    if (biz.logoUrl && isUsable(biz.logoUrl) && src !== biz.logoUrl) {
+      setSrc(biz.logoUrl);
+    } else if (biz.photos && biz.photos[0] && isUsable(biz.photos[0]) && src !== biz.photos[0]) {
+      // 2. Try photos gallery
+      setSrc(biz.photos[0]);
+    } else if (biz.name) {
+      // 3. Fallback to real place / map image based on coordinates
+      fetchBusinessPlaceImage(biz.name, biz.location || "Indonesia", biz.latitude, biz.longitude)
+        .then((placeImg) => {
+          if (placeImg && placeImg !== src && isUsable(placeImg)) {
+            setSrc(placeImg);
+          } else {
+            setFailed(true);
+          }
+        })
+        .catch(() => setFailed(true));
+    } else {
+      setFailed(true);
+    }
+  };
+
+  if (!src || failed) {
+    return (
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-100 via-slate-50 to-emerald-50/40 flex items-center justify-center">
+        <div className="opacity-15 pointer-events-none">
+          <Store className="w-6 h-6 text-slate-800" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <img
+        src={src}
+        alt=""
+        aria-hidden="true"
+        onError={handleError}
+        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent pointer-events-none" />
+    </>
+  );
+}
+
 // `initial` is the first page (default filters) fetched on the server by
 // page.tsx, so the business names, ratings and categories are in the raw HTML.
 export default function BusinessesPage({
@@ -66,7 +135,6 @@ export default function BusinessesPage({
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
-  const paginationContainerRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -85,22 +153,27 @@ export default function BusinessesPage({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Safely scroll ONLY the pagination container horizontally without scrolling the entire window
-  useEffect(() => {
-    if (paginationContainerRef.current) {
-      const activeButton = paginationContainerRef.current.querySelector(
-        `[data-page="${currentPage}"]`
-      ) as HTMLElement | null;
-      if (activeButton) {
-        const container = paginationContainerRef.current;
-        const scrollTarget =
-          activeButton.offsetLeft - container.offsetWidth / 2 + activeButton.offsetWidth / 2;
-        container.scrollTo({ left: scrollTarget, behavior: "smooth" });
-      }
-    }
-  }, [currentPage]);
   const [totalCount, setTotalCount] = useState(initial.totalCount);
   const [totalPages, setTotalPages] = useState(initial.totalPages);
+
+  // 5-Page Dynamic Sliding Window centered on currentPage
+  const visiblePageNumbers = useMemo(() => {
+    const maxButtons = 5;
+    if (totalPages <= maxButtons) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    let start = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+    let end = start + maxButtons - 1;
+    if (end > totalPages) {
+      end = totalPages;
+      start = Math.max(1, end - maxButtons + 1);
+    }
+    const pages: number[] = [];
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }, [totalPages, currentPage]);
   const [fetchedCategories, setFetchedCategories] = useState<string[]>(initial.categories);
 
   // Default Categories fallback
@@ -196,29 +269,20 @@ export default function BusinessesPage({
             ? "reviews"
             : "popular";
 
-        // First run with default filters: the server already gave us this page.
-        // Skip the refetch (it would just replace identical rows) but still fall
-        // through to the lazy image loading below.
+        const res = await fetchBusinesses({
+          search: searchQuery.trim() || undefined,
+          city: selectedLocation === "Semua Lokasi" ? undefined : selectedLocation,
+          category: selectedCategory === "Semua Kategori" ? undefined : selectedCategory,
+          sort: sortParam,
+          page: currentPage,
+          limit: 12,
+        });
         let mapped: Business[] | null = null;
-        if (!usedInitialData.current && initial.businesses.length > 0) {
-          usedInitialData.current = true;
-          mapped = initial.businesses;
-        } else {
-          usedInitialData.current = true;
-          const res = await fetchBusinesses({
-            search: searchQuery.trim() || undefined,
-            city: selectedLocation === "Semua Lokasi" ? undefined : selectedLocation,
-            category: selectedCategory === "Semua Kategori" ? undefined : selectedCategory,
-            sort: sortParam,
-            page: currentPage,
-            limit: 12,
-          });
-          if (res && res.data) {
-            mapped = res.data.map(mapApiBusinessToUiModel);
-            setApiBusinesses(mapped);
-            setTotalCount(res.pagination?.total || res.data.length);
-            setTotalPages(res.pagination?.total_pages || 1);
-          }
+        if (res && res.data) {
+          mapped = res.data.map(mapApiBusinessToUiModel);
+          setApiBusinesses(mapped);
+          setTotalCount(res.pagination?.total || res.data.length);
+          setTotalPages(res.pagination?.total_pages || 1);
         }
 
         if (mapped) {
@@ -712,23 +776,7 @@ export default function BusinessesPage({
                         <div>
                           {/* Banner Container with Dynamic Photo */}
                           <div className="relative h-32 bg-slate-100 overflow-hidden p-3 border-b border-slate-100 flex items-start justify-between">
-                            {biz.imageUrl ? (
-                              <img
-                                src={biz.imageUrl}
-                                alt={biz.name}
-                                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
-                            ) : (
-                              <div className="absolute inset-0 bg-gradient-to-br from-slate-100 via-slate-50 to-emerald-50/40">
-                                <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-                                  <Store className="w-20 h-20 text-slate-800" />
-                                </div>
-                              </div>
-                            )}
-                            {biz.imageUrl && (
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent pointer-events-none" />
-                            )}
-
+                            <BusinessCardBanner biz={biz} />
                           </div>
 
                           {/* Content Body */}
@@ -810,46 +858,46 @@ export default function BusinessesPage({
               )}
 
               {/* Pagination Bar */}
-              <div className="flex items-center justify-center gap-2 pt-6 text-xs font-semibold">
-                {/* Previous Button */}
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-600 hover:border-[#008767] hover:text-[#008767] flex items-center justify-center transition-colors disabled:opacity-40 shrink-0 shadow-2xs"
-                >
-                  ‹
-                </button>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 pt-6 text-xs font-semibold">
+                  {/* Previous Button */}
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-600 hover:border-[#008767] hover:text-[#008767] flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-2xs"
+                    aria-label="Halaman sebelumnya"
+                  >
+                    ‹
+                  </button>
 
-                {/* 5-Box Width Scrollable Container (Independent horizontal scroll) */}
-                <div
-                  ref={paginationContainerRef}
-                  className="flex items-center gap-1.5 overflow-x-auto max-w-[220px] py-1 px-1 no-scrollbar scroll-smooth"
-                >
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      data-page={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`w-9 h-9 rounded-xl font-bold shrink-0 transition-all ${
-                        currentPage === page
-                          ? "bg-[#008767] text-white shadow-md shadow-[#008767]/25"
-                          : "bg-white border border-slate-200 text-slate-600 hover:border-[#008767] hover:text-[#008767]"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                  {/* 5 Dynamic Sliding Window Page Buttons */}
+                  <div className="flex items-center gap-1.5">
+                    {visiblePageNumbers.map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-9 h-9 rounded-xl font-bold shrink-0 transition-all ${
+                          currentPage === page
+                            ? "bg-[#008767] text-white shadow-md shadow-[#008767]/25"
+                            : "bg-white border border-slate-200 text-slate-600 hover:border-[#008767] hover:text-[#008767]"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Next Button */}
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-600 hover:border-[#008767] hover:text-[#008767] flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-2xs"
+                    aria-label="Halaman selanjutnya"
+                  >
+                    ›
+                  </button>
                 </div>
-
-                {/* Next Button */}
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage >= totalPages}
-                  className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-600 hover:border-[#008767] hover:text-[#008767] flex items-center justify-center transition-colors disabled:opacity-40 shrink-0 shadow-2xs"
-                >
-                  ›
-                </button>
-              </div>
+              )}
             </main>
 
           </div>
