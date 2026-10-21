@@ -9,6 +9,7 @@ import { getBusinessBySlug, businesses, Business } from "@/lib/mock-data";
 import { fetchBusinessBySlug, mapApiBusinessToUiModel, API_BASE_URL, getAuthToken, resolveMediaUrl } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import GoogleLoginButton from "@/components/google-login-button";
+import AllReviewsView from "@/components/all-reviews-view";
 import MobileAuthSheet from "@/components/review/mobile-auth-sheet";
 import MobileReviewWizard, { MOBILE_MIN_CONTENT } from "@/components/review/mobile-review-wizard";
 import { useMobileViewport } from "@/hooks/use-mobile-viewport";
@@ -1243,6 +1244,12 @@ function WriteReviewContent() {
   );
 }
 
+// /review?business=<slug> is the write form; bare /review lists all reviews.
+function ReviewRouter() {
+  const searchParams = useSearchParams();
+  return searchParams.get("business") ? <WriteReviewContent /> : <AllReviewsView />;
+}
+
 export default function WriteReviewPage() {
   return (
     <Suspense
@@ -1250,12 +1257,12 @@ export default function WriteReviewPage() {
         <div className="min-h-screen bg-slate-50 flex items-center justify-center">
           <div className="flex items-center gap-2 text-[#008767] font-semibold text-sm">
             <div className="w-5 h-5 border-2 border-[#008767] border-t-transparent rounded-full animate-spin" />
-            <span>Memuat formulir review...</span>
+            <span>Memuat...</span>
           </div>
         </div>
       }
     >
-      <WriteReviewContent />
+      <ReviewRouter />
     </Suspense>
   );
 }

@@ -21,14 +21,14 @@ export default async function BlogsPage() {
   ])
 
   return (
-    <div className="min-h-screen bg-slate-50/50 flex flex-col font-sans text-slate-800 antialiased">
+    <div className="min-h-screen bg-white flex flex-col font-sans text-slate-800 antialiased">
       <Navbar />
 
       <main className="flex-1">
         <BlogListClient initialPosts={posts} initialPagination={pagination} categories={categories} />
       </main>
 
-      <footer className="bg-white border-t border-slate-200/80 pt-12 pb-8 text-slate-600 text-sm mt-12">
+      <footer className="bg-white border-t border-slate-200/80 pt-12 pb-8 text-slate-600 text-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             <div className="space-y-2">

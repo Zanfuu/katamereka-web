@@ -184,6 +184,12 @@ export default function BusinessProfilePage({
   const [claimStatus, setClaimStatus] = useState<BusinessClaimStatus | null>(null);
   const [isBusinessMember, setIsBusinessMember] = useState(false);
   const [claimStatusLoading, setClaimStatusLoading] = useState(false);
+  // Owner state comes from GET /businesses/slug/:slug (is_claimed = flag OR an OWNER member).
+  const isClaimedByOwner =
+    apiDetail?.is_claimed === true ||
+    apiDetail?.isClaimed === true ||
+    apiDetail?.claim_available === false ||
+    apiDetail?.status === "CLAIMED";
   const [claimModalOpen, setClaimModalOpen] = useState(false);
   const [claimSubmitting, setClaimSubmitting] = useState(false);
   const [claimForm, setClaimForm] = useState<{
@@ -1558,6 +1564,16 @@ export default function BusinessProfilePage({
                   Pengajuan klaim Anda untuk bisnis ini sedang diperiksa oleh tim admin Katamereka.
                 </p>
               </div>
+            ) : isClaimedByOwner ? (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-2">
+                <div className="flex items-center gap-2 text-slate-800 font-bold text-sm">
+                  <ShieldCheck className="w-5 h-5 text-[#008767]" />
+                  <span>Bisnis Terverifikasi</span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Bisnis ini sudah terdaftar resmi dan dikelola oleh pemilik terverifikasi.
+                </p>
+              </div>
             ) : !isLoggedIn ? (
               <div className="bg-[#f0faf7] border border-[#008767]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-3">
                 <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
@@ -1568,21 +1584,11 @@ export default function BusinessProfilePage({
                   Kelola profil bisnis Anda, balas review, dan jangkau lebih banyak pelanggan.
                 </p>
                 <Link
-                  href={`/login?returnUrl=/business/${slug}`}
+                  href={`/login?redirect=${encodeURIComponent(`/business/${slug}`)}`}
                   className="block w-full text-center py-3 rounded-full bg-[#008767] hover:bg-[#007458] text-white text-xs font-bold shadow-xs transition-all active:scale-95"
                 >
                   Klaim Bisnis Ini
                 </Link>
-              </div>
-            ) : apiDetail?.status === "CLAIMED" && claimStatus !== "REJECTED" ? (
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-2">
-                <div className="flex items-center gap-2 text-slate-800 font-bold text-sm">
-                  <ShieldCheck className="w-5 h-5 text-[#008767]" />
-                  <span>Bisnis Terverifikasi</span>
-                </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Bisnis ini sudah terdaftar resmi dan dikelola oleh pemilik terverifikasi.
-                </p>
               </div>
             ) : (
               <div className="bg-[#f0faf7] border border-[#008767]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-3">

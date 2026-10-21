@@ -685,6 +685,57 @@ export async function fetchBusinessBySlug(
   return null;
 }
 
+/** One row of GET /reviews/latest (global, cross-business, published only). */
+export interface ApiLatestReview {
+  id: string;
+  rating: number;
+  title: string | null;
+  content: string | null;
+  photos: string[];
+  created_at: string;
+  user: { id: string; name: string; avatar_url: string | null } | null;
+  business: {
+    id: string;
+    name: string;
+    slug: string;
+    category: string | null;
+    city: string | null;
+    logo_url: string | null;
+  } | null;
+}
+
+export interface ApiLatestReviewsResponse {
+  data: ApiLatestReview[];
+  pagination?: { page: number; limit: number; total: number; total_pages: number };
+}
+
+/**
+ * GET /reviews/latest — newest published reviews across all businesses.
+ * Returns null when the API is unreachable so callers can show an error state
+ * instead of an empty one.
+ */
+export async function fetchLatestReviews(
+  params: { limit?: number; page?: number; rating?: number } = {}
+): Promise<ApiLatestReviewsResponse | null> {
+  const query = new URLSearchParams();
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.page) query.set("page", String(params.page));
+  if (params.rating) query.set("rating", String(params.rating));
+
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/reviews/latest${query.toString() ? `?${query.toString()}` : ""}`,
+      { headers: { "Content-Type": "application/json" }, ...publicGetInit(["reviews"]) }
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    return Array.isArray(json?.data) ? json : null;
+  } catch (e) {
+    console.warn("fetchLatestReviews API call failed:", e);
+    return null;
+  }
+}
+
 /**
  * 3. GET /businesses/:id (Business Detail by UUID)
  *

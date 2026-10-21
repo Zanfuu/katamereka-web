@@ -3,6 +3,7 @@ import {
   fetchCategoryFacets,
   fetchCityFacets,
   fetchBusinesses,
+  fetchLatestReviews,
   fetchBusinessPlaceImage,
   mapApiBusinessToUiModel,
 } from "@/lib/api-client";
@@ -22,10 +23,11 @@ export const metadata = buildPageMetadata({
 export const revalidate = 300;
 
 export default async function Page() {
-  const [categoryFacets, cityFacets, popularRes] = await Promise.all([
+  const [categoryFacets, cityFacets, popularRes, latestReviewsRes] = await Promise.all([
     fetchCategoryFacets(),
     fetchCityFacets(),
     fetchBusinesses({ limit: 50, sort: "popular" }),
+    fetchLatestReviews({ limit: 3 }),
   ]);
 
   let allBusinesses =
@@ -71,6 +73,7 @@ export default async function Page() {
         initialCategoryFacets={categoryFacets}
         initialCityFacets={cityFacets}
         initialPopularBusinesses={initialPopularBusinesses}
+        initialRecentReviews={latestReviewsRes?.data ?? []}
       />
     </>
   );
