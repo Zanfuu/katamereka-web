@@ -597,7 +597,7 @@ export default function BusinessProfilePage({
   const facilitiesList = resolveFacilitiesList(apiDetail);
   const facilitiesDescription = resolveFacilitiesDescription(apiDetail);
   const hasFacilities = facilitiesList.length > 0 || Boolean(facilitiesDescription);
-  const socialLinks = resolveSocialLinks(apiDetail?.socialMedia);
+  const socialLinks = resolveSocialLinks(apiDetail?.socialMedia ?? (apiDetail as any)?.social_media);
 
   const shareUrl =
     typeof window !== "undefined"

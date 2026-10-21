@@ -1537,6 +1537,56 @@ function JamOperasionalTab({ business }: { business: Business }) {
   )
 }
 
+function cleanSocialUsername(platform: string, val: string | undefined | null): string {
+  if (!val) return ""
+  let text = String(val).trim()
+  if (!text) return ""
+
+  try {
+    if (text.startsWith("http://") || text.startsWith("https://")) {
+      const parsed = new URL(text)
+      const pathname = parsed.pathname.replace(/^\/+|\/+$/g, "")
+      const segments = pathname.split("/").filter(Boolean)
+      if (segments.length > 0) {
+        if (segments[0] === "company" || segments[0] === "in") {
+          return segments[1] || segments[0]
+        }
+        return segments[segments.length - 1].replace(/^@/, "")
+      }
+    }
+  } catch {}
+
+  text = text.replace(/^(?:https?:\/\/)?(?:www\.)?(?:instagram\.com|facebook\.com|tiktok\.com|linkedin\.com|youtube\.com)\/?/i, "")
+  text = text.replace(/^company\//i, "")
+  text = text.replace(/^in\//i, "")
+  text = text.replace(/^@/, "")
+  return text.trim()
+}
+
+function formatSocialToFullUrl(platform: string, usernameOrUrl: string | undefined | null): string {
+  if (!usernameOrUrl) return ""
+  const text = String(usernameOrUrl).trim()
+  if (!text) return ""
+
+  const cleanUser = cleanSocialUsername(platform, text)
+  if (!cleanUser) return ""
+
+  switch (platform.toLowerCase()) {
+    case "instagram":
+      return `https://instagram.com/${cleanUser}`
+    case "facebook":
+      return `https://facebook.com/${cleanUser}`
+    case "tiktok":
+      return `https://tiktok.com/@${cleanUser}`
+    case "linkedin":
+      return `https://linkedin.com/company/${cleanUser}`
+    case "youtube":
+      return `https://youtube.com/@${cleanUser}`
+    default:
+      return text
+  }
+}
+
 /* ==================================================
  * TAB 5: MEDIA & SOSMED
  * ================================================== */
@@ -1566,16 +1616,34 @@ function MediaTab({ business }: { business: Business }) {
     else setLogoUrl("")
   }, [business.logo])
 
-  const [social, setSocial] = React.useState(() => {
-    const saved = Object.fromEntries((business.socialLinks ?? []).map((l) => [l.platform, l.url]))
+  const parseSocialFromBusiness = React.useCallback((b: Business) => {
+    const sm = (b.socialMedia || (b as any).social_media) as Record<string, string> | undefined
+    const fromLinks = Object.fromEntries((b.socialLinks ?? []).map((l) => [l.platform, l.url]))
+
     return {
-      instagram: saved.instagram ?? "",
-      facebook: saved.facebook ?? "",
-      tiktok: saved.tiktok ?? "",
-      youtube: saved.youtube ?? "",
-      linkedin: saved.linkedin ?? "",
+      instagram: cleanSocialUsername("instagram", sm?.instagram ?? fromLinks.instagram),
+      facebook: cleanSocialUsername("facebook", sm?.facebook ?? fromLinks.facebook),
+      tiktok: cleanSocialUsername("tiktok", sm?.tiktok ?? fromLinks.tiktok),
+      youtube: cleanSocialUsername("youtube", sm?.youtube ?? fromLinks.youtube),
+      linkedin: cleanSocialUsername("linkedin", sm?.linkedin ?? fromLinks.linkedin),
     }
+  }, [])
+
+  const initialParsed = React.useMemo(() => parseSocialFromBusiness(business), [business, parseSocialFromBusiness])
+  const [social, setSocial] = React.useState(initialParsed)
+  const [isEditingSocial, setIsEditingSocial] = React.useState<boolean>(() => {
+    const hasAny = Boolean(
+      initialParsed.instagram || initialParsed.facebook || initialParsed.tiktok || initialParsed.youtube || initialParsed.linkedin
+    )
+    return !hasAny
   })
+
+  // Sync state whenever business data updates or loads from GET, only if not actively editing
+  React.useEffect(() => {
+    if (!isEditingSocial) {
+      setSocial(initialParsed)
+    }
+  }, [initialParsed, isEditingSocial])
 
   const initials = business.name
     .split(" ")
@@ -1696,11 +1764,20 @@ function MediaTab({ business }: { business: Business }) {
     if (!business.id) return
     setSavingSocial(true)
     try {
+      const payloadSocial = {
+        instagram: formatSocialToFullUrl("instagram", social.instagram),
+        facebook: formatSocialToFullUrl("facebook", social.facebook),
+        tiktok: formatSocialToFullUrl("tiktok", social.tiktok),
+        youtube: formatSocialToFullUrl("youtube", social.youtube),
+        linkedin: formatSocialToFullUrl("linkedin", social.linkedin),
+      }
+
       const res = await updateBusinessProfile(business.id, {
-        social_media: social,
+        social_media: payloadSocial,
       })
       if (res.success) {
         toast.success(res.message || "Tautan media sosial berhasil disimpan.")
+        setIsEditingSocial(false)
         await refetch()
       } else {
         toast.error(res.message || "Gagal menyimpan tautan media sosial.")
@@ -1894,67 +1971,132 @@ function MediaTab({ business }: { business: Business }) {
         <CardHeader>
           <CardTitle>Tautan Media Sosial</CardTitle>
           <CardDescription>
-            Hubungkan akun media sosial bisnis Anda agar calon pelanggan mudah menghubungi Anda.
+            Cukup masukkan nama username akun media sosial bisnis Anda. Sistem akan otomatis membuatkan tautan URL lengkap.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="social-ig">Instagram URL</FieldLabel>
-              <Input
-                id="social-ig"
-                value={social.instagram}
-                onChange={(e) => setSocial({ ...social, instagram: e.target.value })}
-                placeholder="https://instagram.com/nama_bisnis"
-              />
+              <FieldLabel htmlFor="social-ig">Instagram</FieldLabel>
+              <div className="flex rounded-md shadow-2xs">
+                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-slate-200 bg-slate-50 text-slate-500 text-xs font-mono select-none">
+                  instagram.com/
+                </span>
+                <Input
+                  id="social-ig"
+                  value={social.instagram}
+                  onChange={(e) => setSocial({ ...social, instagram: cleanSocialUsername("instagram", e.target.value) })}
+                  placeholder="username_bisnis (misal: zanfuu._)"
+                  disabled={!isEditingSocial}
+                  className={`rounded-l-none text-xs ${!isEditingSocial ? "bg-slate-50 text-slate-700 disabled:opacity-90 disabled:cursor-default" : ""}`}
+                />
+              </div>
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="social-fb">Facebook URL</FieldLabel>
-              <Input
-                id="social-fb"
-                value={social.facebook}
-                onChange={(e) => setSocial({ ...social, facebook: e.target.value })}
-                placeholder="https://facebook.com/nama_bisnis"
-              />
+              <FieldLabel htmlFor="social-fb">Facebook</FieldLabel>
+              <div className="flex rounded-md shadow-2xs">
+                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-slate-200 bg-slate-50 text-slate-500 text-xs font-mono select-none">
+                  facebook.com/
+                </span>
+                <Input
+                  id="social-fb"
+                  value={social.facebook}
+                  onChange={(e) => setSocial({ ...social, facebook: cleanSocialUsername("facebook", e.target.value) })}
+                  placeholder="username_bisnis"
+                  disabled={!isEditingSocial}
+                  className={`rounded-l-none text-xs ${!isEditingSocial ? "bg-slate-50 text-slate-700 disabled:opacity-90 disabled:cursor-default" : ""}`}
+                />
+              </div>
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="social-tt">TikTok URL</FieldLabel>
-              <Input
-                id="social-tt"
-                value={social.tiktok}
-                onChange={(e) => setSocial({ ...social, tiktok: e.target.value })}
-                placeholder="https://tiktok.com/@nama_bisnis"
-              />
+              <FieldLabel htmlFor="social-tt">TikTok</FieldLabel>
+              <div className="flex rounded-md shadow-2xs">
+                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-slate-200 bg-slate-50 text-slate-500 text-xs font-mono select-none">
+                  tiktok.com/@
+                </span>
+                <Input
+                  id="social-tt"
+                  value={social.tiktok}
+                  onChange={(e) => setSocial({ ...social, tiktok: cleanSocialUsername("tiktok", e.target.value) })}
+                  placeholder="username_bisnis"
+                  disabled={!isEditingSocial}
+                  className={`rounded-l-none text-xs ${!isEditingSocial ? "bg-slate-50 text-slate-700 disabled:opacity-90 disabled:cursor-default" : ""}`}
+                />
+              </div>
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="social-yt">YouTube URL</FieldLabel>
-              <Input
-                id="social-yt"
-                value={social.youtube}
-                onChange={(e) => setSocial({ ...social, youtube: e.target.value })}
-                placeholder="https://youtube.com/@nama_bisnis"
-              />
+              <FieldLabel htmlFor="social-yt">YouTube</FieldLabel>
+              <div className="flex rounded-md shadow-2xs">
+                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-slate-200 bg-slate-50 text-slate-500 text-xs font-mono select-none">
+                  youtube.com/@
+                </span>
+                <Input
+                  id="social-yt"
+                  value={social.youtube}
+                  onChange={(e) => setSocial({ ...social, youtube: cleanSocialUsername("youtube", e.target.value) })}
+                  placeholder="channel_bisnis"
+                  disabled={!isEditingSocial}
+                  className={`rounded-l-none text-xs ${!isEditingSocial ? "bg-slate-50 text-slate-700 disabled:opacity-90 disabled:cursor-default" : ""}`}
+                />
+              </div>
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="social-li">LinkedIn URL</FieldLabel>
-              <Input
-                id="social-li"
-                value={social.linkedin}
-                onChange={(e) => setSocial({ ...social, linkedin: e.target.value })}
-                placeholder="https://linkedin.com/company/nama_bisnis"
-              />
+              <FieldLabel htmlFor="social-li">LinkedIn</FieldLabel>
+              <div className="flex rounded-md shadow-2xs">
+                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-slate-200 bg-slate-50 text-slate-500 text-xs font-mono select-none">
+                  linkedin.com/company/
+                </span>
+                <Input
+                  id="social-li"
+                  value={social.linkedin}
+                  onChange={(e) => setSocial({ ...social, linkedin: cleanSocialUsername("linkedin", e.target.value) })}
+                  placeholder="nama_perusahaan"
+                  disabled={!isEditingSocial}
+                  className={`rounded-l-none text-xs ${!isEditingSocial ? "bg-slate-50 text-slate-700 disabled:opacity-90 disabled:cursor-default" : ""}`}
+                />
+              </div>
             </Field>
           </FieldGroup>
 
-          <div className="pt-2 flex justify-end">
-            <Button onClick={handleSaveSocial} disabled={savingSocial} className="bg-[#008767] hover:bg-[#007055]">
-              <SaveIcon className="mr-1.5 size-4" />
-              {savingSocial ? "Menyimpan..." : "Simpan Media Sosial"}
-            </Button>
+          <div className="pt-2 flex justify-end gap-2">
+            {!isEditingSocial ? (
+              <Button
+                type="button"
+                onClick={() => setIsEditingSocial(true)}
+                className="bg-[#008767] hover:bg-[#007055] text-white cursor-pointer px-6"
+              >
+                <PencilIcon className="mr-1.5 size-4" />
+                Edit
+              </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setSocial(initialParsed)
+                    setIsEditingSocial(false)
+                  }}
+                  disabled={savingSocial}
+                  className="cursor-pointer"
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSaveSocial}
+                  disabled={savingSocial}
+                  className="bg-[#008767] hover:bg-[#007055] text-white cursor-pointer px-6"
+                >
+                  <SaveIcon className="mr-1.5 size-4" />
+                  {savingSocial ? "Menyimpan..." : "Simpan Media Sosial"}
+                </Button>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

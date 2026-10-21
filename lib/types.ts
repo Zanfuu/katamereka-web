@@ -64,6 +64,7 @@ export interface Business {
   province: string
   postalCode?: string
   socialLinks?: { platform: string; url: string }[]
+  socialMedia?: Record<string, string>
   operatingHours?: { day: string; hours: string }[]
   facilities?: string[] | Record<string, any>
   additionalCategories?: string[]
