@@ -73,8 +73,23 @@ export class AdminApiError extends Error {
   }
 }
 
+function getAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  const direct = localStorage.getItem("accessToken");
+  if (direct) return direct;
+  try {
+    const activeUser = localStorage.getItem("katamereka_active_user");
+    if (activeUser) {
+      const parsed = JSON.parse(activeUser);
+      if (parsed?.accessToken) return parsed.accessToken;
+      if (parsed?.token) return parsed.token;
+    }
+  } catch {}
+  return null;
+}
+
 function authHeaders(): HeadersInit {
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+  const token = getAccessToken();
   return {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -408,3 +423,215 @@ export async function fetchAdminAuditLogs(limit = 100): Promise<{
   });
   return handle(res);
 }
+
+// ─── Super Admin Analytics Overview (Bagian 1) ─────────────────────────────────
+
+export interface OverviewCardItem {
+  value: number;
+  label: string;
+  growth: string;
+}
+
+export interface OverviewCardsData {
+  totalCustomers: OverviewCardItem;
+  totalBusinesses: OverviewCardItem;
+  verifiedBusinesses: OverviewCardItem;
+  totalUsers: OverviewCardItem;
+  totalReviews: OverviewCardItem;
+  pendingVerification: OverviewCardItem;
+  reportedReviews: OverviewCardItem;
+  pendingModeration: OverviewCardItem;
+}
+
+export interface PlatformGrowthItem {
+  month: string;
+  users: number;
+  businesses: number;
+  reviews: number;
+}
+
+export interface ReviewActivityItem {
+  date: string;
+  newReviews: number;
+  reportedReviews: number;
+}
+
+export interface RatingBreakdownItem {
+  star: number;
+  count: number;
+  percentage: number;
+}
+
+export interface RatingDistributionData {
+  total: number;
+  averageRating: number;
+  breakdown: RatingBreakdownItem[];
+}
+
+export interface TopActiveCityItem {
+  city: string;
+  totalBusinesses: number;
+}
+
+export interface RecentBusinessItem {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  city: string;
+  createdAt: string;
+}
+
+export interface RecentActivityItem {
+  id: string;
+  userName: string;
+  businessName: string;
+  rating: number;
+  content: string;
+  createdAt: string;
+}
+
+export interface AdminOverviewAnalytics {
+  overviewCards: OverviewCardsData;
+  platformGrowth: PlatformGrowthItem[];
+  reviewActivity: ReviewActivityItem[];
+  ratingDistribution: RatingDistributionData;
+  topActiveCities: TopActiveCityItem[];
+  recentBusinesses: RecentBusinessItem[];
+  recentActivities: RecentActivityItem[];
+}
+
+export interface AdminOverviewAnalyticsResponse {
+  success: boolean;
+  message: string;
+  data: AdminOverviewAnalytics;
+}
+
+/**
+ * GET /admin/analytics/overview (atau /admin/analytics)
+ * Ambil seluruh data analitik platform global untuk overview Super Admin
+ */
+export async function fetchAdminOverviewAnalytics(
+  range = "30d"
+): Promise<AdminOverviewAnalyticsResponse> {
+  const qs = range ? `?range=${encodeURIComponent(range)}` : "";
+  const res = await fetch(`${API_BASE_URL}/admin/analytics/overview${qs}`, {
+    method: "GET",
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  return handle<AdminOverviewAnalyticsResponse>(res);
+}
+
+// ─── Super Admin Reviews Management (Bagian 2) ────────────────────────────────
+
+export interface AdminReviewsQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  rating?: number;
+  businessName?: string;
+  status?: "PUBLISHED" | "HIDDEN" | "REMOVED" | string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface AdminReviewItem {
+  id: string;
+  rating: number;
+  title: string | null;
+  content: string;
+  photos: string[];
+  status: "PUBLISHED" | "HIDDEN" | "REMOVED";
+  helpfulCount: number;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl: string | null;
+  } | null;
+  business: {
+    id: string;
+    name: string;
+    slug: string;
+    category: string;
+    city: string;
+    logoUrl: string | null;
+  } | null;
+  reply: {
+    id?: string;
+    content: string;
+    createdAt?: string;
+  } | string | null;
+}
+
+export interface AdminReviewsResponse {
+  success: boolean;
+  message: string;
+  data: AdminReviewItem[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+/**
+ * 1. GET /admin/reviews
+ * Ambil ulasan nasional dengan filter lengkap
+ */
+export async function fetchAdminReviews(
+  params: AdminReviewsQueryParams = {}
+): Promise<AdminReviewsResponse> {
+  const qs = new URLSearchParams();
+  if (params.page) qs.append("page", String(params.page));
+  if (params.limit) qs.append("limit", String(params.limit));
+  if (params.search) qs.append("search", params.search);
+  if (params.rating) qs.append("rating", String(params.rating));
+  if (params.businessName) qs.append("businessName", params.businessName);
+  if (params.status && params.status !== "all") qs.append("status", params.status);
+  if (params.startDate) qs.append("startDate", params.startDate);
+  if (params.endDate) qs.append("endDate", params.endDate);
+  const s = qs.toString();
+
+  const res = await fetch(`${API_BASE_URL}/admin/reviews${s ? `?${s}` : ""}`, {
+    method: "GET",
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  return handle<AdminReviewsResponse>(res);
+}
+
+/**
+ * 2. PATCH /admin/reviews/:id/status
+ * Moderasi ulasan (PUBLISHED, HIDDEN, REMOVED)
+ */
+export async function updateAdminReviewStatus(
+  id: string,
+  status: "PUBLISHED" | "HIDDEN" | "REMOVED"
+): Promise<{ success: boolean; message: string; data: Partial<AdminReviewItem> }> {
+  const res = await fetch(`${API_BASE_URL}/admin/reviews/${id}/status`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify({ status }),
+  });
+  return handle(res);
+}
+
+/**
+ * 3. DELETE /admin/reviews/:id
+ * Hapus ulasan permanen
+ */
+export async function deleteAdminReview(
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE_URL}/admin/reviews/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return handle(res);
+}
+

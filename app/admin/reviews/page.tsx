@@ -5,17 +5,21 @@ import Link from "next/link"
 import { toast } from "sonner"
 import {
   BadgeCheckIcon,
+  BuildingIcon,
   DownloadIcon,
   EyeOffIcon,
   FlagIcon,
   HomeIcon,
+  RefreshCwIcon,
   RotateCcwIcon,
+  SearchIcon,
   StarIcon,
+  ThumbsUpIcon,
   Trash2Icon,
 } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { DateRangeSelector } from "@/components/date-range-selector"
+import { DateRangeSelector, type DateRangeValue } from "@/components/date-range-selector"
 import { FilterDropdown } from "@/components/filter-dropdown"
 import { PageHeader } from "@/components/page-header"
 import { RatingStars } from "@/components/rating-stars"
@@ -39,6 +43,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
 import {
   Sheet,
   SheetContent,
@@ -48,15 +53,17 @@ import {
 } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatDateTime } from "@/lib/format"
-import { businesses, getBusinessById } from "@/lib/mock/businesses"
-import { reviews as initialReviews } from "@/lib/mock/reviews"
-import { getUserById } from "@/lib/mock/users"
-import type { Review } from "@/lib/types"
+import {
+  fetchAdminReviews,
+  updateAdminReviewStatus,
+  deleteAdminReview,
+  type AdminReviewItem,
+} from "@/lib/admin-api"
+import { resolveMediaUrl } from "@/lib/api-client"
 
 const TABS = [
   { value: "all", label: "Semua" },
   { value: "PUBLISHED", label: "Published" },
-  { value: "reported", label: "Reported" },
   { value: "HIDDEN", label: "Hidden" },
   { value: "REMOVED", label: "Removed" },
 ] as const
@@ -77,12 +84,6 @@ const STATUS_OPTIONS = [
   { value: "REMOVED", label: "Removed" },
 ]
 
-const VERIFICATION_OPTIONS = [
-  { value: "all", label: "Semua Verifikasi" },
-  { value: "VERIFIED", label: "Verified" },
-  { value: "UNVERIFIED", label: "Unverified" },
-]
-
 const AVATAR_TONES = [
   "bg-emerald-100 text-emerald-700",
   "bg-blue-100 text-blue-700",
@@ -92,111 +93,234 @@ const AVATAR_TONES = [
   "bg-cyan-100 text-cyan-700",
 ]
 
-function initials(name: string) {
+function initials(name?: string | null) {
+  if (!name) return "U"
   const parts = name.trim().split(/\s+/)
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase()
 }
 
-function avatarTone(id: string) {
+function avatarTone(id?: string | null) {
+  if (!id) return AVATAR_TONES[0]
   let hash = 0
   for (let i = 0; i < id.length; i++) hash = (hash + id.charCodeAt(i)) % AVATAR_TONES.length
   return AVATAR_TONES[hash]
 }
 
 export default function AdminGlobalReviewsPage() {
-  const [reviews, setReviews] = React.useState<Review[]>(initialReviews)
+  const [reviews, setReviews] = React.useState<AdminReviewItem[]>([])
+  const [meta, setMeta] = React.useState({
+    total: 0,
+    page: 1,
+    limit: 20,
+    totalPages: 1,
+  })
+
+  // Filter states
   const [search, setSearch] = React.useState("")
+  const [debouncedSearch, setDebouncedSearch] = React.useState("")
+  const [businessName, setBusinessName] = React.useState("")
+  const [debouncedBusinessName, setDebouncedBusinessName] = React.useState("")
   const [tab, setTab] = React.useState<string>("all")
-  const [businessFilter, setBusinessFilter] = React.useState("all")
   const [ratingFilter, setRatingFilter] = React.useState("all")
   const [statusFilter, setStatusFilter] = React.useState("all")
-  const [verificationFilter, setVerificationFilter] = React.useState("all")
-  const [detail, setDetail] = React.useState<Review | null>(null)
+  const [dateRange, setDateRange] = React.useState<DateRangeValue>({ preset: "30d" })
+  const [apiPage, setApiPage] = React.useState(1)
+
+  // Loading & refresh states
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+  const [refreshTick, setRefreshTick] = React.useState(0)
+
+  // Interaction states
+  const [detail, setDetail] = React.useState<AdminReviewItem | null>(null)
   const [action, setAction] = React.useState<{
-    review: Review
-    type: "HIDE" | "RESTORE" | "REMOVE"
+    review: AdminReviewItem
+    type: "HIDE" | "RESTORE" | "DELETE"
   } | null>(null)
+  const [isSubmittingAction, setIsSubmittingAction] = React.useState(false)
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
 
-  const businessOptions = [
-    { value: "all", label: "Semua Bisnis" },
-    ...businesses.map((b) => ({ value: b.id, label: b.name })),
-  ]
+  // Debounce search
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+      setApiPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [search])
 
-  const counts = {
-    total: reviews.length,
-    published: reviews.filter((r) => r.status === "PUBLISHED").length,
-    reported: reviews.filter((r) => r.reportCount > 0).length,
-    hidden: reviews.filter((r) => r.status === "HIDDEN").length,
-    removed: reviews.filter((r) => r.status === "REMOVED").length,
+  // Debounce business name filter
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedBusinessName(businessName)
+      setApiPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [businessName])
+
+  // Sync tab with statusFilter
+  const handleTabChange = (newTab: string) => {
+    setTab(newTab)
+    setStatusFilter(newTab)
+    setApiPage(1)
+  }
+
+  const handleStatusFilterChange = (newStatus: string) => {
+    setStatusFilter(newStatus)
+    setTab(newStatus)
+    setApiPage(1)
+  }
+
+  const handleRatingFilterChange = (newRating: string) => {
+    setRatingFilter(newRating)
+    setApiPage(1)
+  }
+
+  const handleDateRangeChange = (rangeVal: DateRangeValue) => {
+    setDateRange(rangeVal)
+    setApiPage(1)
   }
 
   function resetFilters() {
     setSearch("")
-    setBusinessFilter("all")
+    setDebouncedSearch("")
+    setBusinessName("")
+    setDebouncedBusinessName("")
+    setTab("all")
     setRatingFilter("all")
     setStatusFilter("all")
-    setVerificationFilter("all")
+    setDateRange({ preset: "30d" })
+    setApiPage(1)
   }
 
-  const filtered = reviews.filter((review) => {
-    if (tab === "reported" && review.reportCount === 0) return false
-    if (tab !== "all" && tab !== "reported" && review.status !== tab) return false
-    if (businessFilter !== "all" && review.businessId !== businessFilter) return false
-    if (ratingFilter !== "all" && String(review.rating) !== ratingFilter) return false
-    if (statusFilter !== "all" && review.status !== statusFilter) return false
-    if (
-      verificationFilter !== "all" &&
-      (verificationFilter === "VERIFIED") !== review.isVerified
-    )
-      return false
-    if (
-      search &&
-      !review.reviewerName.toLowerCase().includes(search.toLowerCase()) &&
-      !review.businessName.toLowerCase().includes(search.toLowerCase()) &&
-      !review.content.toLowerCase().includes(search.toLowerCase())
-    )
-      return false
-    return true
-  })
+  // Fetch reviews from API
+  React.useEffect(() => {
+    let active = true
 
-  const columns: ResourceTableColumn<Review>[] = [
+    async function loadReviews() {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const res = await fetchAdminReviews({
+          page: apiPage,
+          limit: 20,
+          search: debouncedSearch || undefined,
+          businessName: debouncedBusinessName || undefined,
+          rating: ratingFilter !== "all" ? parseInt(ratingFilter, 10) : undefined,
+          status: statusFilter !== "all" ? statusFilter : undefined,
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+        })
+
+        if (!active) return
+
+        if (res && res.data) {
+          setReviews(res.data)
+          if (res.meta) {
+            setMeta(res.meta)
+          }
+        }
+      } catch (err: any) {
+        if (!active) return
+        console.error("Gagal mengambil daftar ulasan admin:", err)
+        setError(err.message || "Gagal memuat data ulasan")
+      } finally {
+        if (active) setIsLoading(false)
+      }
+    }
+
+    loadReviews()
+
+    return () => {
+      active = false
+    }
+  }, [
+    apiPage,
+    debouncedSearch,
+    debouncedBusinessName,
+    ratingFilter,
+    statusFilter,
+    dateRange,
+    refreshTick,
+  ])
+
+  // Count helper for tabs
+  const counts = {
+    total: meta.total,
+    published: reviews.filter((r) => r.status === "PUBLISHED").length,
+    hidden: reviews.filter((r) => r.status === "HIDDEN").length,
+    removed: reviews.filter((r) => r.status === "REMOVED").length,
+  }
+
+  // Handle moderation confirm
+  async function handleConfirmAction() {
+    if (!action) return
+    setIsSubmittingAction(true)
+    try {
+      if (action.type === "DELETE") {
+        const res = await deleteAdminReview(action.review.id)
+        toast.success(res.message || "Ulasan berhasil dihapus secara permanen.")
+      } else {
+        const nextStatus = action.type === "HIDE" ? "HIDDEN" : "PUBLISHED"
+        const res = await updateAdminReviewStatus(action.review.id, nextStatus)
+        toast.success(
+          res.message ||
+            (nextStatus === "HIDDEN"
+              ? "Ulasan berhasil disembunyikan."
+              : "Ulasan berhasil dipulihkan.")
+        )
+      }
+      setAction(null)
+      setDetail(null)
+      setRefreshTick((t) => t + 1)
+    } catch (err: any) {
+      toast.error(err?.message || "Gagal memproses tindakan pada ulasan")
+    } finally {
+      setIsSubmittingAction(false)
+    }
+  }
+
+  const columns: ResourceTableColumn<AdminReviewItem>[] = [
     {
       key: "reviewerName",
       header: "Reviewer",
-      sortValue: (r) => r.reviewerName,
-      render: (review) => (
-        <div className="flex items-center gap-2.5">
-          <Avatar size="sm">
-            <AvatarFallback className={avatarTone(review.reviewerId)}>
-              {initials(review.reviewerName)}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="font-medium text-foreground">{review.reviewerName}</p>
-            <p className="text-xs text-muted-foreground">
-              {getUserById(review.reviewerId)?.email ?? "-"}
-            </p>
+      render: (review) => {
+        const name = review.user?.name || "Pengguna Anonim"
+        const email = review.user?.email || "-"
+        return (
+          <div className="flex items-center gap-2.5">
+            <Avatar size="sm">
+              <AvatarFallback className={avatarTone(review.user?.id || review.id)}>
+                {initials(name)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="font-semibold text-foreground truncate">{name}</p>
+              <p className="text-xs text-muted-foreground truncate">{email}</p>
+            </div>
           </div>
-        </div>
-      ),
+        )
+      },
     },
     {
       key: "businessName",
       header: "Bisnis",
-      sortValue: (r) => r.businessName,
       render: (review) => {
-        const business = getBusinessById(review.businessId)
+        const name = review.business?.name || "Bisnis Tidak Diketahui"
+        const category = review.business?.category || null
+        const city = review.business?.city || null
         return (
           <div className="flex items-center gap-2.5">
             <Avatar size="sm">
-              <AvatarFallback className={avatarTone(review.businessId)}>
-                {initials(review.businessName)}
+              <AvatarFallback className={avatarTone(review.business?.id || review.id)}>
+                {initials(name)}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <p className="text-foreground">{review.businessName}</p>
-              {business && <p className="text-xs text-muted-foreground">{business.category}</p>}
+            <div className="min-w-0">
+              <p className="font-semibold text-foreground truncate">{name}</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {category} {city ? `• ${city}` : ""}
+              </p>
             </div>
           </div>
         )
@@ -205,21 +329,18 @@ export default function AdminGlobalReviewsPage() {
     {
       key: "rating",
       header: "Rating",
-      sortValue: (r) => r.rating,
       render: (review) => <RatingStars rating={review.rating} size="sm" />,
     },
     {
       key: "content",
       header: "Review",
       render: (review) => (
-        <span className="line-clamp-1 max-w-xs text-muted-foreground">{review.content}</span>
-      ),
-    },
-    {
-      key: "isVerified",
-      header: "Verifikasi",
-      render: (review) => (
-        <StatusBadge status={review.isVerified ? "VERIFIED" : "UNVERIFIED"} />
+        <div className="max-w-xs space-y-0.5">
+          {review.title && (
+            <p className="font-semibold text-xs text-foreground truncate">{review.title}</p>
+          )}
+          <p className="line-clamp-2 text-xs text-muted-foreground">{review.content}</p>
+        </div>
       ),
     },
     {
@@ -228,22 +349,22 @@ export default function AdminGlobalReviewsPage() {
       render: (review) => <StatusBadge status={review.status} />,
     },
     {
-      key: "reportCount",
-      header: "Dilaporkan",
-      sortValue: (r) => r.reportCount,
-      render: (review) =>
-        review.reportCount > 0 ? (
-          <span className="font-medium text-destructive">{review.reportCount}</span>
-        ) : (
-          <span className="text-muted-foreground">0</span>
-        ),
+      key: "helpfulCount",
+      header: "Helpful",
+      render: (review) => (
+        <span className="text-xs font-semibold text-foreground/80 flex items-center gap-1">
+          <ThumbsUpIcon className="size-3 text-[#008767]" />
+          <span>{review.helpfulCount || 0}</span>
+        </span>
+      ),
     },
     {
       key: "createdAt",
       header: "Tanggal",
-      sortValue: (r) => r.createdAt,
       render: (review) => (
-        <span className="text-muted-foreground">{formatDateTime(review.createdAt)}</span>
+        <span className="text-xs text-muted-foreground whitespace-nowrap">
+          {formatDateTime(review.createdAt)}
+        </span>
       ),
     },
     {
@@ -257,36 +378,41 @@ export default function AdminGlobalReviewsPage() {
               <FlagIcon className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setDetail(review)}>View</DropdownMenuItem>
-              {review.reportCount > 0 && (
-                <DropdownMenuItem render={<Link href="/admin/trust-safety" />}>
-                  View Reports
+              <DropdownMenuItem onClick={() => setDetail(review)}>
+                Lihat Detail
+              </DropdownMenuItem>
+              {review.business?.slug && (
+                <DropdownMenuItem
+                  render={
+                    <Link
+                      href={`/business/${review.business.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    />
+                  }
+                >
+                  Buka Halaman Bisnis
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem render={<Link href="/admin/evidence" />}>
-                View Evidence
-              </DropdownMenuItem>
               {review.status === "PUBLISHED" && (
                 <DropdownMenuItem onClick={() => setAction({ review, type: "HIDE" })}>
-                  <EyeOffIcon />
-                  Hide
+                  <EyeOffIcon className="size-4" />
+                  Sembunyikan (Hide)
                 </DropdownMenuItem>
               )}
               {review.status === "HIDDEN" && (
                 <DropdownMenuItem onClick={() => setAction({ review, type: "RESTORE" })}>
-                  <RotateCcwIcon />
-                  Restore
+                  <RotateCcwIcon className="size-4" />
+                  Pulihkan (Publish)
                 </DropdownMenuItem>
               )}
-              {review.status !== "REMOVED" && (
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => setAction({ review, type: "REMOVE" })}
-                >
-                  <Trash2Icon />
-                  Remove
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setAction({ review, type: "DELETE" })}
+              >
+                <Trash2Icon className="size-4" />
+                Hapus Permanen
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -312,109 +438,144 @@ export default function AdminGlobalReviewsPage() {
 
       <PageHeader
         title="Review Management"
-        description="Kelola semua review yang ada di platform KataMereka. Pantau kualitas ulasan dan tindak konten yang tidak sesuai."
+        description="Kelola seluruh ulasan nasional di platform KataMereka. Pantau kualitas ulasan, cari berdasarkan filter, dan tindak lanjuti moderasi konten."
         action={
-          <Button variant="outline" onClick={() => toast.success("Data review berhasil diexport.")}>
-            <DownloadIcon />
-            Export Data
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRefreshTick((t) => t + 1)}
+              disabled={isLoading}
+            >
+              <RefreshCwIcon className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
+              Segarkan
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => toast.success("Data review berhasil diexport.")}
+            >
+              <DownloadIcon className="size-4" />
+              Export Data
+            </Button>
+          </div>
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 @5xl/main:grid-cols-5">
+      {/* 4 Stat Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 @5xl/main:grid-cols-4">
         <StatCard
           label="Total Review"
-          value={counts.total.toLocaleString("id-ID")}
-          delta="+12%"
-          hint="dari bulan lalu"
+          value={meta.total.toLocaleString("id-ID")}
+          delta={`Halaman ${meta.page} dari ${meta.totalPages}`}
+          hint="ulasan tersimpan"
           icon={StarIcon}
-          onClick={() => setTab("all")}
+          onClick={() => handleTabChange("all")}
         />
         <StatCard
           label="Published"
           value={counts.published.toLocaleString("id-ID")}
-          delta="+14%"
-          hint="dari bulan lalu"
-          onClick={() => setTab("PUBLISHED")}
-        />
-        <StatCard
-          label="Reported"
-          value={counts.reported.toLocaleString("id-ID")}
-          delta="+8%"
-          deltaTone="negative"
-          hint="dari bulan lalu"
-          iconTone="destructive"
-          icon={FlagIcon}
-          onClick={() => setTab("reported")}
+          delta="Aktif"
+          hint="tampil di publik"
+          onClick={() => handleTabChange("PUBLISHED")}
         />
         <StatCard
           label="Hidden"
           value={counts.hidden.toLocaleString("id-ID")}
-          delta="+5%"
-          deltaTone="negative"
-          hint="dari bulan lalu"
+          deltaTone="neutral"
+          hint="disembunyikan"
           iconTone="warning"
-          onClick={() => setTab("HIDDEN")}
+          onClick={() => handleTabChange("HIDDEN")}
         />
         <StatCard
           label="Removed"
           value={counts.removed.toLocaleString("id-ID")}
-          delta="+3%"
           deltaTone="negative"
-          hint="dari bulan lalu"
+          hint="dihapus / dinonaktifkan"
           iconTone="destructive"
-          onClick={() => setTab("REMOVED")}
+          onClick={() => handleTabChange("REMOVED")}
         />
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => typeof v === "string" && setTab(v)}>
+      {/* Tabs Filter */}
+      <Tabs value={tab} onValueChange={handleTabChange}>
         <TabsList variant="line">
-          {TABS.map((t) => {
-            const count =
-              t.value === "all"
-                ? counts.total
-                : t.value === "reported"
-                  ? counts.reported
-                  : t.value === "PUBLISHED"
-                    ? counts.published
-                    : t.value === "HIDDEN"
-                      ? counts.hidden
-                      : counts.removed
-            return (
-              <TabsTrigger key={t.value} value={t.value}>
-                {t.label}
-                <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                  {count.toLocaleString("id-ID")}
+          {TABS.map((t) => (
+            <TabsTrigger key={t.value} value={t.value}>
+              {t.label}
+              {t.value === "all" && (
+                <span className="ml-1.5 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground font-semibold">
+                  {meta.total.toLocaleString("id-ID")}
                 </span>
-              </TabsTrigger>
-            )
-          })}
+              )}
+            </TabsTrigger>
+          ))}
         </TabsList>
       </Tabs>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Cari reviewer, bisnis, atau isi review..."
-        />
+      {/* Baris Kotak Pencarian & Filter Lengkap */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-1 flex-col sm:flex-row items-center gap-2">
+          {/* Cari kata kunci teks / judul */}
+          <div className="w-full sm:max-w-xs">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Cari teks ulasan / judul..."
+            />
+          </div>
+          {/* Filter nama bisnis */}
+          <div className="relative w-full sm:max-w-xs">
+            <BuildingIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+            <Input
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+              placeholder="Filter nama toko / bisnis..."
+              className="pl-9 h-9 text-sm"
+            />
+          </div>
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
-          <FilterDropdown label="Bisnis" options={businessOptions} value={businessFilter} onChange={setBusinessFilter} />
-          <FilterDropdown label="Rating" options={RATING_OPTIONS} value={ratingFilter} onChange={setRatingFilter} />
-          <FilterDropdown label="Status" options={STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} />
-          <FilterDropdown label="Verifikasi" options={VERIFICATION_OPTIONS} value={verificationFilter} onChange={setVerificationFilter} />
-          <DateRangeSelector />
-          <Button variant="outline" size="sm" onClick={resetFilters}>
-            <RotateCcwIcon />
+          <FilterDropdown
+            label="Rating"
+            options={RATING_OPTIONS}
+            value={ratingFilter}
+            onChange={handleRatingFilterChange}
+          />
+          <FilterDropdown
+            label="Status"
+            options={STATUS_OPTIONS}
+            value={statusFilter}
+            onChange={handleStatusFilterChange}
+          />
+          <DateRangeSelector
+            defaultValue={dateRange.preset || "30d"}
+            onChange={handleDateRangeChange}
+          />
+          <Button variant="outline" size="sm" onClick={resetFilters} title="Reset semua filter">
+            <RotateCcwIcon className="size-3.5" />
             Reset
           </Button>
         </div>
       </div>
 
+      {error && (
+        <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive flex items-center justify-between">
+          <span>{error}</span>
+          <Button variant="outline" size="sm" onClick={() => setRefreshTick((t) => t + 1)}>
+            Coba Lagi
+          </Button>
+        </div>
+      )}
+
+      {/* Tabel Ulasan Nasional */}
       <ResourceTable
-        data={filtered}
+        data={reviews}
         columns={columns}
         getRowId={(review) => review.id}
+        onRowClick={(review) => setDetail(review)}
+        isLoading={isLoading}
         selectedIds={selectedIds}
         onToggleRow={(id, checked) =>
           setSelectedIds((prev) => {
@@ -424,17 +585,51 @@ export default function AdminGlobalReviewsPage() {
             return next
           })
         }
-        onToggleAll={(checked) => setSelectedIds(checked ? new Set(filtered.map((r) => r.id)) : new Set())}
-        itemLabel="review"
-        pageSize={10}
+        onToggleAll={(checked) =>
+          setSelectedIds(checked ? new Set(reviews.map((r) => r.id)) : new Set())
+        }
+        itemLabel="ulasan"
+        pageSize={meta.limit}
+        pageSizeOptions={[meta.limit]}
         emptyTitle="Tidak ada review ditemukan."
+        emptyDescription="Coba ubah kata kunci pencarian atau sesuaikan filter rentang tanggal dan status."
       />
 
+      {/* Pagination Server-Side */}
+      {!isLoading && meta.totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground pt-2">
+          <span>
+            Menampilkan halaman <strong className="text-foreground">{meta.page}</strong> dari{" "}
+            <strong className="text-foreground">{meta.totalPages}</strong> (Total{" "}
+            {meta.total.toLocaleString("id-ID")} ulasan)
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={apiPage <= 1}
+              onClick={() => setApiPage((p) => Math.max(1, p - 1))}
+            >
+              Sebelumnya
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={apiPage >= meta.totalPages}
+              onClick={() => setApiPage((p) => Math.min(meta.totalPages, p + 1))}
+            >
+              Selanjutnya
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Sheet Detail Review */}
       <Sheet open={!!detail} onOpenChange={(open) => !open && setDetail(null)}>
-        <SheetContent className="sm:max-w-md">
+        <SheetContent className="sm:max-w-lg">
           <SheetHeader>
-            <SheetTitle>{detail?.reviewerName}</SheetTitle>
-            <SheetDescription>{detail?.businessName}</SheetDescription>
+            <SheetTitle>{detail?.user?.name || "Detail Ulasan"}</SheetTitle>
+            <SheetDescription>{detail?.business?.name || "Bisnis"}</SheetDescription>
           </SheetHeader>
           {detail && (
             <div className="flex flex-col gap-5 overflow-y-auto px-4 pb-4">
@@ -445,52 +640,95 @@ export default function AdminGlobalReviewsPage() {
                     {formatDateTime(detail.createdAt)}
                   </span>
                 </div>
-                <p className="mt-2 rounded-lg border border-border p-3 text-sm text-foreground/90">
+                {detail.title && (
+                  <h4 className="mt-2 text-sm font-bold text-foreground">{detail.title}</h4>
+                )}
+                <p className="mt-1.5 rounded-xl border border-border bg-muted/30 p-3 text-sm text-foreground/90 leading-relaxed">
                   {detail.content}
                 </p>
+
+                {/* Review Photos */}
+                {detail.photos && detail.photos.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold text-muted-foreground mb-1.5">
+                      Foto Lampiran ({detail.photos.length}):
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {detail.photos.map((photo, i) => (
+                        <a
+                          key={i}
+                          href={resolveMediaUrl(photo)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="overflow-hidden rounded-lg border border-border aspect-square bg-slate-100 block"
+                        >
+                          <img
+                            src={resolveMediaUrl(photo)}
+                            alt={`Lampiran ${i + 1}`}
+                            className="w-full h-full object-cover hover:scale-105 transition-transform"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </section>
 
-              <section className="flex flex-col gap-1.5 text-sm">
+              <section className="flex flex-col gap-2 rounded-xl border border-border p-3 text-sm bg-card">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Email Reviewer</span>
-                  <span className="font-medium text-foreground">
-                    {getUserById(detail.reviewerId)?.email ?? "-"}
+                  <span className="text-muted-foreground">Reviewer</span>
+                  <span className="font-semibold text-foreground">
+                    {detail.user?.name || "Pengguna"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Verifikasi</span>
-                  {detail.isVerified ? (
-                    <span className="flex items-center gap-1 font-medium text-info">
-                      <BadgeCheckIcon className="size-3.5" />
-                      Verified
-                    </span>
-                  ) : (
-                    <StatusBadge status="UNVERIFIED" />
-                  )}
+                  <span className="text-muted-foreground">Email Reviewer</span>
+                  <span className="font-medium text-foreground">{detail.user?.email || "-"}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Status</span>
+                  <span className="text-muted-foreground">Bisnis Terkait</span>
+                  <span className="font-semibold text-primary">{detail.business?.name || "-"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Kategori & Kota</span>
+                  <span className="text-foreground">
+                    {detail.business?.category || "-"} • {detail.business?.city || "-"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Status Moderasi</span>
                   <StatusBadge status={detail.status} />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Dilaporkan</span>
-                  <span className="font-medium text-foreground">{detail.reportCount}x</span>
+                  <span className="text-muted-foreground">Ditandai Bermanfaat</span>
+                  <span className="font-semibold text-foreground flex items-center gap-1">
+                    <ThumbsUpIcon className="size-3 text-[#008767]" />
+                    <span>{detail.helpfulCount || 0} orang</span>
+                  </span>
                 </div>
               </section>
 
+              {/* Balasan Resmi Bisnis */}
               {detail.reply && (
                 <section>
-                  <h3 className="mb-2 text-xs font-medium text-muted-foreground uppercase">
-                    Balasan Bisnis
+                  <h3 className="mb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Balasan Resmi Bisnis
                   </h3>
-                  <div className="rounded-lg bg-secondary p-3">
-                    <p className="text-xs font-medium text-foreground">{detail.reply.repliedBy}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{detail.reply.content}</p>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5">
+                    <p className="text-xs text-foreground/90 leading-relaxed">
+                      {typeof detail.reply === "string" ? detail.reply : detail.reply.content}
+                    </p>
+                    {typeof detail.reply !== "string" && detail.reply.createdAt && (
+                      <p className="mt-2 text-[11px] text-muted-foreground">
+                        Dibalas pada: {formatDateTime(detail.reply.createdAt)}
+                      </p>
+                    )}
                   </div>
                 </section>
               )}
 
-              <div className="flex flex-wrap justify-end gap-2 pt-1">
+              {/* Action Buttons in Sheet */}
+              <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-border">
                 {detail.status === "PUBLISHED" && (
                   <Button
                     variant="outline"
@@ -500,8 +738,8 @@ export default function AdminGlobalReviewsPage() {
                       setDetail(null)
                     }}
                   >
-                    <EyeOffIcon />
-                    Hide
+                    <EyeOffIcon className="size-4" />
+                    Sembunyikan
                   </Button>
                 )}
                 {detail.status === "HIDDEN" && (
@@ -513,50 +751,58 @@ export default function AdminGlobalReviewsPage() {
                       setDetail(null)
                     }}
                   >
-                    <RotateCcwIcon />
-                    Restore
+                    <RotateCcwIcon className="size-4" />
+                    Pulihkan (Publish)
                   </Button>
                 )}
-                {detail.status !== "REMOVED" && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => {
-                      setAction({ review: detail, type: "REMOVE" })
-                      setDetail(null)
-                    }}
-                  >
-                    <Trash2Icon />
-                    Remove
-                  </Button>
-                )}
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    setAction({ review: detail, type: "DELETE" })
+                    setDetail(null)
+                  }}
+                >
+                  <Trash2Icon className="size-4" />
+                  Hapus Permanen
+                </Button>
               </div>
             </div>
           )}
         </SheetContent>
       </Sheet>
 
+      {/* Dialog Konfirmasi Moderasi & Hapus */}
       <ConfirmDialog
         open={!!action}
-        onOpenChange={(open) => !open && setAction(null)}
-        title={`${
-          action?.type === "HIDE" ? "Sembunyikan" : action?.type === "RESTORE" ? "Pulihkan" : "Hapus"
-        } review dari ${action?.review.reviewerName}?`}
+        onOpenChange={(open) => !open && !isSubmittingAction && setAction(null)}
+        title={
+          action?.type === "HIDE"
+            ? `Sembunyikan ulasan ini?`
+            : action?.type === "RESTORE"
+              ? `Pulihkan ulasan ini ke Published?`
+              : `Hapus permanen ulasan ini?`
+        }
+        description={
+          action?.type === "HIDE"
+            ? "Ulasan yang disembunyikan tidak akan tampil di profil bisnis publik namun tetap tersimpan di riwayat admin."
+            : action?.type === "RESTORE"
+              ? "Ulasan akan kembali berstatus PUBLISHED dan terlihat oleh seluruh pengunjung platform."
+              : "Tindakan ini akan menghapus ulasan selamanya dari database dan tidak dapat dipulihkan."
+        }
         confirmLabel={
-          action?.type === "HIDE" ? "Hide" : action?.type === "RESTORE" ? "Restore" : "Remove"
+          isSubmittingAction
+            ? "Memproses..."
+            : action?.type === "HIDE"
+              ? "Sembunyikan"
+              : action?.type === "RESTORE"
+                ? "Pulihkan"
+                : "Hapus Permanen"
         }
         variant={action?.type === "RESTORE" ? "default" : "destructive"}
-        requireReason={action?.type !== "RESTORE"}
-        reasonLabel="Alasan moderasi"
-        onConfirm={() => {
-          if (!action) return
-          const nextStatus =
-            action.type === "HIDE" ? "HIDDEN" : action.type === "RESTORE" ? "PUBLISHED" : "REMOVED"
-          setReviews((prev) =>
-            prev.map((r) => (r.id === action.review.id ? { ...r, status: nextStatus } : r))
-          )
-          toast.success("Tindakan moderasi berhasil dicatat di audit log.")
-        }}
+        requireReason={action?.type === "HIDE"}
+        reasonLabel="Alasan moderasi ulasan"
+        onConfirm={handleConfirmAction}
       />
     </div>
   )

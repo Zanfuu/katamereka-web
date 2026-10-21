@@ -13,21 +13,21 @@ import {
 } from "recharts"
 import {
   BuildingIcon,
-  CalendarClockIcon,
   ChevronDownIcon,
   ClipboardListIcon,
-  FileWarningIcon,
   FlagIcon,
-  MessageSquareTextIcon,
+  MapPinIcon,
+  RefreshCwIcon,
   ScrollTextIcon,
   ShieldAlertIcon,
   ShieldCheckIcon,
+  SparklesIcon,
   StarIcon,
   UserCogIcon,
   UsersIcon,
 } from "lucide-react"
 
-import { DateRangeSelector } from "@/components/date-range-selector"
+import { DateRangeSelector, type DateRangeValue } from "@/components/date-range-selector"
 import { ResourceTable, type ResourceTableColumn } from "@/components/resource-table"
 import { StatCard } from "@/components/stat-card"
 import { StatusBadge } from "@/components/status-badge"
@@ -47,33 +47,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-  fetchAdmins,
-  fetchCustomers,
-  fetchBusinesses,
+  fetchAdminOverviewAnalytics,
   fetchAdminReviewReports,
+  type AdminOverviewAnalytics,
 } from "@/lib/admin-api"
 import { fetchAdminBusinessClaims } from "@/lib/api-client"
 import { formatDate, timeAgo } from "@/lib/format"
-import { platformActivity } from "@/lib/mock/activity"
-import { adminAccounts } from "@/lib/mock/admins"
-import { platformGrowth, reviewActivity30d } from "@/lib/mock/analytics"
-import { businesses } from "@/lib/mock/businesses"
-import { fraudFlags } from "@/lib/mock/fraud"
-import { reports } from "@/lib/mock/reports"
-import { reviews } from "@/lib/mock/reviews"
-import { platformUsers } from "@/lib/mock/users"
-import { verificationRequests } from "@/lib/mock/verifications"
-
-const ACTIVITY_ICON: Record<string, { icon: typeof MessageSquareTextIcon; tone: string }> = {
-  reply: { icon: MessageSquareTextIcon, tone: "bg-info/10 text-info" },
-  review: { icon: StarIcon, tone: "bg-warning/10 text-warning" },
-  verification: { icon: ShieldCheckIcon, tone: "bg-primary/10 text-primary" },
-  team: { icon: UserCogIcon, tone: "bg-purple-100 text-purple-700" },
-  report: { icon: FlagIcon, tone: "bg-destructive/10 text-destructive" },
-  invitation: { icon: ClipboardListIcon, tone: "bg-info/10 text-info" },
-  evidence: { icon: FileWarningIcon, tone: "bg-info/10 text-info" },
-  business: { icon: BuildingIcon, tone: "bg-primary/10 text-primary" },
-}
 
 const growthConfig: ChartConfig = {
   users: { label: "Users", color: "var(--color-chart-1)" },
@@ -82,247 +61,169 @@ const growthConfig: ChartConfig = {
 }
 
 const activityConfig: ChartConfig = {
-  reviewBaru: { label: "Review Baru", color: "var(--color-primary)" },
-  reviewDilaporkan: { label: "Review Dilaporkan", color: "var(--color-destructive)" },
+  newReviews: { label: "Review Baru", color: "var(--color-primary)" },
+  reportedReviews: { label: "Review Dilaporkan", color: "var(--color-destructive)" },
 }
 
-const GROWTH_PERIODS = ["6 Bulan Terakhir", "12 Bulan Terakhir"]
-const ACTIVITY_PERIODS = ["30 Hari Terakhir", "90 Hari Terakhir"]
+const STAR_COLORS: Record<number, string> = {
+  5: "#16A34A",
+  4: "#4ADE80",
+  3: "#FACC15",
+  2: "#FB923C",
+  1: "#EF4444",
+}
 
 interface NeedsAttentionItem {
   id: string
   item: string
-  type: "Verification" | "Report" | "Moderation" | "Fraud"
+  type: "Verification" | "Report" | "Moderation"
   priority: "High" | "Medium" | "Low"
   status: string
   createdAt: string
   href: string
 }
 
-function PeriodDropdown({
-  options,
-  value,
-  onChange,
-}: {
-  options: string[]
-  value: string
-  onChange: (value: string) => void
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-          />
-        }
-      >
-        {value}
-        <ChevronDownIcon className="size-3.5 text-muted-foreground" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {options.map((option) => (
-          <DropdownMenuItem key={option} onClick={() => onChange(option)}>
-            {option}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
+function formatMonthLabel(monthStr?: string) {
+  if (!monthStr) return ""
+  const parts = monthStr.split("-")
+  if (parts.length === 2) {
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Mei",
+      "Jun",
+      "Jul",
+      "Agu",
+      "Sep",
+      "Okt",
+      "Nov",
+      "Des",
+    ]
+    const m = parseInt(parts[1], 10) - 1
+    return `${monthNames[m] || parts[1]} '${parts[0].slice(2)}`
+  }
+  return monthStr
+}
+
+function formatDateLabel(dateStr?: string) {
+  if (!dateStr) return ""
+  const parts = dateStr.split("-")
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}`
+  }
+  return dateStr
 }
 
 export default function AdminOverviewPage() {
-  const [growthPeriod, setGrowthPeriod] = React.useState(GROWTH_PERIODS[0])
-  const [activityPeriod, setActivityPeriod] = React.useState(ACTIVITY_PERIODS[0])
+  const [range, setRange] = React.useState("30d")
+  const [analytics, setAnalytics] = React.useState<AdminOverviewAnalytics | null>(null)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
 
-  const initialVerifiedBusinesses = businesses.filter((b) => b.verificationStatus === "VERIFIED")
-  const initialPendingVerification = verificationRequests.filter((v) => v.status === "PENDING")
-  const initialReportedReviews = reviews.filter((r) => r.reportCount > 0)
-  const initialModerationQueue = reports.filter(
-    (r) => r.status === "OPEN" || r.status === "UNDER_INVESTIGATION"
-  )
-  const openFraud = fraudFlags.filter((f) => f.status === "OPEN")
-  const initialTotalReviews = businesses.reduce((sum, b) => sum + b.totalReviews, 0)
+  // Needs Attention items from reports & claims
+  const [needsAttention, setNeedsAttention] = React.useState<NeedsAttentionItem[]>([])
 
-  const [stats, setStats] = React.useState({
-    totalAdmins: adminAccounts.length,
-    totalBusinesses: businesses.length,
-    verifiedBusinesses: initialVerifiedBusinesses.length,
-    totalCustomers: platformUsers.length,
-    totalReviews: initialTotalReviews,
-    pendingVerification: initialPendingVerification.length,
-    reportedReviews: initialReportedReviews.length,
-    pendingModeration: initialModerationQueue.length,
-  })
+  const loadData = React.useCallback(async (selectedRange: string) => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await fetchAdminOverviewAnalytics(selectedRange)
+      if (res && res.data) {
+        setAnalytics(res.data)
+      }
+    } catch (err: any) {
+      console.error("Gagal memuat analitik overview super admin:", err)
+      setError(err?.message || "Gagal memuat data analitik")
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
-  const [realRecentBusinesses, setRealRecentBusinesses] = React.useState<
-    Array<{ id: string; name: string; slug: string; category: string; status: string; createdAt: string }>
-  >([])
+  // Load overview analytics on range change
+  React.useEffect(() => {
+    loadData(range)
+  }, [range, loadData])
 
-  const [dynamicNeedsAttention, setDynamicNeedsAttention] = React.useState<NeedsAttentionItem[]>([])
-
+  // Load secondary attention items (claims & review reports)
   React.useEffect(() => {
     let active = true
-
-    async function loadDashboardMetrics() {
+    async function loadAttention() {
       try {
-        const [adminsRes, custRes, bizRes, reportsRes, claimsRes] = await Promise.allSettled([
-          fetchAdmins({ limit: 1 }),
-          fetchCustomers({ limit: 1 }),
-          fetchBusinesses({ limit: 5 }),
-          fetchAdminReviewReports({ limit: 10 }),
+        const [reportsRes, claimsRes] = await Promise.allSettled([
+          fetchAdminReviewReports({ limit: 10, status: "PENDING" }),
           fetchAdminBusinessClaims({ limit: 10 }),
         ])
-
         if (!active) return
 
-        let totalAdmins = adminAccounts.length
-        let totalCustomers = platformUsers.length
-        let totalBusinesses = businesses.length
-        let verifiedBusinesses = initialVerifiedBusinesses.length
-        let pendingVerification = initialPendingVerification.length
-        let reportedReviewsCount = initialReportedReviews.length
-        let pendingModerationCount = initialModerationQueue.length
+        const items: NeedsAttentionItem[] = []
 
-        const dynamicItems: NeedsAttentionItem[] = []
-
-        if (adminsRes.status === "fulfilled" && adminsRes.value?.stats?.total_admin != null) {
-          totalAdmins = adminsRes.value.stats.total_admin
-        }
-
-        if (custRes.status === "fulfilled" && custRes.value?.stats?.total_customer != null) {
-          totalCustomers = custRes.value.stats.total_customer
-        }
-
-        if (bizRes.status === "fulfilled" && bizRes.value) {
-          const biz = bizRes.value
-          if (biz.stats?.total_business != null) {
-            totalBusinesses = biz.stats.total_business
-          }
-          if (biz.data && biz.data.length > 0) {
-            const mappedRecent = biz.data.map((b) => ({
-              id: b.id,
-              name: b.name,
-              slug: b.slug,
-              category: b.category || "Hotel & Penginapan",
-              status: b.status === "SUSPENDED" ? "SUSPENDED" : "ACTIVE",
-              createdAt: b.created_at,
-            }))
-            setRealRecentBusinesses(mappedRecent)
-            const claimed = biz.data.filter((b) => b.status === "CLAIMED").length
-            if (claimed > 0) verifiedBusinesses = claimed
-          }
-        }
-
-        if (claimsRes.status === "fulfilled" && claimsRes.value) {
-          const claims = claimsRes.value?.data || []
-          const pending = claims.filter((c: any) => c.status === "PENDING")
-          if (pending.length > 0) {
-            pendingVerification = pending.length
-            pending.forEach((c: any) => {
-              dynamicItems.push({
-                id: c.id,
-                item: c.business?.name || "Pengajuan Klaim Bisnis",
-                type: "Verification",
-                priority: "High",
-                status: c.status,
-                createdAt: c.created_at || new Date().toISOString(),
-                href: "/admin/trust-safety",
-              })
+        if (claimsRes.status === "fulfilled" && claimsRes.value?.data) {
+          const pending = (claimsRes.value.data as any[]).filter((c) => c.status === "PENDING")
+          pending.forEach((c) => {
+            items.push({
+              id: c.id,
+              item: c.business?.name || "Pengajuan Klaim Bisnis",
+              type: "Verification",
+              priority: "High",
+              status: c.status,
+              createdAt: c.created_at || new Date().toISOString(),
+              href: "/admin/trust-safety",
             })
-          }
+          })
         }
 
-        if (reportsRes.status === "fulfilled" && reportsRes.value) {
-          const rep = reportsRes.value?.data || []
-          const pending = rep.filter((r) => r.status === "PENDING")
-          if (pending.length > 0) {
-            reportedReviewsCount = pending.length
-            pendingModerationCount = pending.length
-            pending.forEach((r) => {
-              dynamicItems.push({
-                id: r.id,
-                item: `${r.business?.name || "Review"} — ${r.reason}`,
-                type: "Report",
-                priority: "High",
-                status: r.status,
-                createdAt: r.created_at,
-                href: "/admin/trust-safety",
-              })
+        if (reportsRes.status === "fulfilled" && reportsRes.value?.data) {
+          const pendingRep = reportsRes.value.data.filter((r) => r.status === "PENDING")
+          pendingRep.forEach((r) => {
+            items.push({
+              id: r.id,
+              item: `${r.business?.name || "Review"} — ${r.reason}`,
+              type: "Report",
+              priority: "High",
+              status: r.status,
+              createdAt: r.created_at,
+              href: "/admin/trust-safety",
             })
-          }
+          })
         }
 
-        setStats({
-          totalAdmins,
-          totalBusinesses,
-          verifiedBusinesses,
-          totalCustomers,
-          totalReviews: initialTotalReviews,
-          pendingVerification,
-          reportedReviews: reportedReviewsCount,
-          pendingModeration: pendingModerationCount,
-        })
-
-        if (dynamicItems.length > 0) {
-          setDynamicNeedsAttention(dynamicItems)
-        }
-      } catch (err) {
-        console.error("Gagal memuat overview dashboard metrics:", err)
+        setNeedsAttention(items)
+      } catch {
+        // Silently ignore secondary attention errors
       }
     }
-
-    loadDashboardMetrics()
-
+    loadAttention()
     return () => {
       active = false
     }
   }, [])
 
-  const ratingDistribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
-  reviews.forEach((r) => {
-    ratingDistribution[r.rating] += 1
-  })
-  const ratingSegments = [
-    { label: "5 Bintang", value: ratingDistribution[5], color: "#16A34A" },
-    { label: "4 Bintang", value: ratingDistribution[4], color: "#4ADE80" },
-    { label: "3 Bintang", value: ratingDistribution[3], color: "#FACC15" },
-    { label: "2 Bintang", value: ratingDistribution[2], color: "#FB923C" },
-    { label: "1 Bintang", value: ratingDistribution[1], color: "#EF4444" },
-  ]
+  const cards = analytics?.overviewCards || {
+    totalCustomers: { value: 0, label: "Business Admin", growth: "+0%" },
+    totalBusinesses: { value: 0, label: "Total Businesses", growth: "+0%" },
+    verifiedBusinesses: { value: 0, label: "Verified Businesses", growth: "+0%" },
+    totalUsers: { value: 0, label: "Total Users", growth: "+0%" },
+    totalReviews: { value: 0, label: "Total Reviews", growth: "+0%" },
+    pendingVerification: { value: 0, label: "Pending Verification", growth: "0%" },
+    reportedReviews: { value: 0, label: "Reported Reviews", growth: "+0%" },
+    pendingModeration: { value: 0, label: "Pending Moderation", growth: "0%" },
+  }
 
-  const fallbackNeedsAttention: NeedsAttentionItem[] = [
-    ...initialPendingVerification.map((v): NeedsAttentionItem => ({
-      id: v.id,
-      item: v.businessName,
-      type: "Verification",
-      priority: "High",
-      status: v.status,
-      createdAt: v.submittedAt,
-      href: "/admin/trust-safety",
-    })),
-    ...initialModerationQueue.map((r): NeedsAttentionItem => ({
-      id: r.id,
-      item: `${r.businessName} — ${r.reviewerName}`,
-      type: r.status === "UNDER_INVESTIGATION" ? "Moderation" : "Report",
-      priority: r.reviewRating === 1 ? "High" : "Medium",
-      status: r.status,
-      createdAt: r.createdAt,
-      href: "/admin/trust-safety",
-    })),
-    ...openFraud.map((f): NeedsAttentionItem => ({
-      id: f.id,
-      item: f.entityLabel,
-      type: "Fraud",
-      priority: f.riskLevel === "HIGH" ? "High" : f.riskLevel === "MEDIUM" ? "Medium" : "Low",
-      status: f.status,
-      createdAt: f.detectedAt,
-      href: "/admin/trust-safety",
-    })),
-  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const platformGrowth = analytics?.platformGrowth || []
+  const reviewActivity = analytics?.reviewActivity || []
+  const ratingDist = analytics?.ratingDistribution
+  const topActiveCities = analytics?.topActiveCities || []
+  const recentBusinesses = analytics?.recentBusinesses || []
+  const recentActivities = analytics?.recentActivities || []
 
-  const needsAttention = dynamicNeedsAttention.length > 0 ? dynamicNeedsAttention : fallbackNeedsAttention
+  // Rating donut segments
+  const ratingSegments = (ratingDist?.breakdown || []).map((b) => ({
+    label: `${b.star} Bintang (${b.percentage}%)`,
+    value: b.count,
+    color: STAR_COLORS[b.star] || "#94A3B8",
+  }))
 
   const needsAttentionColumns: ResourceTableColumn<NeedsAttentionItem>[] = [
     {
@@ -330,10 +231,14 @@ export default function AdminOverviewPage() {
       header: "Item",
       render: (row) => <span className="font-medium text-foreground">{row.item}</span>,
     },
-    { key: "type", header: "Type", render: (row) => <StatusBadge status="gray" label={row.type} /> },
+    {
+      key: "type",
+      header: "Tipe",
+      render: (row) => <StatusBadge status="gray" label={row.type} />,
+    },
     {
       key: "priority",
-      header: "Priority",
+      header: "Prioritas",
       render: (row) => (
         <StatusBadge
           status={row.priority === "High" ? "HIGH" : row.priority === "Medium" ? "MEDIUM" : "LOW"}
@@ -344,8 +249,7 @@ export default function AdminOverviewPage() {
     { key: "status", header: "Status", render: (row) => <StatusBadge status={row.status} /> },
     {
       key: "createdAt",
-      header: "Created At",
-      sortValue: (row) => row.createdAt,
+      header: "Waktu Pengajuan",
       render: (row) => <span className="text-muted-foreground">{formatDate(row.createdAt)}</span>,
     },
     {
@@ -355,119 +259,142 @@ export default function AdminOverviewPage() {
       render: (row) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <Button variant="outline" size="sm" render={<Link href={row.href} />}>
-            Review
+            Tinjau
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-              <ScrollTextIcon className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem render={<Link href={row.href} />}>Lihat Detail</DropdownMenuItem>
-              <DropdownMenuItem render={<Link href="/admin/audit-logs" />}>Lihat Audit Log</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       ),
     },
   ]
 
-  const fallbackRecentBusinesses = [...businesses]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5)
-
-  const recentBusinesses = realRecentBusinesses.length > 0 ? realRecentBusinesses : fallbackRecentBusinesses
-
   return (
     <div className="flex flex-col gap-6">
+      {/* Header & Filter Range */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            Selamat datang, Super Admin!
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Selamat datang, Super Admin!
+            </h1>
+            {isLoading && <RefreshCwIcon className="size-4 animate-spin text-muted-foreground" />}
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Berikut adalah ringkasan kondisi platform KataMereka hari ini.
+            Berikut adalah ringkasan analitik dan performa platform KataMereka secara realtime.
           </p>
         </div>
-        <DateRangeSelector />
+        <div className="flex items-center gap-2">
+          <DateRangeSelector
+            defaultValue={range}
+            onChange={(val: DateRangeValue) => {
+              if (val.preset) setRange(val.preset)
+            }}
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => loadData(range)}
+            disabled={isLoading}
+            title="Muat ulang analitik"
+          >
+            <RefreshCwIcon className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
       </div>
 
+      {error && (
+        <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive flex items-center justify-between">
+          <span>{error}</span>
+          <Button variant="outline" size="sm" onClick={() => loadData(range)}>
+            Coba Lagi
+          </Button>
+        </div>
+      )}
+
+      {/* 8 Kotak Kartu Statistik di Atas */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 @5xl/main:grid-cols-4">
         <StatCard
           label="Total Customers"
-          sublabel="Business Admin"
-          value={stats.totalAdmins.toLocaleString("id-ID")}
-          delta="+12%"
-          hint="dari bulan lalu"
+          sublabel={cards.totalCustomers?.label || "Business Admin"}
+          value={cards.totalCustomers?.value?.toLocaleString("id-ID") ?? "0"}
+          delta={cards.totalCustomers?.growth}
+          hint="dari periode lalu"
           icon={UserCogIcon}
           href="/admin/customers"
         />
         <StatCard
           label="Total Businesses"
-          value={stats.totalBusinesses.toLocaleString("id-ID")}
-          delta="+8%"
-          hint="dari bulan lalu"
+          value={cards.totalBusinesses?.value?.toLocaleString("id-ID") ?? "0"}
+          delta={cards.totalBusinesses?.growth}
+          hint="dari periode lalu"
           icon={BuildingIcon}
           href="/admin/businesses"
         />
         <StatCard
           label="Verified Businesses"
-          value={stats.verifiedBusinesses.toLocaleString("id-ID")}
-          delta="+15%"
-          hint="dari bulan lalu"
+          value={cards.verifiedBusinesses?.value?.toLocaleString("id-ID") ?? "0"}
+          delta={cards.verifiedBusinesses?.growth}
+          hint="dari periode lalu"
           icon={ShieldCheckIcon}
           href="/admin/businesses"
         />
         <StatCard
           label="Total Users"
-          value={stats.totalCustomers.toLocaleString("id-ID")}
-          delta="+18%"
-          hint="dari bulan lalu"
+          value={cards.totalUsers?.value?.toLocaleString("id-ID") ?? "0"}
+          delta={cards.totalUsers?.growth}
+          hint="dari periode lalu"
           icon={UsersIcon}
           href="/admin/users"
         />
         <StatCard
           label="Total Reviews"
-          value={stats.totalReviews.toLocaleString("id-ID")}
-          delta="+22%"
-          hint="dari bulan lalu"
+          value={cards.totalReviews?.value?.toLocaleString("id-ID") ?? "0"}
+          delta={cards.totalReviews?.growth}
+          hint="dari periode lalu"
           icon={StarIcon}
           href="/admin/reviews"
         />
         <StatCard
           label="Pending Verification"
-          value={stats.pendingVerification}
-          delta="-28%"
-          deltaTone="negative"
-          hint="dari bulan lalu"
+          value={cards.pendingVerification?.value ?? 0}
+          delta={cards.pendingVerification?.growth}
+          deltaTone={cards.pendingVerification?.growth?.startsWith("-") ? "negative" : "positive"}
+          hint="klaim menunggu"
           icon={ClipboardListIcon}
           href="/admin/trust-safety"
         />
         <StatCard
           label="Reported Reviews"
-          value={stats.reportedReviews}
-          delta="+7%"
-          hint="dari bulan lalu"
+          value={cards.reportedReviews?.value ?? 0}
+          delta={cards.reportedReviews?.growth}
+          deltaTone={cards.reportedReviews?.growth?.startsWith("-") ? "positive" : "negative"}
+          hint="ulasan dilaporkan"
           icon={FlagIcon}
           iconTone="destructive"
           href="/admin/trust-safety"
         />
         <StatCard
           label="Pending Moderation"
-          value={stats.pendingModeration}
-          delta="-14%"
-          deltaTone="negative"
-          hint="dari bulan lalu"
+          value={cards.pendingModeration?.value ?? 0}
+          delta={cards.pendingModeration?.growth}
+          deltaTone={cards.pendingModeration?.growth?.startsWith("-") ? "positive" : "negative"}
+          hint="antrean moderasi"
           icon={ShieldAlertIcon}
           iconTone="warning"
           href="/admin/trust-safety"
         />
       </div>
 
+      {/* Baris Grafik & Diagram */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Pertumbuhan Platform</CardTitle>
-            <PeriodDropdown options={GROWTH_PERIODS} value={growthPeriod} onChange={setGrowthPeriod} />
+        {/* Grafik Garis "Pertumbuhan Platform" */}
+        <Card className="lg:col-span-1 shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div>
+              <CardTitle className="text-base font-semibold">Pertumbuhan Platform</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Tren pengguna, bisnis, dan review</p>
+            </div>
+            <span className="text-xs text-muted-foreground font-medium bg-muted px-2 py-0.5 rounded-md">
+              Bulanan
+            </span>
           </CardHeader>
           <CardContent>
             <div className="mb-2 flex items-center gap-4 text-xs text-muted-foreground">
@@ -483,22 +410,52 @@ export default function AdminOverviewPage() {
             </div>
             <ChartContainer config={growthConfig} className="aspect-auto h-64 w-full">
               <LineChart data={platformGrowth} margin={{ left: -20, right: 12, top: 8 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
+                <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.3} />
+                <XAxis
+                  dataKey="month"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  tickFormatter={formatMonthLabel}
+                />
                 <YAxis tickLine={false} axisLine={false} tickMargin={8} width={40} />
                 <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
-                <Line dataKey="users" stroke="var(--color-chart-1)" strokeWidth={2} dot={false} />
-                <Line dataKey="businesses" stroke="var(--color-chart-2)" strokeWidth={2} dot={false} />
-                <Line dataKey="reviews" stroke="var(--color-chart-3)" strokeWidth={2} dot={false} />
+                <Line
+                  dataKey="users"
+                  stroke="var(--color-chart-1)"
+                  strokeWidth={2.5}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+                <Line
+                  dataKey="businesses"
+                  stroke="var(--color-chart-2)"
+                  strokeWidth={2.5}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+                <Line
+                  dataKey="reviews"
+                  stroke="var(--color-chart-3)"
+                  strokeWidth={2.5}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
               </LineChart>
             </ChartContainer>
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Aktivitas Review</CardTitle>
-            <PeriodDropdown options={ACTIVITY_PERIODS} value={activityPeriod} onChange={setActivityPeriod} />
+        {/* Grafik Batang "Aktivitas Review" */}
+        <Card className="lg:col-span-1 shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div>
+              <CardTitle className="text-base font-semibold">Aktivitas Review</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Ulasan masuk & laporan harian</p>
+            </div>
+            <span className="text-xs text-muted-foreground font-medium bg-muted px-2 py-0.5 rounded-md">
+              Harian
+            </span>
           </CardHeader>
           <CardContent>
             <div className="mb-2 flex items-center gap-4 text-xs text-muted-foreground">
@@ -510,45 +467,228 @@ export default function AdminOverviewPage() {
               </span>
             </div>
             <ChartContainer config={activityConfig} className="aspect-auto h-64 w-full">
-              <BarChart data={reviewActivity30d} margin={{ left: -20, right: 12, top: 8 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} />
+              <BarChart data={reviewActivity} margin={{ left: -20, right: 12, top: 8 }}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.3} />
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  tickFormatter={formatDateLabel}
+                />
                 <YAxis tickLine={false} axisLine={false} tickMargin={8} width={40} />
                 <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
-                <Bar dataKey="reviewBaru" fill="var(--color-primary)" radius={4} />
-                <Bar dataKey="reviewDilaporkan" fill="var(--color-destructive)" radius={4} />
+                <Bar dataKey="newReviews" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="reportedReviews" fill="var(--color-destructive)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ChartContainer>
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>Distribusi Rating (Semua Bisnis)</CardTitle>
+        {/* Diagram Donat "Distribusi Rating" */}
+        <Card className="lg:col-span-1 shadow-xs">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">Distribusi Rating (Semua Bisnis)</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Rata-rata rating platform:{" "}
+              <span className="font-bold text-amber-500">
+                ★ {ratingDist?.averageRating ? ratingDist.averageRating.toFixed(2) : "0.00"}
+              </span>{" "}
+              dari {ratingDist?.total?.toLocaleString("id-ID") ?? 0} ulasan
+            </p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col items-center justify-center">
             <StatusDonutChart
               segments={ratingSegments}
-              centerValue={stats.totalReviews.toLocaleString("id-ID")}
+              centerValue={ratingDist?.total?.toLocaleString("id-ID") ?? "0"}
               centerLabel="Total Review"
             />
+            {/* Legend / Breakdown mini list */}
+            <div className="mt-3 grid grid-cols-5 gap-1 w-full text-center">
+              {[5, 4, 3, 2, 1].map((s) => {
+                const item = (ratingDist?.breakdown || []).find((b) => b.star === s)
+                return (
+                  <div key={s} className="rounded-lg bg-muted/50 p-1.5 text-xs">
+                    <p className="font-bold text-foreground">★ {s}</p>
+                    <p className="text-[11px] text-muted-foreground">{item?.percentage ?? 0}%</p>
+                  </div>
+                )
+              })}
+            </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Baris Tabel Ringkasan (5 Kota Teraktif, Business Terbaru, Aktivitas Terbaru) */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>
-              Needs Attention
-              {needsAttention.length > 0 && (
-                <span className="ml-2 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
+        {/* Tabel 5 Kota Paling Aktif */}
+        <Card className="lg:col-span-1 shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <div>
+              <CardTitle className="text-base font-semibold flex items-center gap-1.5">
+                <MapPinIcon className="size-4 text-primary" />
+                <span>5 Kota Paling Aktif</span>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Kota dengan sebaran bisnis terbanyak</p>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3.5">
+            {topActiveCities.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">
+                Belum ada data kota aktif.
+              </p>
+            ) : (
+              topActiveCities.slice(0, 5).map((c, idx) => {
+                const maxCount = topActiveCities[0]?.totalBusinesses || 1
+                const pct = Math.round((c.totalBusinesses / maxCount) * 100)
+                return (
+                  <div key={c.city} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                            idx === 0
+                              ? "bg-amber-100 text-amber-800"
+                              : idx === 1
+                                ? "bg-slate-200 text-slate-800"
+                                : idx === 2
+                                  ? "bg-amber-50 text-amber-900 border border-amber-200"
+                                  : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {idx + 1}
+                        </span>
+                        <span className="font-medium text-foreground">{c.city}</span>
+                      </div>
+                      <span className="text-xs font-semibold text-foreground/80">
+                        {c.totalBusinesses.toLocaleString("id-ID")}{" "}
+                        <span className="font-normal text-muted-foreground">bisnis</span>
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary/80 transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Tabel Business Terbaru */}
+        <Card className="lg:col-span-1 shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <div>
+              <CardTitle className="text-base font-semibold flex items-center gap-1.5">
+                <BuildingIcon className="size-4 text-primary" />
+                <span>Business Terbaru</span>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Bisnis yang baru terdaftar</p>
+            </div>
+            <Button variant="link" size="sm" render={<Link href="/admin/businesses" />}>
+              Lihat Semua
+            </Button>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2.5">
+            {recentBusinesses.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">
+                Belum ada bisnis terbaru.
+              </p>
+            ) : (
+              recentBusinesses.slice(0, 5).map((b) => (
+                <Link
+                  key={b.id}
+                  href={`/admin/businesses/${b.id}`}
+                  className="flex items-center justify-between gap-3 rounded-xl p-2.5 text-sm transition-colors hover:bg-muted/70 border border-transparent hover:border-border"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-foreground">{b.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      /{b.slug} {b.city ? `• ${b.city}` : ""}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[11px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                    {b.category || "Umum"}
+                  </span>
+                  <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
+                    {formatDate(b.createdAt)}
+                  </span>
+                </Link>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Tabel Aktivitas Terbaru */}
+        <Card className="lg:col-span-1 shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <div>
+              <CardTitle className="text-base font-semibold flex items-center gap-1.5">
+                <StarIcon className="size-4 text-amber-500 fill-amber-400" />
+                <span>Aktivitas Terbaru</span>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Ulasan customer yang baru masuk</p>
+            </div>
+            <Button variant="link" size="sm" render={<Link href="/admin/reviews" />}>
+              Kelola Review
+            </Button>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {recentActivities.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">
+                Belum ada aktivitas review baru.
+              </p>
+            ) : (
+              recentActivities.slice(0, 5).map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-start gap-2.5 rounded-xl p-2 text-sm transition-colors hover:bg-muted/50 border border-border/50"
+                >
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 border border-amber-200/80 mt-0.5">
+                    <StarIcon className="size-3.5 fill-amber-400 text-amber-500" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate font-medium text-foreground text-xs">
+                        <span className="font-bold">{a.userName}</span>
+                        <span className="text-muted-foreground"> di </span>
+                        <span className="text-primary font-semibold">{a.businessName}</span>
+                      </p>
+                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                        {timeAgo(a.createdAt)}
+                      </span>
+                    </div>
+                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground italic">
+                      &ldquo;{a.content}&rdquo;
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Needs Attention Queue (jika ada klaim atau laporan masuk) */}
+      {needsAttention.length > 0 && (
+        <Card className="shadow-xs border-amber-200/70 bg-gradient-to-r from-amber-50/20 via-background to-background">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <div>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <span>Needs Attention</span>
+                <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-bold text-destructive">
                   {needsAttention.length}
                 </span>
-              )}
-            </CardTitle>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Pengajuan klaim dan laporan ulasan yang butuh tindakan segera oleh Admin
+              </p>
+            </div>
             <Button variant="link" size="sm" render={<Link href="/admin/trust-safety" />}>
-              Lihat Semua
+              Lihat di Trust & Safety
             </Button>
           </CardHeader>
           <CardContent className="px-0">
@@ -563,63 +703,7 @@ export default function AdminOverviewPage() {
             </div>
           </CardContent>
         </Card>
-
-        <Card className="lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Business Terbaru</CardTitle>
-            <Button variant="link" size="sm" render={<Link href="/admin/businesses" />}>
-              Lihat Semua
-            </Button>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {recentBusinesses.map((business) => (
-              <Link
-                key={business.id}
-                href={`/admin/businesses/${business.id}`}
-                className="flex items-center justify-between gap-3 rounded-lg p-1.5 text-sm hover:bg-muted"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-foreground">{business.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">/{business.slug}</p>
-                </div>
-                <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
-                  {business.category}
-                </span>
-                <StatusBadge status={business.status} />
-                <span className="hidden shrink-0 text-xs text-muted-foreground md:inline">
-                  {formatDate(business.createdAt)}
-                </span>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Aktivitas Terbaru</CardTitle>
-            <Button variant="link" size="sm" render={<Link href="/admin/audit-logs" />}>
-              Lihat Semua
-            </Button>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {platformActivity.map((item) => {
-              const { icon: Icon, tone } = ACTIVITY_ICON[item.icon] ?? {
-                icon: CalendarClockIcon,
-                tone: "bg-accent text-accent-foreground",
-              }
-              return (
-                <div key={item.id} className="flex items-center gap-3 text-sm">
-                  <span className={`flex size-8 shrink-0 items-center justify-center rounded-full ${tone}`}>
-                    <Icon className="size-4" />
-                  </span>
-                  <span className="flex-1 text-foreground/90">{item.text}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(item.at)}</span>
-                </div>
-              )
-            })}
-          </CardContent>
-        </Card>
-      </div>
+      )}
     </div>
   )
 }
