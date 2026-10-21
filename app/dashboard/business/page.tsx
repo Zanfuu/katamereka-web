@@ -1457,11 +1457,15 @@ function MediaTab({ business }: { business: Business }) {
     else setLogoUrl("")
   }, [business.logo])
 
-  const [social, setSocial] = React.useState({
-    instagram: "",
-    facebook: "",
-    tiktok: "",
-    linkedin: "",
+  const [social, setSocial] = React.useState(() => {
+    const saved = Object.fromEntries((business.socialLinks ?? []).map((l) => [l.platform, l.url]))
+    return {
+      instagram: saved.instagram ?? "",
+      facebook: saved.facebook ?? "",
+      tiktok: saved.tiktok ?? "",
+      youtube: saved.youtube ?? "",
+      linkedin: saved.linkedin ?? "",
+    }
   })
 
   const initials = business.name
@@ -1813,6 +1817,16 @@ function MediaTab({ business }: { business: Business }) {
                 value={social.tiktok}
                 onChange={(e) => setSocial({ ...social, tiktok: e.target.value })}
                 placeholder="https://tiktok.com/@nama_bisnis"
+              />
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="social-yt">YouTube URL</FieldLabel>
+              <Input
+                id="social-yt"
+                value={social.youtube}
+                onChange={(e) => setSocial({ ...social, youtube: e.target.value })}
+                placeholder="https://youtube.com/@nama_bisnis"
               />
             </Field>
 
