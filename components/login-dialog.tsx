@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { LogIn, Sparkles, X } from "lucide-react";
+import { LogIn, X } from "lucide-react";
 import GoogleLoginButton from "@/components/google-login-button";
 
 interface LoginDialogProps {
@@ -10,6 +10,7 @@ interface LoginDialogProps {
   onOpenChange: (open: boolean) => void;
   title?: string;
   description?: string;
+  icon?: React.ReactNode;
   onSuccess?: (user: any) => void;
 }
 
@@ -18,6 +19,7 @@ export function LoginDialog({
   onOpenChange,
   title = "Masuk ke KataMereka",
   description = "Silakan masuk dengan akun Google untuk menandai ulasan bermanfaat dan berinteraksi di KataMereka.",
+  icon,
   onSuccess,
 }: LoginDialogProps) {
   const [error, setError] = useState("");
@@ -41,19 +43,19 @@ export function LoginDialog({
           <X className="w-4 h-4" />
         </button>
 
-        {/* Icon & Heading */}
-        <div className="text-center space-y-3 pt-1">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-100 text-[#008767] flex items-center justify-center mx-auto shadow-2xs">
-            <Sparkles className="w-7 h-7 text-[#008767]" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              {title}
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed px-2">
-              {description}
-            </p>
-          </div>
+        {/* Heading */}
+        <div className="text-center space-y-1.5 pt-1">
+          {icon && (
+            <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-100 text-[#008767] flex items-center justify-center mx-auto shadow-2xs mb-3">
+              {icon}
+            </div>
+          )}
+          <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
+            {title}
+          </h3>
+          <p className="text-xs text-slate-500 leading-relaxed px-2">
+            {description}
+          </p>
         </div>
 
         {error && (
