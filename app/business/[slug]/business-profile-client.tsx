@@ -29,7 +29,7 @@ import {
   fetchMyHelpfulVotes,
 } from "@/lib/api-profile";
 import { recordBusinessViewActivity } from "@/lib/recent-activity";
-import { resolveFacilitiesDescription } from "@/lib/facilities";
+import { resolveFacilitiesDescription, resolveFacilitiesList } from "@/lib/facilities";
 import { getCleanCategory, slugify } from "@/lib/slug";
 import { LoginDialog } from "@/components/login-dialog";
 
@@ -591,9 +591,10 @@ export default function BusinessProfilePage({
     return <Store className="w-3.5 h-3.5 text-[#008767]" />;
   };
 
-  // Owner-written facilities description (set from the claiming owner's dashboard).
-  // No description => the whole card is hidden.
+  // Owner-written facilities description & list (set from the claiming owner's dashboard).
+  const facilitiesList = resolveFacilitiesList(apiDetail);
   const facilitiesDescription = resolveFacilitiesDescription(apiDetail);
+  const hasFacilities = facilitiesList.length > 0 || Boolean(facilitiesDescription);
 
   const shareUrl =
     typeof window !== "undefined"
@@ -907,17 +908,24 @@ export default function BusinessProfilePage({
                   )}
                 </div>
 
-                {/* Card 2: Fasilitas (only when the owner has written a description) */}
-                {facilitiesDescription && (
+                {/* Card 2: Fasilitas */}
+                {hasFacilities && (
                   <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden transition-all">
                     <button
                       type="button"
                       onClick={() => setIsFasilitasOpen(!isFasilitasOpen)}
                       className="w-full p-5 sm:p-6 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors cursor-pointer"
                     >
-                      <h3 className="font-bold text-slate-900 text-base sm:text-lg">
-                        Fasilitas
-                      </h3>
+                      <div className="flex items-center gap-2.5">
+                        <h3 className="font-bold text-slate-900 text-base sm:text-lg">
+                          Fasilitas
+                        </h3>
+                        {facilitiesList.length > 0 && (
+                          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-[#008767] border border-emerald-200">
+                            {facilitiesList.length}
+                          </span>
+                        )}
+                      </div>
                       <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 transition-transform flex-shrink-0">
                         <ChevronDown
                           className={`w-4 h-4 transition-transform duration-300 ${isFasilitasOpen ? "rotate-180 text-[#008767]" : ""
@@ -927,10 +935,25 @@ export default function BusinessProfilePage({
                     </button>
 
                     {isFasilitasOpen && (
-                      <div className="px-5 sm:px-6 pb-5 sm:pb-6 pt-3 border-t border-slate-100 animate-in fade-in duration-200">
-                        <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line">
-                          {facilitiesDescription}
-                        </p>
+                      <div className="px-5 sm:px-6 pb-5 sm:pb-6 pt-3 border-t border-slate-100 space-y-3 animate-in fade-in duration-200">
+                        {facilitiesList.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {facilitiesList.map((item, idx) => (
+                              <div
+                                key={idx}
+                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-xs font-medium"
+                              >
+                                <span className="size-1.5 rounded-full bg-[#008767]" />
+                                <span>{item}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {facilitiesDescription && (
+                          <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line">
+                            {facilitiesDescription}
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
