@@ -1108,13 +1108,83 @@ function parseInitialFacilities(raw: any): string[] {
 
 function FasilitasTab({ business }: { business: Business }) {
   const { refetch } = useBusinessContext()
-  const [facilities, setFacilities] = React.useState<string[]>(() => parseInitialFacilities(business.facilities))
-  const [customInput, setCustomInput] = React.useState("")
+  const initialFacilities = React.useMemo(
+    () => parseInitialFacilities(business.facilities),
+    [business.facilities]
+  )
+
+  // Initialize from localStorage draft if available, otherwise server data
+  const [facilities, setFacilities] = React.useState<string[]>(() => {
+    if (typeof window !== "undefined" && business?.id) {
+      try {
+        const draft = localStorage.getItem(`katamereka_facilities_draft_${business.id}`)
+        if (draft !== null) {
+          const parsed = JSON.parse(draft)
+          if (Array.isArray(parsed)) return parsed
+        }
+      } catch {}
+    }
+    return parseInitialFacilities(business?.facilities)
+  })
+
+  const [customInput, setCustomInput] = React.useState<string>(() => {
+    if (typeof window !== "undefined" && business?.id) {
+      try {
+        const draft = localStorage.getItem(`katamereka_facilities_input_draft_${business.id}`)
+        if (draft !== null) return draft
+      } catch {}
+    }
+    return ""
+  })
+
   const [saving, setSaving] = React.useState(false)
 
+  const [isEditing, setIsEditing] = React.useState<boolean>(() => {
+    if (typeof window !== "undefined" && business?.id) {
+      try {
+        const draftEditing = localStorage.getItem(`katamereka_facilities_editing_${business.id}`)
+        if (draftEditing !== null) return draftEditing === "true"
+      } catch {}
+    }
+    const init = parseInitialFacilities(business?.facilities)
+    return init.length === 0
+  })
+
+  // Keep draft persisted in localStorage so switching tabs never loses work
   React.useEffect(() => {
-    setFacilities(parseInitialFacilities(business.facilities))
-  }, [business.facilities])
+    if (typeof window !== "undefined" && business?.id) {
+      try {
+        localStorage.setItem(`katamereka_facilities_draft_${business.id}`, JSON.stringify(facilities))
+      } catch {}
+    }
+  }, [facilities, business?.id])
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && business?.id) {
+      try {
+        localStorage.setItem(`katamereka_facilities_input_draft_${business.id}`, customInput)
+      } catch {}
+    }
+  }, [customInput, business?.id])
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && business?.id) {
+      try {
+        localStorage.setItem(`katamereka_facilities_editing_${business.id}`, String(isEditing))
+      } catch {}
+    }
+  }, [isEditing, business?.id])
+
+  // Sync with server if business changes or on initial load without draft
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && business?.id) {
+      const draft = localStorage.getItem(`katamereka_facilities_draft_${business.id}`)
+      if (draft === null) {
+        setFacilities(initialFacilities)
+        if (initialFacilities.length > 0) setIsEditing(false)
+      }
+    }
+  }, [initialFacilities, business?.id])
 
   const handleAddCustom = (e?: React.FormEvent) => {
     if (e) e.preventDefault()
@@ -1130,6 +1200,19 @@ function FasilitasTab({ business }: { business: Business }) {
     setFacilities((prev) => prev.filter((f) => f !== label))
   }
 
+  const handleCancel = () => {
+    setFacilities(initialFacilities)
+    setCustomInput("")
+    setIsEditing(false)
+    if (typeof window !== "undefined" && business?.id) {
+      try {
+        localStorage.setItem(`katamereka_facilities_draft_${business.id}`, JSON.stringify(initialFacilities))
+        localStorage.removeItem(`katamereka_facilities_input_draft_${business.id}`)
+        localStorage.setItem(`katamereka_facilities_editing_${business.id}`, "false")
+      } catch {}
+    }
+  }
+
   const handleSave = async () => {
     if (!business.id) return
     setSaving(true)
@@ -1139,6 +1222,14 @@ function FasilitasTab({ business }: { business: Business }) {
       })
       if (res.success) {
         toast.success(res.message || "Fasilitas bisnis berhasil disimpan.")
+        setIsEditing(false)
+        if (typeof window !== "undefined" && business.id) {
+          try {
+            localStorage.setItem(`katamereka_facilities_draft_${business.id}`, JSON.stringify(facilities))
+            localStorage.removeItem(`katamereka_facilities_input_draft_${business.id}`)
+            localStorage.setItem(`katamereka_facilities_editing_${business.id}`, "false")
+          } catch {}
+        }
         await refetch()
       } else {
         toast.error(res.message || "Gagal menyimpan fasilitas bisnis.")
@@ -1153,30 +1244,18 @@ function FasilitasTab({ business }: { business: Business }) {
   return (
     <div className="flex flex-col gap-6">
       <Card className="shadow-xs border-slate-200">
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-100">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <CardTitle className="text-lg font-bold text-slate-900">
-                Kelola Fasilitas Usaha
-              </CardTitle>
-              <Badge className="bg-emerald-50 text-[#008767] border border-emerald-200 text-xs font-semibold">
-                {facilities.length} Fasilitas Aktif
-              </Badge>
-            </div>
-            <CardDescription className="mt-1 text-xs text-slate-500">
-              Kelola fasilitas usaha yang ditampilkan pada profil publik bisnis Anda.
-            </CardDescription>
+        <CardHeader className="pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <CardTitle className="text-lg font-bold text-slate-900">
+              Kelola Fasilitas Usaha
+            </CardTitle>
+            <Badge className="bg-emerald-50 text-[#008767] border border-emerald-200 text-xs font-semibold">
+              {facilities.length} Fasilitas Aktif
+            </Badge>
           </div>
-
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-[#008767] hover:bg-[#007055] text-white shrink-0 cursor-pointer shadow-xs"
-          >
-            <SaveIcon className="mr-1.5 size-4" />
-            {saving ? "Menyimpan..." : "Simpan Fasilitas"}
-          </Button>
+          <CardDescription className="mt-1 text-xs text-slate-500">
+            Kelola fasilitas usaha yang ditampilkan pada profil publik bisnis Anda.
+          </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6 pt-5">
@@ -1187,7 +1266,7 @@ function FasilitasTab({ business }: { business: Business }) {
                 <SparklesIcon className="size-3.5 text-[#008767]" />
                 Daftar Fasilitas ({facilities.length})
               </span>
-              {facilities.length > 0 && (
+              {isEditing && facilities.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setFacilities([])}
@@ -1200,7 +1279,9 @@ function FasilitasTab({ business }: { business: Business }) {
 
             {facilities.length === 0 ? (
               <p className="text-xs text-slate-400 py-4 italic text-center">
-                Belum ada fasilitas yang ditambahkan. Silakan ketik fasilitas usaha Anda pada kolom input di bawah lalu klik Tambah.
+                {isEditing
+                  ? "Belum ada fasilitas yang ditambahkan. Silakan ketik fasilitas usaha Anda pada kolom input di bawah lalu klik Tambah."
+                  : "Belum ada fasilitas yang ditambahkan. Klik tombol Edit di bawah untuk menambahkan fasilitas."}
               </p>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -1210,14 +1291,16 @@ function FasilitasTab({ business }: { business: Business }) {
                     className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-[#008767] text-xs font-semibold shadow-2xs"
                   >
                     <span>{fac}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeFacility(fac)}
-                      className="size-4 rounded-full hover:bg-rose-50 flex items-center justify-center text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                      title={`Hapus ${fac}`}
-                    >
-                      <XIcon className="size-3" />
-                    </button>
+                    {isEditing && (
+                      <button
+                        type="button"
+                        onClick={() => removeFacility(fac)}
+                        className="size-4 rounded-full hover:bg-rose-50 flex items-center justify-center text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                        title={`Hapus ${fac}`}
+                      >
+                        <XIcon className="size-3" />
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>
@@ -1225,43 +1308,69 @@ function FasilitasTab({ business }: { business: Business }) {
           </div>
 
           {/* Section 2: Input Fasilitas Usaha */}
-          <div className="space-y-2">
-            <Label className="text-xs font-bold text-slate-700">
-              Tambah Fasilitas Usaha
-            </Label>
-            <form onSubmit={handleAddCustom} className="flex gap-2">
-              <Input
-                value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
-                placeholder="Ketik fasilitas usaha Anda (misal: Wi-Fi Gratis, Area Parkir, Ruangan Ber-AC, Musholla)..."
-                className="text-xs h-10"
-              />
-              <Button
-                type="submit"
-                variant="outline"
-                size="sm"
-                className="shrink-0 h-10 px-4 cursor-pointer"
-              >
-                <PlusIcon className="mr-1.5 size-4" />
-                Tambah
-              </Button>
-            </form>
-            <p className="text-[11px] text-slate-400">
-              Tekan <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px]">Enter</kbd> atau klik tombol <strong>Tambah</strong> untuk memasukkan fasilitas ke dalam daftar.
-            </p>
-          </div>
+          {isEditing && (
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-slate-700">
+                Tambah Fasilitas Usaha
+              </Label>
+              <form onSubmit={handleAddCustom} className="flex gap-2">
+                <Input
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  placeholder="Ketik fasilitas usaha Anda (misal: Wi-Fi Gratis, Area Parkir, Ruangan Ber-AC, Musholla)..."
+                  className="text-xs h-10"
+                />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 h-10 px-4 cursor-pointer"
+                >
+                  <PlusIcon className="mr-1.5 size-4" />
+                  Tambah
+                </Button>
+              </form>
+              <p className="text-[11px] text-slate-400">
+                Tekan <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px]">Enter</kbd> atau klik tombol <strong>Tambah</strong> untuk memasukkan fasilitas ke dalam daftar.
+              </p>
+            </div>
+          )}
 
-          {/* Footer Save Button */}
-          <div className="pt-4 border-t border-slate-100 flex justify-end">
-            <Button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-[#008767] hover:bg-[#007055] text-white cursor-pointer px-6"
-            >
-              <SaveIcon className="mr-1.5 size-4" />
-              {saving ? "Menyimpan..." : "Simpan Fasilitas"}
-            </Button>
+          {/* Footer Action Button: Edit vs Simpan */}
+          <div className="pt-4 border-t border-slate-100 flex justify-end gap-2">
+            {!isEditing ? (
+              <Button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="bg-[#008767] hover:bg-[#007055] text-white cursor-pointer px-6"
+              >
+                <PencilIcon className="mr-1.5 size-4" />
+                Edit
+              </Button>
+            ) : (
+              <>
+                {initialFacilities.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancel}
+                    disabled={saving}
+                    className="cursor-pointer"
+                  >
+                    Batal
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="bg-[#008767] hover:bg-[#007055] text-white cursor-pointer px-6"
+                >
+                  <SaveIcon className="mr-1.5 size-4" />
+                  {saving ? "Menyimpan..." : "Simpan Fasilitas"}
+                </Button>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
