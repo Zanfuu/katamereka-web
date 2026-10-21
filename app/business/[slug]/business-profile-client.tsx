@@ -30,6 +30,8 @@ import {
 } from "@/lib/api-profile";
 import { recordBusinessViewActivity } from "@/lib/recent-activity";
 import { resolveFacilitiesDescription, resolveFacilitiesList } from "@/lib/facilities";
+import { resolveSocialLinks } from "@/lib/social-media";
+import { SOCIAL_STYLES } from "@/components/social-icons";
 import { getCleanCategory, slugify } from "@/lib/slug";
 import { LoginDialog } from "@/components/login-dialog";
 
@@ -595,6 +597,7 @@ export default function BusinessProfilePage({
   const facilitiesList = resolveFacilitiesList(apiDetail);
   const facilitiesDescription = resolveFacilitiesDescription(apiDetail);
   const hasFacilities = facilitiesList.length > 0 || Boolean(facilitiesDescription);
+  const socialLinks = resolveSocialLinks(apiDetail?.socialMedia);
 
   const shareUrl =
     typeof window !== "undefined"
@@ -1348,6 +1351,33 @@ export default function BusinessProfilePage({
                 </div>
               </div>
             </div>
+
+            {/* CARD 2b: Media Sosial (hidden until the owner adds at least one link) */}
+            {socialLinks.length > 0 && (
+              <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-6 shadow-xs text-xs sm:text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-slate-900 font-bold text-sm sm:text-base">Media Sosial</span>
+                  <div className="flex items-center gap-2.5">
+                    {socialLinks.map(({ platform, label, url }) => {
+                      const { bg, Icon } = SOCIAL_STYLES[platform];
+                      return (
+                        <a
+                          key={platform}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer nofollow"
+                          aria-label={`${label} ${apiDetail?.name ?? ""}`.trim()}
+                          title={label}
+                          className={`${bg} w-9 h-9 rounded-full flex items-center justify-center text-white shadow-sm hover:scale-110 hover:shadow-md transition-all`}
+                        >
+                          <Icon />
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* CARD 3: Jam Operasional (List hari dengan data -) */}
             <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-6 shadow-xs space-y-3 text-xs sm:text-sm">

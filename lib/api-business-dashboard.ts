@@ -64,6 +64,7 @@ export interface MyBusinessItem {
   status?: string
   verificationStatus?: string
   sourceOfTruth?: string
+  social_media?: Record<string, string>
   facilities?: string[] | Record<string, any>
   createdAt?: string
 }

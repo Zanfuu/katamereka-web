@@ -70,6 +70,9 @@ function mapMyBusinessToDomain(item: MyBusinessItem): Business {
     verificationStatus: (item.verificationStatus as any) || (item.is_claimed ? "VERIFIED" : "PENDING"),
     status: (item.status as any) || "ACTIVE",
     facilities: item.facilities,
+    socialLinks: Object.entries(item.social_media ?? {})
+      .filter(([, url]) => typeof url === "string" && url.trim() !== "")
+      .map(([platform, url]) => ({ platform, url: url as string })),
     createdAt: item.createdAt || new Date().toISOString(),
   }
 }
