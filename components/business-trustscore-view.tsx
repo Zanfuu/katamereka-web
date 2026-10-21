@@ -31,6 +31,19 @@ import { useAuth } from "@/lib/auth-context";
 import type { ApiBusinessDetail, VerificationMethod, BusinessClaimStatus } from "@/lib/api-client";
 import { CONSUMER_SITE_URL, getConsumerSiteUrl } from "@/lib/site-config";
 
+export interface ClaimFormState {
+  verification_method: VerificationMethod;
+  proof_url?: string;
+  verification_proof?: string;
+  message?: string;
+  role?: string;
+  custom_role?: string;
+  phone?: string;
+  document_file?: File | null;
+  document_file_name?: string;
+  [key: string]: any;
+}
+
 interface BusinessTrustScoreViewProps {
   business: ApiBusinessDetail;
   actualRating?: number;
@@ -40,18 +53,8 @@ interface BusinessTrustScoreViewProps {
   isBusinessMember: boolean;
   claimModalOpen: boolean;
   setClaimModalOpen: (open: boolean) => void;
-  claimForm: {
-    verification_method: VerificationMethod;
-    proof_url: string;
-    message: string;
-  };
-  setClaimForm: React.Dispatch<
-    React.SetStateAction<{
-      verification_method: VerificationMethod;
-      proof_url: string;
-      message: string;
-    }>
-  >;
+  claimForm: ClaimFormState;
+  setClaimForm: React.Dispatch<React.SetStateAction<ClaimFormState>>;
   onSubmitClaim: () => void;
   claimSubmitting: boolean;
 }
@@ -295,7 +298,7 @@ export default function BusinessTrustScoreView({
                 id="proof-url"
                 type="url"
                 placeholder="https://drive.google.com/... atau link dokumen"
-                value={claimForm.proof_url}
+                value={claimForm.proof_url || ""}
                 onChange={(e) =>
                   setClaimForm((f) => ({ ...f, proof_url: e.target.value }))
                 }
@@ -314,7 +317,7 @@ export default function BusinessTrustScoreView({
                 id="claim-message"
                 placeholder="Contoh: Saya adalah pemilik sah dari bisnis ini di lokasi tersebut..."
                 rows={3}
-                value={claimForm.message}
+                value={claimForm.message || ""}
                 onChange={(e) =>
                   setClaimForm((f) => ({ ...f, message: e.target.value }))
                 }
