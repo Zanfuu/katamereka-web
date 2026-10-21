@@ -121,6 +121,7 @@ interface BusinessReview {
   user?: { id?: string; name?: string; initials?: string };
   helpfulCount?: number;
   helpful_count?: number;
+  photos?: string[];
 }
 
 function coverOf(detail: ApiBusinessDetail | null): string | null {
@@ -1693,6 +1694,7 @@ interface ReviewCardProps {
     userId?: string;
     helpfulCount?: number;
     helpful_count?: number;
+    photos?: string[];
     business_reply?: {
       id?: string;
       content?: string;
