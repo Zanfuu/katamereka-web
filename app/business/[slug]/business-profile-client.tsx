@@ -28,6 +28,8 @@ import {
   toggleReviewHelpful,
   fetchMyHelpfulVotes,
 } from "@/lib/api-profile";
+import { recordBusinessViewActivity } from "@/lib/recent-activity";
+import { resolveFacilities } from "@/lib/facilities";
 import { getCleanCategory, slugify } from "@/lib/slug";
 import { LoginDialog } from "@/components/login-dialog";
 
@@ -218,6 +220,11 @@ export default function BusinessProfilePage({
           if (res.data.id) {
             recordBusinessView(res.data.id);
           }
+          recordBusinessViewActivity({
+            slug: res.data.slug || slug,
+            name: res.data.name,
+            imageUrl: coverOf(res.data),
+          });
           // Prioritize backend cover_url / photos[0] / logo_url
           const existingCover = coverOf(res.data);
 
@@ -604,29 +611,7 @@ export default function BusinessProfilePage({
     return <CheckCircle2 className="w-4 h-4 text-[#008767]" />;
   };
 
-  const facilitiesList = (() => {
-    const fac = apiDetail?.facilities || (apiDetail as any)?.facility || (apiDetail as any)?.fasilitas;
-    if (!fac) return [];
-    if (Array.isArray(fac)) {
-      return fac.filter((f) => Boolean(f && typeof f === "string" && f.trim() !== "" && f !== "-"));
-    }
-    if (typeof fac === "object") {
-      const list: string[] = [];
-      if (fac.internet_access || fac.wifi) list.push("Wi-Fi Gratis");
-      if (fac.wheelchair) list.push("Akses Kursi Roda");
-      if (fac.parking || fac.area_parkir) list.push("Area Parkir");
-      if (fac.air_conditioning || fac.ac) list.push("AC");
-      if (fac.reception_24h || fac.front_desk) list.push("Resepsionis 24 Jam");
-      if (fac.restaurant || fac.restoran) list.push("Restoran");
-      if (fac.swimming_pool || fac.pool) list.push("Kolam Renang");
-      if (fac.gym || fac.fitness) list.push("Pusat Kebugaran");
-      return list;
-    }
-    if (typeof fac === "string" && fac.trim() !== "" && fac !== "-") {
-      return fac.split(",").map((s: string) => s.trim()).filter(Boolean);
-    }
-    return [];
-  })();
+  const facilitiesList = resolveFacilities(apiDetail);
 
   const shareUrl =
     typeof window !== "undefined"
@@ -980,7 +965,7 @@ export default function BusinessProfilePage({
                           ))}
                         </div>
                       ) : (
-                        <p className="text-slate-500 text-sm font-medium mt-2">-</p>
+                        <p className="text-slate-500 text-sm font-medium mt-2">Belum ada informasi fasilitas.</p>
                       )}
                     </div>
                   )}

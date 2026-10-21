@@ -62,6 +62,7 @@ import {
 } from "@/lib/api-client";
 import { Business } from "@/lib/mock-data";
 import { slugify, categoryDisplayName, isRealBusinessCategory } from "@/lib/slug";
+import { fetchRecentActivities, clearRecentActivities, RecentActivity } from "@/lib/recent-activity";
 
 interface HomeContentProps {
   initialCategoryFacets?: ApiCategoryFacet[];
@@ -127,40 +128,21 @@ export default function LandingPage({ initialCategoryFacets, initialCityFacets, 
   const [cityFacets, setCityFacets] = useState<ApiCityFacet[]>(initialCityFacets || []);
   const [wishlist, setWishlist] = useState<Record<string, boolean>>({});
 
-  const [recentActivities, setRecentActivities] = useState([
-    {
-      id: 1,
-      type: "search",
-      title: "Hotel di Bogor",
-      subtitle: "12 hasil",
-      href: "/search?q=Hotel+di+Bogor",
-    },
-    {
-      id: 2,
-      type: "search",
-      title: "Rental mobil",
-      subtitle: "34 hasil",
-      href: "/search?q=Rental+mobil",
-    },
-    {
-      id: 3,
-      type: "business",
-      title: "Vila Kayu Lembang",
-      subtitle: "Dilihat 2 hari lalu",
-      href: "/business/vila-kayu-lembang",
-      imageUrl: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=150&auto=format&fit=crop&q=80",
-    },
-    {
-      id: 4,
-      type: "search",
-      title: "Guest house",
-      subtitle: "8 hasil",
-      href: "/search?q=Guest+house",
-    },
-  ]);
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
 
-  const clearRecentActivities = () => {
+  useEffect(() => {
+    let cancelled = false;
+    fetchRecentActivities().then((items) => {
+      if (!cancelled) setRecentActivities(items);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleClearRecentActivities = () => {
     setRecentActivities([]);
+    clearRecentActivities();
   };
 
   const curatedCategories = [
@@ -446,11 +428,11 @@ export default function LandingPage({ initialCategoryFacets, initialCityFacets, 
                   Lanjut dari aktivitas terakhir
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Lihat kembali pencarian atau bisnis yang berakhir kamu lihat.
+                  Lihat kembali pencarian atau bisnis yang terakhir kamu lihat.
                 </p>
               </div>
               <button
-                onClick={clearRecentActivities}
+                onClick={handleClearRecentActivities}
                 className="text-xs text-slate-400 hover:text-slate-600 font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <span>Hapus riwayat</span>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import Navbar from "@/components/navbar";
 import { fetchBusinesses, fetchBusinessPlaceImage, mapApiBusinessToUiModel } from "@/lib/api-client";
+import { recordSearchActivity } from "@/lib/recent-activity";
 import {
   Search,
   Filter,
@@ -73,6 +74,11 @@ function SearchContent() {
     document.addEventListener("mousedown", handleGlobalClick);
     return () => document.removeEventListener("mousedown", handleGlobalClick);
   }, []);
+
+  // Feed "Lanjut dari aktivitas terakhir" on the home page
+  useEffect(() => {
+    recordSearchActivity(activeQuery);
+  }, [activeQuery]);
 
   // Live API integration: fetch businesses from GET /businesses endpoint
   useEffect(() => {
