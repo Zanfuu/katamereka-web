@@ -103,6 +103,7 @@ const TABS = [
   { value: "informasi", label: "Informasi" },
   { value: "lokasi", label: "Lokasi" },
   { value: "kategori", label: "Kategori & Layanan" },
+  { value: "fasilitas", label: "Fasilitas" },
   { value: "jam", label: "Jam Operasional" },
   { value: "media", label: "Media & Sosmed" },
   { value: "pengaturan", label: "Pengaturan & Kelengkapan" },
@@ -197,6 +198,9 @@ export default function DashboardBusinessPage() {
         </TabsContent>
         <TabsContent value="kategori" className="pt-4">
           <KategoriTab key={selectedBusiness.id} business={selectedBusiness} />
+        </TabsContent>
+        <TabsContent value="fasilitas" className="pt-4">
+          <FasilitasTab key={selectedBusiness.id} business={selectedBusiness} />
         </TabsContent>
         <TabsContent value="jam" className="pt-4">
           <JamOperasionalTab key={selectedBusiness.id} business={selectedBusiness} />
@@ -380,6 +384,19 @@ function InformasiTab({ business }: { business: Business }) {
               icon={MapPinIcon}
               label="Alamat Bisnis"
               value={`${business.address}, ${business.city} ${business.postalCode ?? ""}`}
+            />
+            <InfoRow
+              icon={SparklesIcon}
+              label="Fasilitas Usaha"
+              value={
+                Array.isArray(business.facilities) && business.facilities.length > 0 ? (
+                  <Badge variant="outline" className="border-emerald-300 text-[#008767] bg-emerald-50">
+                    {business.facilities.length} Fasilitas Aktif
+                  </Badge>
+                ) : (
+                  "Belum diisi"
+                )
+              }
             />
           </CardContent>
         </Card>
@@ -1053,6 +1070,198 @@ function KategoriTab({ business }: { business: Business }) {
                 </Button>
               </>
             )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+/* ==================================================
+ * TAB: FASILITAS
+ * ================================================== */
+function parseInitialFacilities(raw: any): string[] {
+  if (!raw) return []
+  if (Array.isArray(raw)) {
+    return raw.filter((f) => typeof f === "string" && f.trim() !== "")
+  }
+  if (typeof raw === "object") {
+    const list: string[] = []
+    if (raw.wifi || raw.internet_access) list.push("Wi-Fi Gratis")
+    if (raw.ac || raw.air_conditioning) list.push("Ruangan Ber-AC")
+    if (raw.parking || raw.area_parkir) list.push("Area Parkir Luas")
+    if (raw.wheelchair) list.push("Akses Kursi Roda / Disabilitas")
+    if (raw.musholla || raw.masjid) list.push("Musholla / Tempat Ibadah")
+    if (raw.toilet) list.push("Toilet Bersih")
+    if (raw.qris || raw.cashless) list.push("Pembayaran Non-Tunai / QRIS")
+    if (raw.reception_24h || raw.front_desk) list.push("Resepsionis 24 Jam")
+    Object.entries(raw).forEach(([k, v]) => {
+      if (typeof v === "string" && !list.includes(v)) list.push(v)
+    })
+    return list
+  }
+  if (typeof raw === "string") {
+    return raw.split(",").map((s) => s.trim()).filter(Boolean)
+  }
+  return []
+}
+
+function FasilitasTab({ business }: { business: Business }) {
+  const { refetch } = useBusinessContext()
+  const [facilities, setFacilities] = React.useState<string[]>(() => parseInitialFacilities(business.facilities))
+  const [customInput, setCustomInput] = React.useState("")
+  const [saving, setSaving] = React.useState(false)
+
+  React.useEffect(() => {
+    setFacilities(parseInitialFacilities(business.facilities))
+  }, [business.facilities])
+
+  const handleAddCustom = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    const trimmed = customInput.trim()
+    if (!trimmed) return
+    if (!facilities.includes(trimmed)) {
+      setFacilities((prev) => [...prev, trimmed])
+    }
+    setCustomInput("")
+  }
+
+  const removeFacility = (label: string) => {
+    setFacilities((prev) => prev.filter((f) => f !== label))
+  }
+
+  const handleSave = async () => {
+    if (!business.id) return
+    setSaving(true)
+    try {
+      const res = await updateBusinessProfile(business.id, {
+        facilities: facilities,
+      })
+      if (res.success) {
+        toast.success(res.message || "Fasilitas bisnis berhasil disimpan.")
+        await refetch()
+      } else {
+        toast.error(res.message || "Gagal menyimpan fasilitas bisnis.")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat menyimpan fasilitas.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <Card className="shadow-xs border-slate-200">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <CardTitle className="text-lg font-bold text-slate-900">
+                Kelola Fasilitas Usaha
+              </CardTitle>
+              <Badge className="bg-emerald-50 text-[#008767] border border-emerald-200 text-xs font-semibold">
+                {facilities.length} Fasilitas Aktif
+              </Badge>
+            </div>
+            <CardDescription className="mt-1 text-xs text-slate-500">
+              Kelola fasilitas usaha yang ditampilkan pada profil publik bisnis Anda.
+            </CardDescription>
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-[#008767] hover:bg-[#007055] text-white shrink-0 cursor-pointer shadow-xs"
+          >
+            <SaveIcon className="mr-1.5 size-4" />
+            {saving ? "Menyimpan..." : "Simpan Fasilitas"}
+          </Button>
+        </CardHeader>
+
+        <CardContent className="space-y-6 pt-5">
+          {/* Section 1: Fasilitas Terpasang (Chips) */}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <SparklesIcon className="size-3.5 text-[#008767]" />
+                Daftar Fasilitas ({facilities.length})
+              </span>
+              {facilities.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFacilities([])}
+                  className="text-[11px] text-rose-600 hover:underline font-medium cursor-pointer"
+                >
+                  Hapus Semua
+                </button>
+              )}
+            </div>
+
+            {facilities.length === 0 ? (
+              <p className="text-xs text-slate-400 py-4 italic text-center">
+                Belum ada fasilitas yang ditambahkan. Silakan ketik fasilitas usaha Anda pada kolom input di bawah lalu klik Tambah.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {facilities.map((fac) => (
+                  <span
+                    key={fac}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-[#008767] text-xs font-semibold shadow-2xs"
+                  >
+                    <span>{fac}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeFacility(fac)}
+                      className="size-4 rounded-full hover:bg-rose-50 flex items-center justify-center text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                      title={`Hapus ${fac}`}
+                    >
+                      <XIcon className="size-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Section 2: Input Fasilitas Usaha */}
+          <div className="space-y-2">
+            <Label className="text-xs font-bold text-slate-700">
+              Tambah Fasilitas Usaha
+            </Label>
+            <form onSubmit={handleAddCustom} className="flex gap-2">
+              <Input
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                placeholder="Ketik fasilitas usaha Anda (misal: Wi-Fi Gratis, Area Parkir, Ruangan Ber-AC, Musholla)..."
+                className="text-xs h-10"
+              />
+              <Button
+                type="submit"
+                variant="outline"
+                size="sm"
+                className="shrink-0 h-10 px-4 cursor-pointer"
+              >
+                <PlusIcon className="mr-1.5 size-4" />
+                Tambah
+              </Button>
+            </form>
+            <p className="text-[11px] text-slate-400">
+              Tekan <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px]">Enter</kbd> atau klik tombol <strong>Tambah</strong> untuk memasukkan fasilitas ke dalam daftar.
+            </p>
+          </div>
+
+          {/* Footer Save Button */}
+          <div className="pt-4 border-t border-slate-100 flex justify-end">
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-[#008767] hover:bg-[#007055] text-white cursor-pointer px-6"
+            >
+              <SaveIcon className="mr-1.5 size-4" />
+              {saving ? "Menyimpan..." : "Simpan Fasilitas"}
+            </Button>
           </div>
         </CardContent>
       </Card>

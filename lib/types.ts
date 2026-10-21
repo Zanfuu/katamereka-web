@@ -65,6 +65,7 @@ export interface Business {
   postalCode?: string
   socialLinks?: { platform: string; url: string }[]
   operatingHours?: { day: string; hours: string }[]
+  facilities?: string[] | Record<string, any>
   additionalCategories?: string[]
   foundedYear?: number
   employeeRange?: string

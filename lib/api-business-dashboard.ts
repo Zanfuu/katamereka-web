@@ -64,6 +64,7 @@ export interface MyBusinessItem {
   status?: string
   verificationStatus?: string
   sourceOfTruth?: string
+  facilities?: string[] | Record<string, any>
   createdAt?: string
 }
 
@@ -131,6 +132,7 @@ export interface UpdateBusinessProfilePayload {
   categories?: string[]
   photos?: string[]
   opening_hours?: Record<string, any>
+  facilities?: string[] | Record<string, any>
   social_media?: Record<string, any>
 }
 
