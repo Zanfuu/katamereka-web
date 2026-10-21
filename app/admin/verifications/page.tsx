@@ -261,6 +261,24 @@ export default function AdminVerificationsPage() {
                     <span className="text-muted-foreground">Metode</span>
                     <span className="font-medium">{detail.verification_method ?? "-"}</span>
                   </div>
+                  {Boolean(detail.verification_data?.role) && (
+                    <div className="flex items-center justify-between rounded-lg border border-border p-2.5">
+                      <span className="text-muted-foreground">Jabatan</span>
+                      <span className="font-medium text-emerald-600 font-semibold">{String(detail.verification_data?.role)}</span>
+                    </div>
+                  )}
+                  {Boolean(detail.verification_data?.claimant_phone) && (
+                    <div className="flex items-center justify-between rounded-lg border border-border p-2.5">
+                      <span className="text-muted-foreground">No. HP Pengaju</span>
+                      <span className="font-medium">{String(detail.verification_data?.claimant_phone)}</span>
+                    </div>
+                  )}
+                  {Boolean(detail.verification_data?.verification_value) && (
+                    <div className="rounded-lg border border-border p-2.5">
+                      <p className="mb-1 text-xs text-muted-foreground">Rincian Bukti</p>
+                      <p className="text-foreground/90 font-mono text-xs break-all">{String(detail.verification_data?.verification_value)}</p>
+                    </div>
+                  )}
                   {detail.proof_url && (
                     <a
                       href={detail.proof_url}

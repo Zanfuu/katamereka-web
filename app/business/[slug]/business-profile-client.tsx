@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { isBusinessHost } from "@/lib/site-config";
@@ -16,6 +16,7 @@ import {
   BusinessClaimStatus,
   VerificationMethod,
   resolveMediaUrl,
+  getAuthToken,
 } from "@/lib/api-client";
 import {
   formatRelativeDate,
@@ -103,6 +104,10 @@ import {
   Sparkles,
   Mail,
   Map,
+  FileText,
+  UploadCloud,
+  Check,
+  X,
 } from "lucide-react";
 import Navbar from "@/components/navbar";
 import { useAuth } from "@/lib/auth-context";
@@ -121,6 +126,7 @@ interface BusinessReview {
   user?: { id?: string; name?: string; initials?: string };
   helpfulCount?: number;
   helpful_count?: number;
+  photos?: string[];
 }
 
 function coverOf(detail: ApiBusinessDetail | null): string | null {
@@ -181,10 +187,28 @@ export default function BusinessProfilePage({
   const [claimModalOpen, setClaimModalOpen] = useState(false);
   const [claimSubmitting, setClaimSubmitting] = useState(false);
   const [claimForm, setClaimForm] = useState<{
+    role: "Owner" | "Manager" | "Admin" | "Staff" | "Lainnya";
+    custom_role: string;
     verification_method: VerificationMethod;
-    proof_url: string;
+    verification_proof: string;
+    document_file: File | null;
+    document_file_name: string;
+    phone: string;
     message: string;
-  }>({ verification_method: "DOCUMENT", proof_url: "", message: "" });
+  }>({
+    role: "Owner",
+    custom_role: "",
+    verification_method: "DOCUMENT",
+    verification_proof: "",
+    document_file: null,
+    document_file_name: "",
+    phone: "",
+    message: "",
+  });
+  const [claimDocumentUploading, setClaimDocumentUploading] = useState(false);
+  const claimFileInputRef = useRef<HTMLInputElement>(null);
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const [methodDropdownOpen, setMethodDropdownOpen] = useState(false);
 
   // ── Business Reviews State ──────────────────────────────────────────────────
   const [businessReviews, setBusinessReviews] = useState<BusinessReview[]>(initialReviews);
@@ -377,13 +401,86 @@ export default function BusinessProfilePage({
 
   async function handleSubmitClaim() {
     if (!apiDetail?.id) return;
+    if (!isLoggedIn) {
+      toast.error("Silakan login terlebih dahulu untuk mengklaim bisnis ini.");
+      return;
+    }
+
+    const effectiveRole =
+      claimForm.role === "Lainnya"
+        ? (claimForm.custom_role.trim() || "Lainnya")
+        : claimForm.role;
+
+    if (!effectiveRole) {
+      toast.error("Harap tentukan jabatan Anda di bisnis ini.");
+      return;
+    }
+
+    const hasProof = Boolean(
+      claimForm.document_file || claimForm.verification_proof.trim()
+    );
+    if (!hasProof) {
+      toast.error("Harap lengkapi bukti verifikasi sesuai metode yang dipilih.");
+      return;
+    }
+
     setClaimSubmitting(true);
     try {
+      let finalProofUrl = "";
+
+      // If document file is selected, upload to S3 first
+      if (claimForm.document_file) {
+        setClaimDocumentUploading(true);
+        try {
+          const formData = new FormData();
+          formData.append("photo", claimForm.document_file);
+          formData.append("file", claimForm.document_file);
+          const token = getAuthToken();
+          const uploadRes = await fetch(`${API_BASE_URL}/reviews/upload-photo`, {
+            method: "POST",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            body: formData,
+          });
+          if (uploadRes.ok) {
+            const data = await uploadRes.json();
+            if (data?.url) {
+              finalProofUrl = data.url;
+            }
+          }
+        } catch (uploadErr) {
+          console.warn("Gagal upload file bukti:", uploadErr);
+        } finally {
+          setClaimDocumentUploading(false);
+        }
+      }
+
+      if (!finalProofUrl && (claimForm.verification_proof.startsWith("http://") || claimForm.verification_proof.startsWith("https://"))) {
+        finalProofUrl = claimForm.verification_proof.trim();
+      }
+
       const res = await createBusinessClaim(apiDetail.id, {
         verification_method: claimForm.verification_method,
-        proof_url: claimForm.proof_url.trim() || undefined,
-        message: claimForm.message.trim() || undefined,
+        proof_url: finalProofUrl || undefined,
+        verification_data: {
+          role: effectiveRole,
+          claimant_phone: claimForm.phone.trim() || undefined,
+          verification_value: claimForm.verification_proof.trim() || finalProofUrl || undefined,
+          verification_method: claimForm.verification_method,
+          business_name: apiDetail.name,
+          business_address: displayLocation,
+          user_name: user?.name,
+          user_email: user?.email,
+        },
+        message: [
+          `[Jabatan: ${effectiveRole}]`,
+          claimForm.phone.trim() ? `[No. HP: ${claimForm.phone.trim()}]` : null,
+          claimForm.verification_proof.trim() ? `[Bukti (${claimForm.verification_method}): ${claimForm.verification_proof.trim()}]` : null,
+          claimForm.message.trim() ? `\nPesan: ${claimForm.message.trim()}` : null,
+        ]
+          .filter(Boolean)
+          .join(" "),
       });
+
       if (res.success) {
         toast.success(res.message || "Klaim berhasil dikirim, menunggu peninjauan admin.");
         setClaimStatus("PENDING");
@@ -654,7 +751,7 @@ export default function BusinessProfilePage({
         claimModalOpen={claimModalOpen}
         setClaimModalOpen={setClaimModalOpen}
         claimForm={claimForm}
-        setClaimForm={setClaimForm}
+        setClaimForm={setClaimForm as any}
         onSubmitClaim={handleSubmitClaim}
         claimSubmitting={claimSubmitting}
       />
@@ -1516,65 +1613,467 @@ export default function BusinessProfilePage({
               </div>
             )}
 
-            <Dialog open={claimModalOpen} onOpenChange={setClaimModalOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Klaim {apiDetail?.name}</DialogTitle>
-                  <DialogDescription>
-                    Lengkapi bukti kepemilikan agar tim kami dapat memverifikasi klaim Anda.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="claim-method">Metode Verifikasi</Label>
-                    <Select
-                      value={claimForm.verification_method}
-                      onValueChange={(v) =>
-                        typeof v === "string" &&
-                        setClaimForm((f) => ({ ...f, verification_method: v as VerificationMethod }))
-                      }
+            <Dialog
+              open={claimModalOpen}
+              onOpenChange={(open) => {
+                setClaimModalOpen(open);
+                if (!open) {
+                  setRoleDropdownOpen(false);
+                  setMethodDropdownOpen(false);
+                }
+              }}
+            >
+              <DialogContent
+                showCloseButton={false}
+                className="fixed bottom-0 top-auto left-0 translate-x-0 translate-y-0 w-full max-w-full rounded-t-[28px] rounded-b-none border-b-0 border-x-0 max-h-[90vh] sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-[calc(100%-2rem)] sm:max-w-xl sm:rounded-3xl sm:border p-0 flex flex-col overflow-hidden shadow-2xl bg-white gap-0"
+              >
+                {/* STICKY HEADER */}
+                <div className="sticky top-0 z-30 bg-white border-b border-slate-100 px-5 sm:px-6 pt-3 pb-3 sm:py-4 flex flex-col shrink-0">
+                  <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-2.5 sm:hidden shrink-0" />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="p-2 sm:p-2.5 rounded-2xl bg-emerald-50 text-[#008767] border border-emerald-100 shrink-0">
+                        <ShieldCheck className="w-5 h-5 text-[#008767]" />
+                      </span>
+                      <DialogTitle className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                        Klaim Kepemilikan Bisnis
+                      </DialogTitle>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setClaimModalOpen(false)}
+                      className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0 cursor-pointer"
+                      aria-label="Tutup"
                     >
-                      <SelectTrigger id="claim-method">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="DOCUMENT">Dokumen Resmi</SelectItem>
-                        <SelectItem value="WEBSITE">Website Bisnis</SelectItem>
-                        <SelectItem value="EMAIL">Email Bisnis</SelectItem>
-                        <SelectItem value="PHONE">Nomor Telepon</SelectItem>
-                        <SelectItem value="OTHER">Lainnya</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <X className="w-5 h-5" />
+                    </button>
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="claim-proof-url">Link Bukti (opsional)</Label>
+                </div>
+
+                {/* SCROLLABLE BODY */}
+                <div className="flex-1 overflow-y-auto no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden p-5 sm:p-6 space-y-4 text-xs sm:text-sm">
+                  {/* CARD 1: DATA TERHUBUNG OTOMATIS */}
+                  <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <Check className="w-3.5 h-3.5 text-[#008767] shrink-0" />
+                      <span className="whitespace-nowrap">Data Terisi Otomatis dari Sistem</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-600 pt-1 border-t border-slate-200/60">
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Nama Bisnis</span>
+                        <span className="font-semibold text-slate-900">{apiDetail?.name || "-"}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Kategori</span>
+                        <span className="font-medium text-slate-800">{apiDetail?.category || "Bisnis Umum"}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Akun Pemohon</span>
+                        <span className="font-semibold text-slate-900">{user?.name || "Pengguna"}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Email Terdaftar</span>
+                        <span className="font-medium text-slate-800">{user?.email || "-"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ROW: JABATAN & METODE VERIFIKASI (BERSEBELAHAN 1 ROW) */}
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4 items-start">
+                    {/* FIELD 1: JABATAN DI BISNIS */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="claim-role" className="text-xs font-bold text-slate-800">
+                        Jabatan di Bisnis <span className="text-rose-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <button
+                          id="claim-role"
+                          type="button"
+                          onClick={() => {
+                            setRoleDropdownOpen(!roleDropdownOpen);
+                            setMethodDropdownOpen(false);
+                          }}
+                          className={`w-full h-11 px-3 sm:px-3.5 rounded-xl border text-xs sm:text-sm font-medium flex items-center justify-between transition-all bg-white cursor-pointer ${
+                            roleDropdownOpen
+                              ? "border-[#008767] ring-2 ring-[#008767]/20 text-[#008767]"
+                              : "border-slate-200 hover:border-[#008767]/60 text-slate-800"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2 truncate min-w-0">
+                            <UserCheck className="w-4 h-4 text-[#008767] shrink-0" />
+                            <span className="font-semibold text-slate-900 truncate text-xs sm:text-sm">
+                              {claimForm.role === "Owner" && "Owner (Pemilik)"}
+                              {claimForm.role === "Manager" && "Manager (Pengelola)"}
+                              {claimForm.role === "Admin" && "Admin (Administrator)"}
+                              {claimForm.role === "Staff" && "Staff (Karyawan)"}
+                              {claimForm.role === "Lainnya" && (claimForm.custom_role ? `Lainnya: ${claimForm.custom_role}` : "Lainnya...")}
+                            </span>
+                          </span>
+                          <ChevronDown
+                            className={`w-4 h-4 text-slate-400 shrink-0 ml-1 transition-transform duration-200 ${
+                              roleDropdownOpen ? "rotate-180 text-[#008767]" : ""
+                            }`}
+                          />
+                        </button>
+
+                        {roleDropdownOpen && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-40"
+                              onClick={() => setRoleDropdownOpen(false)}
+                            />
+                            <div className="absolute left-0 top-full mt-1.5 w-[250px] sm:w-full bg-white border border-slate-200/90 rounded-2xl shadow-xl p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                              {[
+                                { value: "Owner", label: "Owner (Pemilik)", desc: "Pemilik resmi bisnis ini" },
+                                { value: "Manager", label: "Manager (Pengelola)", desc: "Pimpinan / manajer operasional toko" },
+                                { value: "Admin", label: "Admin (Administrator)", desc: "Pengelola akun digital atau kasir" },
+                                { value: "Staff", label: "Staff (Karyawan)", desc: "Karyawan atau staf perwakilan resmi" },
+                                { value: "Lainnya", label: "Lainnya...", desc: "Sebutkan jabatan atau posisi Anda lainnya" },
+                              ].map((item) => {
+                                const isSelected = claimForm.role === item.value;
+                                return (
+                                  <button
+                                    key={item.value}
+                                    type="button"
+                                    onClick={() => {
+                                      setClaimForm((f) => ({ ...f, role: item.value as any }));
+                                      setRoleDropdownOpen(false);
+                                    }}
+                                    className={`w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm flex items-center justify-between text-left transition-colors cursor-pointer ${
+                                      isSelected
+                                        ? "bg-emerald-50 text-[#008767] font-bold border border-emerald-200/60"
+                                        : "hover:bg-slate-50 text-slate-700 hover:text-[#008767]"
+                                    }`}
+                                  >
+                                    <div>
+                                      <p className="font-semibold leading-tight">{item.label}</p>
+                                      <p className={`text-[10px] mt-0.5 ${isSelected ? "text-[#008767]/80" : "text-slate-400"}`}>
+                                        {item.desc}
+                                      </p>
+                                    </div>
+                                    {isSelected && <Check className="w-4 h-4 text-[#008767] shrink-0 ml-2" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {claimForm.role === "Lainnya" && (
+                        <Input
+                          type="text"
+                          placeholder="Sebutkan jabatan Anda"
+                          value={claimForm.custom_role}
+                          onChange={(e) => setClaimForm((f) => ({ ...f, custom_role: e.target.value }))}
+                          className="mt-2 text-xs rounded-xl border-slate-200 h-10"
+                        />
+                      )}
+                    </div>
+
+                    {/* FIELD 2: METODE VERIFIKASI */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="claim-method" className="text-xs font-bold text-slate-800">
+                        Metode Verifikasi <span className="text-rose-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <button
+                          id="claim-method"
+                          type="button"
+                          onClick={() => {
+                            setMethodDropdownOpen(!methodDropdownOpen);
+                            setRoleDropdownOpen(false);
+                          }}
+                          className={`w-full h-11 px-3 sm:px-3.5 rounded-xl border text-xs sm:text-sm font-medium flex items-center justify-between transition-all bg-white cursor-pointer ${
+                            methodDropdownOpen
+                              ? "border-[#008767] ring-2 ring-[#008767]/20 text-[#008767]"
+                              : "border-slate-200 hover:border-[#008767]/60 text-slate-800"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2 truncate min-w-0">
+                            {claimForm.verification_method === "DOCUMENT" && <FileText className="w-4 h-4 text-[#008767] shrink-0" />}
+                            {claimForm.verification_method === "WEBSITE" && <Globe className="w-4 h-4 text-[#008767] shrink-0" />}
+                            {claimForm.verification_method === "EMAIL" && <Mail className="w-4 h-4 text-[#008767] shrink-0" />}
+                            {claimForm.verification_method === "PHONE" && <Phone className="w-4 h-4 text-[#008767] shrink-0" />}
+                            {claimForm.verification_method === "OTHER" && <ShieldCheck className="w-4 h-4 text-[#008767] shrink-0" />}
+                            <span className="font-semibold text-slate-900 truncate text-xs sm:text-sm">
+                              {claimForm.verification_method === "DOCUMENT" && "Dokumen Resmi"}
+                              {claimForm.verification_method === "WEBSITE" && "Website Resmi"}
+                              {claimForm.verification_method === "EMAIL" && "Email Bisnis"}
+                              {claimForm.verification_method === "PHONE" && "Nomor Telepon"}
+                              {claimForm.verification_method === "OTHER" && "Lainnya"}
+                            </span>
+                          </span>
+                          <ChevronDown
+                            className={`w-4 h-4 text-slate-400 shrink-0 ml-1 transition-transform duration-200 ${
+                              methodDropdownOpen ? "rotate-180 text-[#008767]" : ""
+                            }`}
+                          />
+                        </button>
+
+                        {methodDropdownOpen && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-40"
+                              onClick={() => setMethodDropdownOpen(false)}
+                            />
+                            <div className="absolute right-0 top-full mt-1.5 w-[260px] sm:w-full bg-white border border-slate-200/90 rounded-2xl shadow-xl p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                              {[
+                                {
+                                  value: "DOCUMENT",
+                                  label: "Dokumen Resmi",
+                                  desc: "NIB, SIUP, Surat Tugas, Izin Usaha",
+                                  icon: FileText,
+                                },
+                                {
+                                  value: "WEBSITE",
+                                  label: "Website Resmi",
+                                  desc: "Domain & kontak tertera di website",
+                                  icon: Globe,
+                                },
+                                {
+                                  value: "EMAIL",
+                                  label: "Email Bisnis",
+                                  desc: "Email berdomain perusahaan",
+                                  icon: Mail,
+                                },
+                                {
+                                  value: "PHONE",
+                                  label: "Nomor Telepon",
+                                  desc: "Nomor telepon operasional toko",
+                                  icon: Phone,
+                                },
+                                {
+                                  value: "OTHER",
+                                  label: "Lainnya",
+                                  desc: "Bukti pendukung / media sosial",
+                                  icon: ShieldCheck,
+                                },
+                              ].map((item) => {
+                                const isSelected = claimForm.verification_method === item.value;
+                                const IconComp = item.icon;
+                                return (
+                                  <button
+                                    key={item.value}
+                                    type="button"
+                                    onClick={() => {
+                                      setClaimForm((f) => ({
+                                        ...f,
+                                        verification_method: item.value as VerificationMethod,
+                                        verification_proof: "",
+                                        document_file: null,
+                                        document_file_name: "",
+                                      }));
+                                      setMethodDropdownOpen(false);
+                                    }}
+                                    className={`w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm flex items-center justify-between text-left transition-colors cursor-pointer ${
+                                      isSelected
+                                        ? "bg-emerald-50 text-[#008767] font-bold border border-emerald-200/60"
+                                        : "hover:bg-slate-50 text-slate-700 hover:text-[#008767]"
+                                    }`}
+                                  >
+                                    <div className="flex items-start gap-2.5">
+                                      <IconComp className={`w-4 h-4 mt-0.5 shrink-0 ${isSelected ? "text-[#008767]" : "text-slate-400"}`} />
+                                      <div>
+                                        <p className="font-semibold leading-tight">{item.label}</p>
+                                        <p className={`text-[10px] mt-0.5 ${isSelected ? "text-[#008767]/80" : "text-slate-400"}`}>
+                                          {item.desc}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {isSelected && <Check className="w-4 h-4 text-[#008767] shrink-0 ml-2" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* FIELD 3: BUKTI VERIFIKASI SESUAI METODE */}
+                  <div className="space-y-1.5 p-3.5 rounded-2xl bg-emerald-50/40 border border-emerald-100">
+                    <Label className="text-xs font-bold text-slate-900 block">
+                      Bukti Verifikasi <span className="text-rose-500">*</span>
+                    </Label>
+
+                    {/* METHOD = DOCUMENT */}
+                    {claimForm.verification_method === "DOCUMENT" && (
+                      <div className="space-y-2">
+                        <input
+                          type="file"
+                          ref={claimFileInputRef}
+                          accept=".pdf,image/png,image/jpeg,image/jpg,image/webp"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (file.size > 10 * 1024 * 1024) {
+                                toast.error("Ukuran file melebihi 10MB");
+                                return;
+                              }
+                              setClaimForm((f) => ({
+                                ...f,
+                                document_file: file,
+                                document_file_name: file.name,
+                              }));
+                            }
+                          }}
+                        />
+
+                        {claimForm.document_file_name ? (
+                          <div className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-emerald-200 text-xs text-slate-800">
+                            <div className="flex items-center gap-2 truncate">
+                              <FileText className="w-4 h-4 text-[#008767] shrink-0" />
+                              <span className="truncate font-medium">{claimForm.document_file_name}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setClaimForm((f) => ({ ...f, document_file: null, document_file_name: "" }));
+                                if (claimFileInputRef.current) claimFileInputRef.current.value = "";
+                              }}
+                              className="text-slate-400 hover:text-rose-600 text-xs px-2 py-0.5 rounded cursor-pointer"
+                            >
+                              Hapus
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              onClick={() => claimFileInputRef.current?.click()}
+                              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-dashed border-[#008767]/60 bg-white hover:bg-emerald-50 text-[#008767] text-xs font-semibold cursor-pointer transition-colors"
+                            >
+                              <UploadCloud className="w-4 h-4" />
+                              <span>Pilih File Dokumen (PDF / JPG / PNG, maks 10MB)</span>
+                            </button>
+                            <div className="text-[10px] text-slate-400 text-center font-medium">atau cantumkan link dokumen online di bawah</div>
+                          </div>
+                        )}
+
+                        <Input
+                          type="url"
+                          placeholder="Link dokumen alternatif (opsional)..."
+                          value={claimForm.verification_proof}
+                          onChange={(e) => setClaimForm((f) => ({ ...f, verification_proof: e.target.value }))}
+                          className="h-9 text-xs rounded-xl bg-white border-slate-200"
+                        />
+                      </div>
+                    )}
+
+                    {/* METHOD = WEBSITE */}
+                    {claimForm.verification_method === "WEBSITE" && (
+                      <div className="space-y-1">
+                        <Input
+                          type="url"
+                          placeholder="https://www.namabisnis.com"
+                          value={claimForm.verification_proof}
+                          onChange={(e) => setClaimForm((f) => ({ ...f, verification_proof: e.target.value }))}
+                          className="h-10 text-xs rounded-xl bg-white border-slate-200"
+                        />
+                      </div>
+                    )}
+
+                    {/* METHOD = EMAIL */}
+                    {claimForm.verification_method === "EMAIL" && (
+                      <div className="space-y-1">
+                        <Input
+                          type="email"
+                          placeholder="owner@namabisnis.com"
+                          value={claimForm.verification_proof}
+                          onChange={(e) => setClaimForm((f) => ({ ...f, verification_proof: e.target.value }))}
+                          className="h-10 text-xs rounded-xl bg-white border-slate-200"
+                        />
+                      </div>
+                    )}
+
+                    {/* METHOD = PHONE */}
+                    {claimForm.verification_method === "PHONE" && (
+                      <div className="space-y-1">
+                        <Input
+                          type="tel"
+                          inputMode="numeric"
+                          placeholder="08123456789"
+                          value={claimForm.verification_proof}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9-]/g, "");
+                            setClaimForm((f) => ({ ...f, verification_proof: val }));
+                          }}
+                          className="h-10 text-xs rounded-xl bg-white border-slate-200"
+                        />
+                      </div>
+                    )}
+
+                    {/* METHOD = OTHER */}
+                    {claimForm.verification_method === "OTHER" && (
+                      <div className="space-y-1">
+                        <Input
+                          type="text"
+                          placeholder="Link bukti atau keterangan pendukung..."
+                          value={claimForm.verification_proof}
+                          onChange={(e) => setClaimForm((f) => ({ ...f, verification_proof: e.target.value }))}
+                          className="h-10 text-xs rounded-xl bg-white border-slate-200"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* FIELD 4: NOMOR HP PENGAJU (OPSIONAL) */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="claim-phone" className="text-xs font-bold text-slate-800">
+                      Nomor HP Pengaju <span className="text-slate-400 font-normal">(opsional)</span>
+                    </Label>
                     <Input
-                      id="claim-proof-url"
-                      type="url"
-                      placeholder="https://..."
-                      value={claimForm.proof_url}
-                      onChange={(e) => setClaimForm((f) => ({ ...f, proof_url: e.target.value }))}
+                      id="claim-phone"
+                      type="tel"
+                      inputMode="numeric"
+                      placeholder="08123456789"
+                      value={claimForm.phone}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9-]/g, "");
+                        setClaimForm((f) => ({ ...f, phone: val }));
+                      }}
+                      className="h-10 text-xs rounded-xl border-slate-200"
                     />
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="claim-message">Pesan untuk Admin (opsional)</Label>
+
+                  {/* FIELD 5: PESAN UNTUK TIM VERIFIKATOR (OPSIONAL) */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="claim-message" className="text-xs font-bold text-slate-800">
+                      Pesan untuk Tim Verifikator <span className="text-slate-400 font-normal">(opsional)</span>
+                    </Label>
                     <Textarea
                       id="claim-message"
                       rows={3}
-                      placeholder="Jelaskan hubungan Anda dengan bisnis ini..."
+                      placeholder="Catatan tambahan (opsional)..."
                       value={claimForm.message}
                       onChange={(e) => setClaimForm((f) => ({ ...f, message: e.target.value }))}
+                      className="text-xs rounded-xl border-slate-200 resize-none leading-relaxed"
                     />
                   </div>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setClaimModalOpen(false)}>
+
+                {/* STICKY FOOTER */}
+                <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-xs border-t border-slate-100 px-5 sm:px-6 py-3 sm:py-3.5 flex items-center justify-end gap-2.5 shrink-0">
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => setClaimModalOpen(false)}
+                    className="rounded-xl text-xs h-9.5 px-4 font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                  >
                     Batal
                   </Button>
-                  <Button onClick={handleSubmitClaim} disabled={claimSubmitting}>
-                    {claimSubmitting ? "Mengirim..." : "Kirim Klaim"}
+                  <Button
+                    type="button"
+                    onClick={handleSubmitClaim}
+                    disabled={claimSubmitting || claimDocumentUploading}
+                    className="bg-[#008767] hover:bg-[#007458] text-white rounded-xl text-xs h-9.5 font-bold px-5 shadow-xs cursor-pointer"
+                  >
+                    {claimSubmitting || claimDocumentUploading ? "Mengirim Klaim..." : "Kirim Klaim Sekarang"}
                   </Button>
-                </DialogFooter>
+                </div>
               </DialogContent>
             </Dialog>
 
@@ -1687,6 +2186,7 @@ interface ReviewCardProps {
     userId?: string;
     helpfulCount?: number;
     helpful_count?: number;
+    photos?: string[];
     business_reply?: {
       id?: string;
       content?: string;
