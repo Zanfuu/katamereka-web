@@ -192,6 +192,10 @@ export interface ApiBusinessDetail {
   isClaimed?: boolean;
   is_claimed?: boolean;
   claim_available?: boolean;
+  /** When the OWNER membership was created, i.e. when the claim was approved. */
+  claimed_at?: string | null;
+  /** Display name of the verified owner (never email/id; the endpoint is public). */
+  owner_name?: string | null;
   name: string;
   slug: string;
   externalSource?: string;
