@@ -331,8 +331,20 @@ export default function CategoryClient({
               <div className="space-y-3">
                 {/* Card Top: Initials */}
                 <div className="flex items-center justify-between gap-2">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#008767] border border-emerald-100 font-extrabold text-sm flex items-center justify-center shrink-0">
-                    {biz.initials || biz.name.charAt(0)}
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#008767] border border-emerald-100 font-extrabold text-sm flex items-center justify-center shrink-0 overflow-hidden bg-white">
+                    {biz.logoUrl ? (
+                      <img
+                        src={biz.logoUrl}
+                        alt={biz.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : null}
+                    <span className={biz.logoUrl ? "hidden" : ""}>
+                      {biz.initials || biz.name.charAt(0)}
+                    </span>
                   </div>
                 </div>
 

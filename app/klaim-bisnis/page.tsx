@@ -284,8 +284,20 @@ function KlaimBisnisContent() {
                 >
                   <CardContent className="p-5 space-y-4">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="size-12 rounded-xl bg-emerald-50 border border-emerald-100 text-[#008767] font-bold text-base flex items-center justify-center shrink-0">
-                        {biz.initials || "KM"}
+                      <div className="size-12 rounded-xl bg-emerald-50 border border-emerald-100 text-[#008767] font-bold text-base flex items-center justify-center shrink-0 overflow-hidden bg-white">
+                        {biz.logoUrl ? (
+                          <img
+                            src={biz.logoUrl}
+                            alt={biz.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+                        <span className={biz.logoUrl ? "hidden" : ""}>
+                          {biz.initials || "KM"}
+                        </span>
                       </div>
                       <Badge className="bg-amber-50 text-amber-700 border-amber-200 font-semibold text-[10px]">
                         Belum Diklaim

@@ -18,7 +18,7 @@ const RATING_META: Record<number, { emoji: string; label: string; tone: string }
 };
 
 interface MobileReviewWizardProps {
-  business: { name: string; initials: string; color: string };
+  business: { name: string; initials: string; color: string; logoUrl?: string | null };
   isEditing: boolean;
   rating: number;
   onRatingChange: (value: number) => void;
@@ -141,9 +141,21 @@ export default function MobileReviewWizard({
 
           <div className="relative flex items-center gap-3 pr-10">
             <div
-              className={`w-11 h-11 rounded-2xl ${business.color} flex items-center justify-center font-bold text-base shadow-sm shrink-0 ring-2 ring-white/40`}
+              className={`w-11 h-11 rounded-2xl ${business.color} flex items-center justify-center font-bold text-base shadow-sm shrink-0 ring-2 ring-white/40 overflow-hidden bg-white`}
             >
-              {business.initials}
+              {business.logoUrl ? (
+                <img
+                  src={business.logoUrl}
+                  alt={business.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : null}
+              <span className={business.logoUrl ? "hidden" : ""}>
+                {business.initials}
+              </span>
             </div>
             <div className="min-w-0">
               <p className="text-[11px] font-medium text-emerald-100">

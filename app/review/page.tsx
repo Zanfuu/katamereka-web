@@ -597,9 +597,21 @@ function WriteReviewContent() {
               <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div
-                    className={`w-14 h-14 rounded-2xl ${business.color} flex items-center justify-center font-bold text-xl shadow-xs shrink-0`}
+                    className={`w-14 h-14 rounded-2xl ${business.color} flex items-center justify-center font-bold text-xl shadow-xs shrink-0 overflow-hidden bg-white`}
                   >
-                    {business.initials}
+                    {business.logoUrl ? (
+                      <img
+                        src={business.logoUrl}
+                        alt={business.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : null}
+                    <span className={business.logoUrl ? "hidden" : ""}>
+                      {business.initials}
+                    </span>
                   </div>
                   <div>
                     <div className="flex items-center gap-2">

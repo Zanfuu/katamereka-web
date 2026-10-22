@@ -27,7 +27,40 @@ import {
   ArrowUp,
   MessageSquare
 } from "lucide-react";
+function BusinessLogoBox({
+  logoUrl,
+  name,
+  initials,
+  color,
+}: {
+  logoUrl?: string | null;
+  name: string;
+  initials: string;
+  color?: string;
+}) {
+  const [hasError, setHasError] = useState(false);
 
+  if (logoUrl && !hasError) {
+    return (
+      <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-xs shrink-0 border border-slate-200/60 bg-white group-hover:scale-105 transition-transform flex items-center justify-center">
+        <img
+          src={logoUrl}
+          alt={name}
+          className="w-full h-full object-cover"
+          onError={() => setHasError(true)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`w-14 h-14 rounded-2xl ${color || "bg-emerald-100 text-emerald-900 border-emerald-200"} flex items-center justify-center font-bold text-base shadow-xs shrink-0 border border-slate-200/60 group-hover:scale-105 transition-transform`}
+    >
+      {initials}
+    </div>
+  );
+}
 
 function SearchContent() {
   const router = useRouter();
@@ -109,6 +142,7 @@ function SearchContent() {
               color: ui.color || "bg-[#008767] text-white",
               type: ui.category.toLowerCase().includes("restoran") || ui.category.toLowerCase().includes("service") ? "Jasa" : "Bisnis",
               bannerUrl: ui.imageUrl || null,
+              logoUrl: ui.logoUrl || null,
             };
           });
           setApiItems(mapped);
@@ -446,11 +480,12 @@ function SearchContent() {
                     {/* Left Part: Logo & Info */}
                     <div className="flex items-start gap-4 flex-1 min-w-0">
                       {/* Logo Box */}
-                      <div
-                        className={`w-14 h-14 rounded-2xl ${item.color} flex items-center justify-center font-bold text-base shadow-xs shrink-0 border border-slate-200/60 group-hover:scale-105 transition-transform`}
-                      >
-                        {item.initials}
-                      </div>
+                      <BusinessLogoBox
+                        logoUrl={item.logoUrl}
+                        name={item.name}
+                        initials={item.initials}
+                        color={item.color}
+                      />
 
                       {/* Text Details */}
                       <div className="space-y-2 min-w-0 flex-1">

@@ -109,6 +109,41 @@ function BusinessCardBanner({ biz }: { biz: Business }) {
   );
 }
 
+function BusinessLogoBadge({
+  logoUrl,
+  name,
+  initials,
+  color,
+}: {
+  logoUrl?: string | null;
+  name: string;
+  initials: string;
+  color?: string;
+}) {
+  const [hasError, setHasError] = useState(false);
+
+  if (logoUrl && !hasError) {
+    return (
+      <div className="absolute -top-6 left-4 w-12 h-12 rounded-xl shadow-md border-2 border-white overflow-hidden bg-white flex items-center justify-center">
+        <img
+          src={logoUrl}
+          alt={name}
+          className="w-full h-full object-cover"
+          onError={() => setHasError(true)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`absolute -top-6 left-4 w-12 h-12 rounded-xl shadow-md border-2 border-white flex items-center justify-center font-bold text-sm ${color || "bg-emerald-100 text-emerald-900"}`}
+    >
+      {initials}
+    </div>
+  );
+}
+
 // `initial` is the first page (default filters) fetched on the server by
 // page.tsx, so the business names, ratings and categories are in the raw HTML.
 export default function BusinessesPage({
@@ -782,11 +817,12 @@ export default function BusinessesPage({
                           {/* Content Body */}
                           <div className="p-4 space-y-3 relative pt-6">
                             {/* Overlapping Logo Badge */}
-                            <div
-                              className={`absolute -top-6 left-4 w-12 h-12 rounded-xl shadow-md border-2 border-white flex items-center justify-center font-bold text-sm ${biz.color}`}
-                            >
-                              {biz.initials}
-                            </div>
+                            <BusinessLogoBadge
+                              logoUrl={biz.logoUrl}
+                              name={biz.name}
+                              initials={biz.initials}
+                              color={biz.color}
+                            />
 
                             {/* Title, Info & Love Button */}
                             <div className="flex items-start justify-between gap-2">
