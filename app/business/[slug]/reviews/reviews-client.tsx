@@ -26,6 +26,7 @@ import {
   fetchBusinessBySlug,
   API_BASE_URL,
   ApiBusinessDetail,
+  ApiReviewSummary,
   resolveMediaUrl,
 } from "@/lib/api-client";
 import { deleteReview, toggleReviewHelpful, fetchMyHelpfulVotes, getLocalHelpfulVotes, getCachedHelpfulCount, saveLocalHelpfulVote } from "@/lib/api-profile";
@@ -68,9 +69,11 @@ interface ReviewItem {
 export default function BusinessReviewsPage({
   initialBusiness = null,
   initialReviews = [],
+  initialReviewSummary = null,
 }: {
   initialBusiness?: ApiBusinessDetail | null;
   initialReviews?: ReviewItem[];
+  initialReviewSummary?: ApiReviewSummary | null;
 }) {
   const params = useParams();
   const slug = (params?.slug as string) || "";
@@ -79,6 +82,7 @@ export default function BusinessReviewsPage({
   const hasInitialData = Boolean(initialBusiness);
   const [business, setBusiness] = useState<ApiBusinessDetail | null>(initialBusiness);
   const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews);
+  const [reviewSummary, setReviewSummary] = useState<ApiReviewSummary | null>(initialReviewSummary ?? null);
   const [loading, setLoading] = useState<boolean>(!initialBusiness);
   const [selectedRatingFilter, setSelectedRatingFilter] = useState<number | null>(null);
   const [sortOption, setSortOption] = useState<"newest" | "highest" | "lowest">("newest");
@@ -143,9 +147,10 @@ export default function BusinessReviewsPage({
 
         const bizId = bizData?.id || decodedSlug;
         if (bizId) {
-          const revRes = await fetch(`${API_BASE_URL}/businesses/${bizId}/reviews`, {
-            cache: "no-store",
-          });
+          const [revRes, sumRes] = await Promise.all([
+            fetch(`${API_BASE_URL}/businesses/${bizId}/reviews`, { cache: "no-store" }),
+            fetch(`${API_BASE_URL}/businesses/${bizId}/review-summary`, { cache: "no-store" }),
+          ]);
           if (revRes.ok) {
             const revData = await revRes.json();
             if (isMounted) {
@@ -155,6 +160,12 @@ export default function BusinessReviewsPage({
                   ? revData.reviews
                   : [];
               setReviews(list);
+            }
+          }
+          if (sumRes.ok) {
+            const sumData = await sumRes.json();
+            if (isMounted && sumData && typeof sumData.review_count === "number") {
+              setReviewSummary(sumData);
             }
           }
         }
@@ -174,6 +185,7 @@ export default function BusinessReviewsPage({
   // Derived business display info
   const businessName = business?.name || getBusinessBySlug(slug)?.name || slug;
   const rawRating =
+    reviewSummary?.average_rating ??
     business?.rating ??
     business?.averageRating ??
     (business as any)?.average_rating ??
@@ -182,6 +194,12 @@ export default function BusinessReviewsPage({
   const initialRating = typeof rawRating === "number" ? rawRating : parseFloat(String(rawRating || 0));
 
   const actualRating = useMemo(() => {
+    if (reviewSummary?.average_rating && reviewSummary.average_rating > 0) {
+      return reviewSummary.average_rating;
+    }
+    if (!isNaN(initialRating) && initialRating > 0) {
+      return initialRating > 5 ? parseFloat((initialRating / 2).toFixed(1)) : initialRating;
+    }
     if (reviews.length > 0) {
       const sum = reviews.reduce((acc, r) => {
         const rat = typeof r.rating === "number" ? r.rating : parseFloat(String(r.rating ?? 0));
@@ -189,17 +207,26 @@ export default function BusinessReviewsPage({
       }, 0);
       return parseFloat((sum / reviews.length).toFixed(1));
     }
-    return !isNaN(initialRating) ? initialRating : 0;
-  }, [reviews, initialRating]);
+    return 0;
+  }, [reviewSummary, initialRating, reviews]);
 
   const ratingFormatted = actualRating > 0 ? actualRating.toFixed(1) : "0.0";
-  const totalReviewsCount =
-    reviews.length > 0
-      ? reviews.length
-      : ((business as any)?.review_count ?? business?.reviews_count ?? 0);
+  const businessTotalReviews =
+    reviewSummary?.review_count ??
+    Number((business as any)?.review_count ?? business?.reviews_count ?? (business as any)?.reviewCount ?? 0);
+  const totalReviewsCount = businessTotalReviews > 0 ? businessTotalReviews : reviews.length;
 
   // Rating distribution counts (1 to 5 stars)
   const ratingDistribution = useMemo(() => {
+    if (reviewSummary?.distribution) {
+      return {
+        5: Number(reviewSummary.distribution["5"] || 0),
+        4: Number(reviewSummary.distribution["4"] || 0),
+        3: Number(reviewSummary.distribution["3"] || 0),
+        2: Number(reviewSummary.distribution["2"] || 0),
+        1: Number(reviewSummary.distribution["1"] || 0),
+      };
+    }
     const counts: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     reviews.forEach((r) => {
       const rat = Math.round(typeof r.rating === "number" ? r.rating : parseFloat(String(r.rating ?? 0)));
@@ -208,7 +235,7 @@ export default function BusinessReviewsPage({
       }
     });
     return counts;
-  }, [reviews]);
+  }, [reviewSummary, reviews]);
 
   // Filter & Sort reviews
   const filteredAndSortedReviews = useMemo(() => {

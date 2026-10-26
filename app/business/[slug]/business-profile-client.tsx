@@ -10,6 +10,7 @@ import {
   fetchBusinessBySlug,
   fetchBusinessPlaceImage,
   ApiBusinessDetail,
+  ApiReviewSummary,
   API_BASE_URL,
   fetchClaimStatus,
   createBusinessClaim,
@@ -149,14 +150,17 @@ function coverOf(detail: ApiBusinessDetail | null): string | null {
 export default function BusinessProfilePage({
   initialDetail = null,
   initialReviews = [],
+  initialReviewSummary = null,
 }: {
   initialDetail?: ApiBusinessDetail | null;
   initialReviews?: BusinessReview[];
+  initialReviewSummary?: ApiReviewSummary | null;
 }) {
   const params = useParams();
   const slug = (params.slug as string) || "";
   const { user, isLoggedIn } = useAuth();
 
+  const [reviewSummary, setReviewSummary] = useState<ApiReviewSummary | null>(initialReviewSummary ?? null);
   const [isBusinessDomain, setIsBusinessDomain] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -370,11 +374,12 @@ export default function BusinessProfilePage({
     }
   }
 
-  // ── Fetch Reviews ───────────────────────────────────────────────────────────
+  // ── Fetch Reviews & Review Summary ──────────────────────────────────────────
   useEffect(() => {
     if (!apiDetail?.id) return;
     // Only show the skeleton when there is nothing server-rendered to keep.
     if (initialReviews.length === 0) setLoadingReviews(true);
+
     fetch(`${API_BASE_URL}/businesses/${apiDetail.id}/reviews`, {
       cache: "no-store",
     })
@@ -385,9 +390,31 @@ export default function BusinessProfilePage({
         } else if (data?.reviews && Array.isArray(data.reviews)) {
           setBusinessReviews(data.reviews);
         }
+        if (typeof data?.pagination?.total === "number") {
+          setReviewSummary((prev) =>
+            prev
+              ? { ...prev, review_count: data.pagination.total }
+              : {
+                  average_rating: typeof apiDetail.rating === "number" ? apiDetail.rating : 0,
+                  review_count: data.pagination.total,
+                  distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 },
+                }
+          );
+        }
       })
       .catch(() => { })
       .finally(() => setLoadingReviews(false));
+
+    fetch(`${API_BASE_URL}/businesses/${apiDetail.id}/review-summary`, {
+      cache: "no-store",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((summary) => {
+        if (summary && typeof summary.review_count === "number") {
+          setReviewSummary(summary);
+        }
+      })
+      .catch(() => { });
   }, [apiDetail?.id]);
 
   async function handleDeleteReview(reviewId: string) {
@@ -398,12 +425,17 @@ export default function BusinessProfilePage({
       setBusinessReviews(remaining);
       // recalculate count & average rating dynamically (optimistic update)
       if (apiDetail) {
-        const newCount = remaining.length;
+        const newCount = Math.max(0, (reviewSummary?.review_count ?? actualReviewCount) - 1);
         const sum = remaining.reduce((acc, r) => {
           const rat = typeof r.rating === "number" ? r.rating : parseFloat(String(r.rating ?? 0));
           return acc + (isNaN(rat) ? 0 : rat);
         }, 0);
-        const newAvg = newCount > 0 ? parseFloat((sum / newCount).toFixed(1)) : 0;
+        const newAvg = remaining.length > 0 ? parseFloat((sum / remaining.length).toFixed(1)) : 0;
+        setReviewSummary((prev) =>
+          prev
+            ? { ...prev, review_count: newCount }
+            : null
+        );
         setApiDetail({
           ...apiDetail,
           reviewCount: newCount,
@@ -530,8 +562,9 @@ export default function BusinessProfilePage({
     : null;
   const hasReviewed = Boolean(myReview);
 
-  // Dynamic review count from API (reviewCount, reviewsCount, reviews_count, externalReviewsCount)
+  // Dynamic review count from API (reviewSummary, reviewCount, reviewsCount, reviews_count, externalReviewsCount)
   const rawReviewCount =
+    reviewSummary?.review_count ??
     (apiDetail as any)?.reviewCount ??
     (apiDetail as any)?.review_count ??
     (apiDetail as any)?.reviewsCount ??
@@ -541,8 +574,9 @@ export default function BusinessProfilePage({
   let reviewCountVal = typeof rawReviewCount === "number" ? rawReviewCount : (parseInt(String(rawReviewCount || 0), 10) || 0);
   if (isNaN(reviewCountVal)) reviewCountVal = 0;
 
-  // Dynamic average rating from API (averageRating, rating, avg, average_rating)
+  // Dynamic average rating from API (reviewSummary, averageRating, rating, avg, average_rating)
   const rawRating =
+    reviewSummary?.average_rating ??
     (apiDetail as any)?.averageRating ??
     (apiDetail as any)?.average_rating ??
     (apiDetail as any)?.avg ??
@@ -554,14 +588,16 @@ export default function BusinessProfilePage({
   let ratingVal = rawRating !== null && rawRating !== undefined ? (typeof rawRating === "number" ? rawRating : parseFloat(String(rawRating || 0))) : 0;
   if (isNaN(ratingVal)) ratingVal = 0;
 
-  // Real dynamic review count and rating (prioritizing loaded reviews list)
+  // Real dynamic review count and rating (prioritizing true count from API/review-summary over paginated slice)
   const actualReviewCount =
-    businessReviews.length > 0
-      ? businessReviews.length
-      : reviewCountVal;
+    reviewCountVal > 0
+      ? reviewCountVal
+      : businessReviews.length;
 
   const actualRating =
-    businessReviews.length > 0
+    ratingVal > 0
+      ? (ratingVal > 5 ? parseFloat((ratingVal / 2).toFixed(1)) : ratingVal)
+      : businessReviews.length > 0
       ? parseFloat(
         (
           businessReviews.reduce((acc, r) => {
@@ -570,8 +606,6 @@ export default function BusinessProfilePage({
           }, 0) / businessReviews.length
         ).toFixed(1)
       )
-      : ratingVal > 0
-      ? (ratingVal > 5 ? parseFloat((ratingVal / 2).toFixed(1)) : ratingVal)
       : 0;
 
   const ratingFormatted = actualRating > 0 ? actualRating.toFixed(1) : "0.0";
@@ -1124,12 +1158,12 @@ export default function BusinessProfilePage({
                           isDeleting={deletingReviewId === rev.id}
                         />
                       ))}
-                      {businessReviews.length > 3 && (
+                      {actualReviewCount > 3 && (
                         <Link
                           href={`/business/${slug}/reviews`}
                           className="block text-center w-full py-3 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-600 hover:border-[#008767] hover:text-[#008767] transition-colors"
                         >
-                          Lihat {businessReviews.length - 3} ulasan lainnya →
+                          Lihat {actualReviewCount - 3} ulasan lainnya →
                         </Link>
                       )}
                     </div>

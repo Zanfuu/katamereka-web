@@ -1,5 +1,9 @@
 import { notFound } from "next/navigation";
-import { getBusinessForSsr, getBusinessReviewsForSsr } from "@/lib/business-ssr";
+import {
+  getBusinessForSsr,
+  getBusinessReviewsForSsr,
+  getBusinessReviewSummaryForSsr,
+} from "@/lib/business-ssr";
 import BusinessReviewsClient from "./reviews-client";
 
 export const revalidate = 300;
@@ -18,7 +22,16 @@ export default async function BusinessReviewsPage({
   const business = await getBusinessForSsr(slug);
   if (!business) notFound();
 
-  const reviews = await getBusinessReviewsForSsr(business.id);
+  const [reviews, reviewSummary] = await Promise.all([
+    getBusinessReviewsForSsr(business.id),
+    getBusinessReviewSummaryForSsr(business.id),
+  ]);
 
-  return <BusinessReviewsClient initialBusiness={business} initialReviews={reviews} />;
+  return (
+    <BusinessReviewsClient
+      initialBusiness={business}
+      initialReviews={reviews}
+      initialReviewSummary={reviewSummary}
+    />
+  );
 }

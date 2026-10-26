@@ -1,5 +1,9 @@
 import { notFound } from "next/navigation";
-import { getBusinessForSsr, getBusinessReviewsForSsr } from "@/lib/business-ssr";
+import {
+  getBusinessForSsr,
+  getBusinessReviewsForSsr,
+  getBusinessReviewSummaryForSsr,
+} from "@/lib/business-ssr";
 import BusinessProfileClient from "./business-profile-client";
 
 // ISR: served from cache, regenerated in the background at most every 5 min.
@@ -23,10 +27,19 @@ export default async function BusinessProfilePage({
   const business = await getBusinessForSsr(slug);
   if (!business) notFound();
 
-  const reviews = await getBusinessReviewsForSsr(business.id);
+  const [reviews, reviewSummary] = await Promise.all([
+    getBusinessReviewsForSsr(business.id),
+    getBusinessReviewSummaryForSsr(business.id),
+  ]);
 
   // The client component is still hydrated for interactivity, but it starts
   // from this data, so the raw HTML already holds name, rating, address,
   // category and reviews (no "Memuat profil bisnis..." spinner in the source).
-  return <BusinessProfileClient initialDetail={business} initialReviews={reviews} />;
+  return (
+    <BusinessProfileClient
+      initialDetail={business}
+      initialReviews={reviews}
+      initialReviewSummary={reviewSummary}
+    />
+  );
 }

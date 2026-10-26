@@ -740,6 +740,43 @@ export async function fetchLatestReviews(
   }
 }
 
+export interface ApiReviewSummary {
+  average_rating: number;
+  review_count: number;
+  distribution: Record<string, number>;
+  range?: string;
+}
+
+/**
+ * GET /businesses/:businessId/review-summary
+ * Fetches aggregate review metrics: average rating, total count, and 1-5 star distribution.
+ */
+export async function fetchReviewSummary(
+  businessId: string,
+  range?: string
+): Promise<ApiReviewSummary | null> {
+  const query = range ? `?range=${encodeURIComponent(range)}` : "";
+  const url = `${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/review-summary${query}`;
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      ...publicGetInit(["reviews", `reviews:${businessId}`, "review-summary"]),
+    });
+
+    if (res.ok) {
+      return (await res.json()) as ApiReviewSummary;
+    }
+  } catch (e) {
+    console.warn("fetchReviewSummary API call failed:", e);
+  }
+
+  return null;
+}
+
 /**
  * 3. GET /businesses/:id (Business Detail by UUID)
  *

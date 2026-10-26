@@ -13,8 +13,11 @@ import {
   API_BASE_URL,
   publicGetInit,
   type ApiBusinessDetail,
+  type ApiReviewSummary,
 } from "./api-client";
 import type { SchemaReviewInput } from "./schema-org";
+
+export type { ApiReviewSummary };
 
 export interface PublicReview extends SchemaReviewInput {
   id: string;
@@ -77,3 +80,19 @@ export const getBusinessReviewsForSsr = cache(
     }
   }
 );
+
+export const getBusinessReviewSummaryForSsr = cache(
+  async (businessId: string): Promise<ApiReviewSummary | null> => {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/review-summary`,
+        publicGetInit(["reviews", `reviews:${businessId}`, "review-summary"])
+      );
+      if (!res.ok) return null;
+      return (await res.json()) as ApiReviewSummary;
+    } catch {
+      return null;
+    }
+  }
+);
+
