@@ -21,6 +21,7 @@ import {
   ShieldCheckIcon,
   SlidersHorizontalIcon,
   StarIcon,
+  UserCogIcon,
   UserIcon,
   XIcon,
 } from "lucide-react"
@@ -47,6 +48,7 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -64,6 +66,8 @@ import {
   fetchBusinesses,
   createBusiness,
   updateBusiness,
+  fetchBusinessOwner,
+  changeBusinessOwner,
   type BusinessListItem,
 } from "@/lib/admin-api"
 import { formatDate } from "@/lib/format"
@@ -108,11 +112,21 @@ function avatarTone(id: string) {
 }
 
 function ownerContact(business: Business) {
-  return getAdminById(business.ownerId)?.email ?? business.email ?? "-"
+  return (
+    business.ownerEmail ||
+    (business.ownerId ? getAdminById(business.ownerId)?.email : null) ||
+    business.email ||
+    "-"
+  )
 }
 
 function mapApiBusiness(item: BusinessListItem): Business {
-  const isClaimed = item.status === "CLAIMED"
+  const isClaimed = Boolean(
+    item.is_claimed ||
+    item.status === "CLAIMED" ||
+    item.owner ||
+    (item.owner_name && item.owner_name !== "Belum Diklaim")
+  )
   const isPending = item.status === "PENDING"
 
   let city = item.city || ""
@@ -126,6 +140,10 @@ function mapApiBusiness(item: BusinessListItem): Business {
   if (!city) city = "Indonesia"
   if (!province) province = "Indonesia"
 
+  const realOwnerName = item.owner?.name || item.owner_name || (isClaimed ? "Owner Terverifikasi" : "Belum Diklaim")
+  const realOwnerEmail = item.owner?.email || item.owner_email || null
+  const realOwnerId = item.owner?.id || item.owner_id || ""
+
   return {
     id: item.id,
     name: item.name,
@@ -138,8 +156,10 @@ function mapApiBusiness(item: BusinessListItem): Business {
     address: item.address || "-",
     city,
     province,
-    ownerId: "",
-    ownerName: isClaimed ? "Owner Terverifikasi" : "Belum Diklaim",
+    ownerId: realOwnerId,
+    ownerName: realOwnerName,
+    ownerEmail: realOwnerEmail,
+    isClaimed,
     averageRating: item.average_rating ? Number(item.average_rating) : 0,
     totalReviews: item.review_count || 0,
     verifiedReviews: Math.floor((item.review_count || 0) * 0.7),
@@ -172,6 +192,20 @@ export default function AdminBusinessesPage() {
   } | null>(null)
   const [formOpen, setFormOpen] = React.useState<"ADD" | "EDIT" | null>(null)
   const [form, setForm] = React.useState({ name: "", category: "", ownerName: "", city: "" })
+
+  // Owner management state
+  const [ownerModalOpen, setOwnerModalOpen] = React.useState(false)
+  const [ownerTargetBusiness, setOwnerTargetBusiness] = React.useState<Business | null>(null)
+  const [ownerEmailInput, setOwnerEmailInput] = React.useState("")
+  const [ownerReasonInput, setOwnerReasonInput] = React.useState("")
+  const [ownerLoading, setOwnerLoading] = React.useState(false)
+  const [ownerSubmitting, setOwnerSubmitting] = React.useState(false)
+  const [currentOwnerDetails, setCurrentOwnerDetails] = React.useState<{
+    ownerId: string | null
+    ownerName: string | null
+    ownerEmail: string | null
+    isClaimed: boolean
+  } | null>(null)
 
   const loadData = React.useCallback(async () => {
     setLoading(true)
@@ -338,6 +372,118 @@ export default function AdminBusinessesPage() {
     )
   }
 
+  const openOwnerModal = React.useCallback(async (biz: Business) => {
+    setOwnerTargetBusiness(biz)
+    setOwnerEmailInput(biz.ownerEmail || "")
+    setOwnerReasonInput("")
+    setOwnerModalOpen(true)
+    setOwnerLoading(true)
+    setCurrentOwnerDetails({
+      ownerId: biz.ownerId || null,
+      ownerName: biz.ownerName !== "-" ? biz.ownerName : null,
+      ownerEmail: biz.ownerEmail || null,
+      isClaimed: !!biz.isClaimed,
+    })
+
+    try {
+      const res = await fetchBusinessOwner(biz.id)
+      if (res && res.data) {
+        setCurrentOwnerDetails({
+          ownerId: res.data.owner?.user_id || null,
+          ownerName: res.data.owner?.name || null,
+          ownerEmail: res.data.owner?.email || null,
+          isClaimed: res.data.is_claimed,
+        })
+        if (res.data.owner?.email) {
+          setOwnerEmailInput(res.data.owner.email)
+        }
+      }
+    } catch (err: any) {
+      console.warn("Gagal memuat data owner via API:", err)
+    } finally {
+      setOwnerLoading(false)
+    }
+  }, [])
+
+  const handleSaveOwner = async () => {
+    if (!ownerTargetBusiness) return
+    const email = ownerEmailInput.trim()
+    if (!email) {
+      toast.error("Silakan masukkan email user yang akan dijadikan owner.")
+      return
+    }
+
+    setOwnerSubmitting(true)
+    try {
+      const res = await changeBusinessOwner(ownerTargetBusiness.id, {
+        email,
+        reason: ownerReasonInput.trim() || undefined,
+      })
+
+      const newOwner = res.data?.owner
+      const newOwnerName = newOwner?.name || email
+      const newOwnerEmail = newOwner?.email || email
+
+      // Update local state
+      setBusinesses((prev) =>
+        prev.map((b) =>
+          b.id === ownerTargetBusiness.id
+            ? {
+                ...b,
+                ownerId: newOwner?.user_id || b.ownerId,
+                ownerName: newOwnerName,
+                ownerEmail: newOwnerEmail,
+                isClaimed: true,
+                verificationStatus: "VERIFIED",
+              }
+            : b
+        )
+      )
+
+      toast.success(res.message || `Owner berhasil diubah ke ${newOwnerEmail}`)
+      setOwnerModalOpen(false)
+    } catch (err: any) {
+      toast.error(err.message || "Gagal mengubah owner bisnis.")
+    } finally {
+      setOwnerSubmitting(false)
+    }
+  }
+
+  const handleUnclaimOwner = async () => {
+    if (!ownerTargetBusiness) return
+
+    setOwnerSubmitting(true)
+    try {
+      const res = await changeBusinessOwner(ownerTargetBusiness.id, {
+        unclaim: true,
+        reason: ownerReasonInput.trim() || undefined,
+      })
+
+      // Update local state
+      setBusinesses((prev) =>
+        prev.map((b) =>
+          b.id === ownerTargetBusiness.id
+            ? {
+                ...b,
+                ownerId: undefined,
+                ownerName: "-",
+                ownerEmail: null,
+                isClaimed: false,
+                verificationStatus: "UNVERIFIED",
+              }
+            : b
+        )
+      )
+
+      toast.success(res.message || "Kepemilikan bisnis berhasil dilepas (Unclaim).")
+      setOwnerModalOpen(false)
+    } catch (err: any) {
+      toast.error(err.message || "Gagal melepas kepemilikan bisnis.")
+    } finally {
+      setOwnerSubmitting(false)
+    }
+  }
+
   function exportCsv() {
     const headers = ["ID", "Nama", "Slug", "Kategori", "Kota", "Status", "Verifikasi", "Rating", "Reviews"]
     const rows = filtered.map((b) => [
@@ -439,6 +585,10 @@ export default function AdminBusinessesPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => openDetail(business)}>Lihat Ringkasan</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openOwnerModal(business)}>
+                <UserCogIcon className="size-4" />
+                Kelola Owner
+              </DropdownMenuItem>
               <DropdownMenuItem render={<Link href={`/admin/businesses/${business.id}`} />}>
                 Buka Detail Lengkap
               </DropdownMenuItem>
@@ -674,15 +824,19 @@ export default function AdminBusinessesPage() {
                     <p className="text-sm text-foreground/90">{selected.description}</p>
                   </div>
 
-                  <div className="flex flex-col gap-2 pt-1 sm:flex-row">
-                    <Button variant="outline" className="flex-1" onClick={() => openEdit(selected)}>
+                  <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:flex-wrap">
+                    <Button variant="outline" className="flex-1 min-w-[130px]" onClick={() => openEdit(selected)}>
                       <PencilIcon />
                       Edit Business
+                    </Button>
+                    <Button variant="outline" className="flex-1 min-w-[130px]" onClick={() => openOwnerModal(selected)}>
+                      <UserCogIcon className="size-4" />
+                      Kelola Owner
                     </Button>
                     {selected.status === "SUSPENDED" ? (
                       <Button
                         variant="outline"
-                        className="flex-1"
+                        className="flex-1 min-w-[100px]"
                         onClick={() => setConfirmTarget({ business: selected, action: "ACTIVATE" })}
                       >
                         Activate
@@ -690,7 +844,7 @@ export default function AdminBusinessesPage() {
                     ) : (
                       <Button
                         variant="outline"
-                        className="flex-1 border-destructive/40 text-destructive hover:bg-destructive/10"
+                        className="flex-1 min-w-[100px] border-destructive/40 text-destructive hover:bg-destructive/10"
                         onClick={() => setConfirmTarget({ business: selected, action: "SUSPEND" })}
                       >
                         <BanIcon />
@@ -702,6 +856,10 @@ export default function AdminBusinessesPage() {
                         <SlidersHorizontalIcon className="size-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openOwnerModal(selected)}>
+                          <UserCogIcon className="size-4" />
+                          Kelola Owner
+                        </DropdownMenuItem>
                         <DropdownMenuItem render={<Link href={`/admin/businesses/${selected.id}`} />}>
                           Buka Detail Lengkap
                         </DropdownMenuItem>
@@ -850,6 +1008,118 @@ export default function AdminBusinessesPage() {
               Batal
             </Button>
             <Button onClick={saveForm}>Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={ownerModalOpen} onOpenChange={setOwnerModalOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCogIcon className="size-5 text-primary" />
+              Kelola Owner Bisnis
+            </DialogTitle>
+            <DialogDescription>
+              Ubah atau tetapkan pengguna yang menjadi owner resmi dari bisnis{" "}
+              <strong className="text-foreground">{ownerTargetBusiness?.name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 py-2">
+            {/* Current Owner Box */}
+            <div className="rounded-lg border border-border bg-muted/40 p-3.5 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                Owner Saat Ini
+              </p>
+              {ownerLoading ? (
+                <p className="text-sm text-muted-foreground animate-pulse">Memuat data owner...</p>
+              ) : currentOwnerDetails?.isClaimed && currentOwnerDetails?.ownerEmail ? (
+                <div className="flex flex-col gap-1">
+                  <p className="font-semibold text-foreground">
+                    {currentOwnerDetails.ownerName || "Tanpa Nama"}
+                  </p>
+                  <p className="text-xs text-muted-foreground font-mono">
+                    {currentOwnerDetails.ownerEmail}
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                      Claimed / Verified
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                      Belum Diklaim / Unclaimed
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Bisnis ini belum memiliki owner terdaftar di platform.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Input New Owner */}
+            <Field>
+              <FieldLabel htmlFor="owner-email">Email Akun Owner Baru</FieldLabel>
+              <Input
+                id="owner-email"
+                type="email"
+                placeholder="nama@contoh.com"
+                value={ownerEmailInput}
+                onChange={(e) => setOwnerEmailInput(e.target.value)}
+                disabled={ownerSubmitting}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Masukkan email pengguna yang sudah terdaftar di KataMereka untuk ditetapkan sebagai Owner.
+              </p>
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="owner-reason">Alasan Perubahan (Opsional)</FieldLabel>
+              <Input
+                id="owner-reason"
+                placeholder="Contoh: Koreksi kepemilikan salah akun / request resmi via email"
+                value={ownerReasonInput}
+                onChange={(e) => setOwnerReasonInput(e.target.value)}
+                disabled={ownerSubmitting}
+              />
+            </Field>
+          </div>
+
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between sm:space-x-2 gap-2">
+            <div>
+              {currentOwnerDetails?.isClaimed && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full sm:w-auto border-destructive/40 text-destructive hover:bg-destructive/10"
+                  onClick={handleUnclaimOwner}
+                  disabled={ownerSubmitting}
+                >
+                  Lepas Kepemilikan (Unclaim)
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOwnerModalOpen(false)}
+                disabled={ownerSubmitting}
+              >
+                Batal
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveOwner}
+                disabled={ownerSubmitting || !ownerEmailInput.trim()}
+              >
+                {ownerSubmitting ? "Menyimpan..." : "Tetapkan Owner"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -220,6 +220,11 @@ export interface BusinessListItem {
   average_rating: number | null;
   review_count: number;
   created_at: string;
+  is_claimed?: boolean;
+  owner_id?: string | null;
+  owner_name?: string | null;
+  owner_email?: string | null;
+  owner?: { id: string; name: string; email: string } | null;
 }
 
 export interface BusinessListResponse {
@@ -341,6 +346,57 @@ export async function deleteBusiness(id: string): Promise<{ message: string }> {
     headers: authHeaders(),
   });
 
+  return handle(res);
+}
+
+export interface BusinessOwnerResponse {
+  success: boolean;
+  data: {
+    business_id: string;
+    business_name: string;
+    is_claimed: boolean;
+    owner: {
+      member_id: string;
+      user_id: string;
+      name: string;
+      email: string;
+      role: string;
+      created_at: string;
+    } | null;
+  };
+}
+
+export async function fetchBusinessOwner(businessId: string): Promise<BusinessOwnerResponse> {
+  const res = await fetch(`${API_BASE_URL}/admin/businesses/${encodeURIComponent(businessId)}/owner`, {
+    method: "GET",
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  return handle(res);
+}
+
+export async function changeBusinessOwner(
+  businessId: string,
+  payload: { email?: string; userId?: string; unclaim?: boolean; reason?: string }
+): Promise<{
+  success: boolean;
+  message: string;
+  data: {
+    business_id: string;
+    is_claimed: boolean;
+    owner: {
+      user_id: string;
+      name: string;
+      email: string;
+      role: string;
+    } | null;
+  };
+}> {
+  const res = await fetch(`${API_BASE_URL}/admin/businesses/${encodeURIComponent(businessId)}/owner`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
   return handle(res);
 }
 

@@ -75,8 +75,10 @@ export interface Business {
   employeeRange?: string
   taxId?: string
   about?: string
-  ownerId: string
+  ownerId?: string | null
   ownerName: string
+  ownerEmail?: string | null
+  isClaimed?: boolean
   averageRating: number
   totalReviews: number
   verifiedReviews: number
