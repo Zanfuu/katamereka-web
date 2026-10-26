@@ -202,7 +202,8 @@ export default function AdminBusinessesPage() {
   const [apiPage, setApiPage] = React.useState(1)
   const [totalPages, setTotalPages] = React.useState(1)
   const [totalFiltered, setTotalFiltered] = React.useState(0)
-  const PAGE_LIMIT = 10
+  const [pageSize, setPageSize] = React.useState(50)
+  const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
   const [refreshTick, setRefreshTick] = React.useState(0)
 
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
@@ -262,7 +263,7 @@ export default function AdminBusinessesPage() {
       try {
         const res = await fetchBusinesses({
           page: apiPage,
-          limit: PAGE_LIMIT,
+          limit: pageSize,
           search: debouncedSearch || undefined,
           status: statusFilter === "all" ? undefined : statusFilter,
           category: categoryFilter === "all" ? undefined : categoryFilter,
@@ -304,6 +305,7 @@ export default function AdminBusinessesPage() {
     categoryFilter,
     locationFilter,
     apiPage,
+    pageSize,
     refreshTick,
   ])
 
@@ -882,8 +884,8 @@ export default function AdminBusinessesPage() {
               setSelectedIds(checked ? new Set(businesses.map((b) => b.id)) : new Set())
             }
             itemLabel="business"
-            pageSize={PAGE_LIMIT}
-            pageSizeOptions={[PAGE_LIMIT]}
+            pageSize={pageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
             hidePagination={true}
             emptyTitle="Tidak ada bisnis ditemukan."
             emptyDescription={
@@ -894,37 +896,77 @@ export default function AdminBusinessesPage() {
           />
 
           {!loading && !error && totalFiltered > 0 && (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground pt-1">
-              <span>
+            <div className="flex flex-col-reverse items-center justify-between gap-3 border-t border-border px-1 py-3 sm:flex-row">
+              <p className="text-xs text-muted-foreground">
                 Menampilkan{" "}
                 <strong className="text-foreground">
-                  {(apiPage - 1) * PAGE_LIMIT + 1}–{Math.min(apiPage * PAGE_LIMIT, totalFiltered)}
+                  {(apiPage - 1) * pageSize + 1}–{Math.min(apiPage * pageSize, totalFiltered)}
                 </strong>{" "}
-                dari <strong className="text-foreground">{totalFiltered.toLocaleString("id-ID")}</strong> bisnis
-              </span>
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs">
-                    Halaman {apiPage} dari {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={apiPage <= 1 || loading}
-                    onClick={() => setApiPage((p) => Math.max(1, p - 1))}
+                dari <strong className="text-foreground">{totalFiltered.toLocaleString("id-ID")}</strong> business
+              </p>
+
+              <div className="flex flex-wrap items-center gap-4">
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      disabled={apiPage <= 1 || loading}
+                      onClick={() => setApiPage((p) => Math.max(1, p - 1))}
+                    >
+                      ‹
+                    </Button>
+                    {getPageItems(apiPage, totalPages).map((item, index) =>
+                      item === "ellipsis" ? (
+                        <span key={`ellipsis-${index}`} className="px-1 text-sm text-muted-foreground">
+                          …
+                        </span>
+                      ) : (
+                        <Button
+                          key={item}
+                          variant={item === apiPage ? "default" : "outline"}
+                          size="icon-sm"
+                          disabled={loading}
+                          onClick={() => setApiPage(item)}
+                        >
+                          {item}
+                        </Button>
+                      )
+                    )}
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      disabled={apiPage >= totalPages || loading}
+                      onClick={() => setApiPage((p) => Math.min(totalPages, p + 1))}
+                    >
+                      ›
+                    </Button>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <span>Tampilkan</span>
+                  <Select
+                    value={String(pageSize)}
+                    onValueChange={(value) => {
+                      setPageSize(Number(value))
+                      setApiPage(1)
+                    }}
                   >
-                    Sebelumnya
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={apiPage >= totalPages || loading}
-                    onClick={() => setApiPage((p) => Math.min(totalPages, p + 1))}
-                  >
-                    Selanjutnya
-                  </Button>
+                    <SelectTrigger size="sm" className="w-[4.5rem]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={String(option)}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span>per halaman</span>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>
@@ -1325,3 +1367,20 @@ function InfoRow({
     </div>
   )
 }
+
+function getPageItems(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+
+  const items = new Set<number>([1, total, current, current - 1, current + 1])
+  const sorted = Array.from(items)
+    .filter((n) => n >= 1 && n <= total)
+    .sort((a, b) => a - b)
+
+  const result: (number | "ellipsis")[] = []
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i] - sorted[i - 1] > 1) result.push("ellipsis")
+    result.push(sorted[i])
+  }
+  return result
+}
+
