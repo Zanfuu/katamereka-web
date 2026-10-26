@@ -17,6 +17,7 @@ import {
   PencilIcon,
   PhoneIcon,
   PlusIcon,
+  RotateCcwIcon,
   ScrollTextIcon,
   ShieldCheckIcon,
   SlidersHorizontalIcon,
@@ -61,6 +62,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   fetchBusinesses,
@@ -70,6 +78,7 @@ import {
   changeBusinessOwner,
   type BusinessListItem,
 } from "@/lib/admin-api"
+import { API_BASE_URL } from "@/lib/api-client"
 import { formatDate } from "@/lib/format"
 import { getAdminById } from "@/lib/mock/admins"
 import { getAuditLogByTarget } from "@/lib/mock/audit-log"
@@ -171,19 +180,31 @@ function mapApiBusiness(item: BusinessListItem): Business {
 }
 
 export default function AdminBusinessesPage() {
-  const [businesses, setBusinesses] = React.useState<Business[]>(initialBusinesses)
+  const [businesses, setBusinesses] = React.useState<Business[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | undefined>()
   const [apiStats, setApiStats] = React.useState<{
     total: number
     verified: number
     pending: number
     suspended: number
   } | null>(null)
+
   const [search, setSearch] = React.useState("")
+  const [debouncedSearch, setDebouncedSearch] = React.useState("")
   const [verificationFilter, setVerificationFilter] = React.useState("all")
   const [statusFilter, setStatusFilter] = React.useState("all")
   const [categoryFilter, setCategoryFilter] = React.useState("all")
   const [locationFilter, setLocationFilter] = React.useState("all")
+  const [categoryList, setCategoryList] = React.useState<string[]>([])
+  const [cityList, setCityList] = React.useState<string[]>([])
+
+  const [apiPage, setApiPage] = React.useState(1)
+  const [totalPages, setTotalPages] = React.useState(1)
+  const [totalFiltered, setTotalFiltered] = React.useState(0)
+  const PAGE_LIMIT = 10
+  const [refreshTick, setRefreshTick] = React.useState(0)
+
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [confirmTarget, setConfirmTarget] = React.useState<{
@@ -207,67 +228,161 @@ export default function AdminBusinessesPage() {
     isClaimed: boolean
   } | null>(null)
 
-  const loadData = React.useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetchBusinesses({ limit: 100 })
-      if (res && res.data && res.data.length > 0) {
-        const mapped = res.data.map(mapApiBusiness)
-        setBusinesses(mapped)
-        setApiStats({
-          total: res.stats?.total_business || res.pagination.total || mapped.length,
-          verified: mapped.filter((b) => b.verificationStatus === "VERIFIED").length,
-          pending: res.stats?.pending_business || 0,
-          suspended: mapped.filter((b) => b.status === "SUSPENDED").length,
-        })
-      }
-    } catch (err: any) {
-      console.error("Gagal memuat businesses dari API:", err)
-    } finally {
-      setLoading(false)
+  // Debounces search query so it triggers API request only after typing stops
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+      setApiPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  // Load master data categories and cities once for comprehensive filters
+  React.useEffect(() => {
+    async function loadMasterData() {
+      try {
+        const catRes = await fetch(`${API_BASE_URL}/master/categories`).then((r) => r.json()).catch(() => null)
+        if (catRes?.data && Array.isArray(catRes.data)) {
+          setCategoryList(catRes.data.map((c: any) => c.name).filter(Boolean))
+        }
+        const cityRes = await fetch(`${API_BASE_URL}/master/cities`).then((r) => r.json()).catch(() => null)
+        if (cityRes?.data && Array.isArray(cityRes.data)) {
+          setCityList(cityRes.data.map((c: any) => c.name).filter(Boolean))
+        }
+      } catch {}
     }
+    loadMasterData()
   }, [])
 
+  // Main data loader connected directly to backend query params
   React.useEffect(() => {
-    loadData()
-  }, [loadData])
+    let ignore = false
+    async function run() {
+      setLoading(true)
+      try {
+        const res = await fetchBusinesses({
+          page: apiPage,
+          limit: PAGE_LIMIT,
+          search: debouncedSearch || undefined,
+          status: statusFilter === "all" ? undefined : statusFilter,
+          category: categoryFilter === "all" ? undefined : categoryFilter,
+          city: locationFilter === "all" ? undefined : locationFilter,
+          verificationStatus: verificationFilter === "all" ? undefined : verificationFilter,
+        })
+        if (ignore) return
+
+        const mapped = (res.data || []).map(mapApiBusiness)
+        setBusinesses(mapped)
+        setApiStats({
+          total: res.stats?.total_business ?? 0,
+          verified: res.stats?.verified_business ?? 0,
+          pending: res.stats?.pending_business ?? 0,
+          suspended: res.stats?.suspended_business ?? 0,
+        })
+        setTotalPages(res.pagination?.total_pages || 1)
+        setTotalFiltered(res.pagination?.total || 0)
+        setError(undefined)
+      } catch (err: any) {
+        if (!ignore) {
+          console.error("Gagal memuat businesses dari API:", err)
+          setError(err?.message || "Gagal memuat data bisnis dari server.")
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false)
+        }
+      }
+    }
+    run()
+    return () => {
+      ignore = true
+    }
+  }, [
+    debouncedSearch,
+    verificationFilter,
+    statusFilter,
+    categoryFilter,
+    locationFilter,
+    apiPage,
+    refreshTick,
+  ])
+
+  function handleVerificationFilterChange(val: string) {
+    setVerificationFilter(val)
+    setApiPage(1)
+  }
+
+  function handleStatusFilterChange(val: string) {
+    setStatusFilter(val)
+    setApiPage(1)
+  }
+
+  function handleCategoryFilterChange(val: string) {
+    setCategoryFilter(val)
+    setApiPage(1)
+  }
+
+  function handleLocationFilterChange(val: string) {
+    setLocationFilter(val)
+    setApiPage(1)
+  }
+
+  function resetFilters() {
+    setSearch("")
+    setDebouncedSearch("")
+    setVerificationFilter("all")
+    setStatusFilter("all")
+    setCategoryFilter("all")
+    setLocationFilter("all")
+    setApiPage(1)
+  }
 
   const selected = businesses.find((b) => b.id === selectedId) ?? null
 
-  const categories = Array.from(new Set(businesses.map((b) => b.category)))
+  const categories = Array.from(
+    new Set([
+      ...categoryList,
+      ...businesses.map((b) => b.category),
+      "Restoran",
+      "Retail",
+      "Akomodasi",
+      "Transportasi",
+      "Kesehatan",
+      "Jasa",
+    ].filter(Boolean))
+  )
   const categoryOptions = [
     { value: "all", label: "Semua Kategori" },
     ...categories.map((c) => ({ value: c, label: c })),
   ]
 
-  const locations = Array.from(new Set(businesses.map((b) => b.city)))
+  const locations = Array.from(
+    new Set([
+      ...cityList,
+      ...businesses.map((b) => b.city),
+      "Jakarta Barat",
+      "Jakarta Selatan",
+      "Jakarta Pusat",
+      "Jakarta Timur",
+      "Jakarta Utara",
+      "Surabaya",
+      "Bandung",
+      "Medan",
+      "Semarang",
+      "Tangerang",
+    ].filter((x) => Boolean(x) && x !== "-"))
+  )
   const locationOptions = [
     { value: "all", label: "Semua Lokasi" },
     ...locations.map((c) => ({ value: c, label: c })),
   ]
 
   const counts = {
-    total: apiStats?.total ?? businesses.length,
-    verified: apiStats?.verified ?? businesses.filter((b) => b.verificationStatus === "VERIFIED").length,
-    pending: apiStats?.pending ?? businesses.filter((b) => b.verificationStatus === "PENDING").length,
-    suspended: apiStats?.suspended ?? businesses.filter((b) => b.status === "SUSPENDED").length,
+    total: apiStats?.total ?? totalFiltered,
+    verified: apiStats?.verified ?? 0,
+    pending: apiStats?.pending ?? 0,
+    suspended: apiStats?.suspended ?? 0,
   }
-
-  const filtered = businesses.filter((business) => {
-    if (verificationFilter !== "all" && business.verificationStatus !== verificationFilter)
-      return false
-    if (statusFilter !== "all" && business.status !== statusFilter) return false
-    if (categoryFilter !== "all" && business.category !== categoryFilter) return false
-    if (locationFilter !== "all" && business.city !== locationFilter) return false
-    if (
-      search &&
-      !business.name.toLowerCase().includes(search.toLowerCase()) &&
-      !business.ownerName.toLowerCase().includes(search.toLowerCase()) &&
-      !business.slug.toLowerCase().includes(search.toLowerCase())
-    )
-      return false
-    return true
-  })
 
   function openDetail(business: Business) {
     setSelectedId(business.id)
@@ -349,6 +464,7 @@ export default function AdminBusinessesPage() {
       toast.success("Business berhasil diperbarui.")
     }
     setFormOpen(null)
+    setRefreshTick((t) => t + 1)
   }
 
   async function applyStatusAction(target: Business, action: "VERIFY" | "SUSPEND" | "ACTIVATE") {
@@ -370,6 +486,7 @@ export default function AdminBusinessesPage() {
           : b
       )
     )
+    setRefreshTick((t) => t + 1)
   }
 
   const openOwnerModal = React.useCallback(async (biz: Business) => {
@@ -442,6 +559,7 @@ export default function AdminBusinessesPage() {
 
       toast.success(res.message || `Owner berhasil diubah ke ${newOwnerEmail}`)
       setOwnerModalOpen(false)
+      setRefreshTick((t) => t + 1)
     } catch (err: any) {
       toast.error(err.message || "Gagal mengubah owner bisnis.")
     } finally {
@@ -477,6 +595,7 @@ export default function AdminBusinessesPage() {
 
       toast.success(res.message || "Kepemilikan bisnis berhasil dilepas (Unclaim).")
       setOwnerModalOpen(false)
+      setRefreshTick((t) => t + 1)
     } catch (err: any) {
       toast.error(err.message || "Gagal melepas kepemilikan bisnis.")
     } finally {
@@ -484,28 +603,42 @@ export default function AdminBusinessesPage() {
     }
   }
 
-  function exportCsv() {
-    const headers = ["ID", "Nama", "Slug", "Kategori", "Kota", "Status", "Verifikasi", "Rating", "Reviews"]
-    const rows = filtered.map((b) => [
-      b.id,
-      `"${b.name.replace(/"/g, '""')}"`,
-      b.slug,
-      `"${b.category}"`,
-      `"${b.city}"`,
-      b.status,
-      b.verificationStatus,
-      b.averageRating,
-      b.totalReviews,
-    ])
-    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `katamereka-businesses-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success(`Berhasil mengekspor ${filtered.length} data bisnis ke CSV.`)
+  async function exportCsv() {
+    try {
+      toast.info("Mengunduh data bisnis...")
+      const res = await fetchBusinesses({
+        limit: 500,
+        search: debouncedSearch || undefined,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        category: categoryFilter === "all" ? undefined : categoryFilter,
+        city: locationFilter === "all" ? undefined : locationFilter,
+        verificationStatus: verificationFilter === "all" ? undefined : verificationFilter,
+      })
+      const list = res.data && res.data.length > 0 ? res.data.map(mapApiBusiness) : businesses
+      const headers = ["ID", "Nama", "Slug", "Kategori", "Kota", "Status", "Verifikasi", "Rating", "Reviews"]
+      const rows = list.map((b) => [
+        b.id,
+        `"${b.name.replace(/"/g, '""')}"`,
+        b.slug,
+        `"${b.category}"`,
+        `"${b.city}"`,
+        b.status,
+        b.verificationStatus,
+        b.averageRating,
+        b.totalReviews,
+      ])
+      const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `katamereka-businesses-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success(`Berhasil mengekspor ${list.length} data bisnis ke CSV.`)
+    } catch {
+      toast.error("Gagal mengekspor data ke CSV.")
+    }
   }
 
   const columns: ResourceTableColumn<Business>[] = [
@@ -656,10 +789,7 @@ export default function AdminBusinessesPage() {
           delta="+12%"
           hint="dari bulan lalu"
           icon={BuildingIcon}
-          onClick={() => {
-            setVerificationFilter("all")
-            setStatusFilter("all")
-          }}
+          onClick={resetFilters}
         />
         <StatCard
           label="Verified Businesses"
@@ -667,7 +797,7 @@ export default function AdminBusinessesPage() {
           delta="+8%"
           hint="dari bulan lalu"
           icon={ShieldCheckIcon}
-          onClick={() => setVerificationFilter("VERIFIED")}
+          onClick={() => handleVerificationFilterChange("VERIFIED")}
         />
         <StatCard
           label="Pending Verification"
@@ -676,7 +806,7 @@ export default function AdminBusinessesPage() {
           deltaTone="negative"
           hint="dari bulan lalu"
           icon={ClockIcon}
-          onClick={() => setVerificationFilter("PENDING")}
+          onClick={() => handleVerificationFilterChange("PENDING")}
         />
         <StatCard
           label="Suspended Businesses"
@@ -685,7 +815,7 @@ export default function AdminBusinessesPage() {
           deltaTone="negative"
           hint="dari bulan lalu"
           icon={BanIcon}
-          onClick={() => setStatusFilter("SUSPENDED")}
+          onClick={() => handleStatusFilterChange("SUSPENDED")}
         />
       </div>
 
@@ -702,35 +832,42 @@ export default function AdminBusinessesPage() {
                 label="Kategori"
                 options={categoryOptions}
                 value={categoryFilter}
-                onChange={setCategoryFilter}
+                onChange={handleCategoryFilterChange}
               />
               <FilterDropdown
                 label="Verifikasi"
                 options={VERIFICATION_OPTIONS}
                 value={verificationFilter}
-                onChange={setVerificationFilter}
+                onChange={handleVerificationFilterChange}
               />
               <FilterDropdown
                 label="Status"
                 options={STATUS_OPTIONS}
                 value={statusFilter}
-                onChange={setStatusFilter}
+                onChange={handleStatusFilterChange}
               />
               <FilterDropdown
                 label="Lokasi"
                 options={locationOptions}
                 value={locationFilter}
-                onChange={setLocationFilter}
+                onChange={handleLocationFilterChange}
               />
+              {(search || verificationFilter !== "all" || statusFilter !== "all" || categoryFilter !== "all" || locationFilter !== "all") && (
+                <Button variant="outline" size="sm" onClick={resetFilters}>
+                  <RotateCcwIcon className="size-3.5" />
+                  Reset
+                </Button>
+              )}
             </div>
           </div>
 
           <ResourceTable
-            data={filtered}
+            data={businesses}
             columns={columns}
             getRowId={(business) => business.id}
             onRowClick={openDetail}
             isLoading={loading}
+            error={error}
             rowClassName={(business) => (business.id === selectedId ? "bg-primary/5" : undefined)}
             selectedIds={selectedIds}
             onToggleRow={(id, checked) =>
@@ -742,12 +879,54 @@ export default function AdminBusinessesPage() {
               })
             }
             onToggleAll={(checked) =>
-              setSelectedIds(checked ? new Set(filtered.map((b) => b.id)) : new Set())
+              setSelectedIds(checked ? new Set(businesses.map((b) => b.id)) : new Set())
             }
             itemLabel="business"
-            pageSize={10}
+            pageSize={PAGE_LIMIT}
+            pageSizeOptions={[PAGE_LIMIT]}
+            hidePagination={true}
             emptyTitle="Tidak ada bisnis ditemukan."
+            emptyDescription={
+              debouncedSearch || verificationFilter !== "all" || statusFilter !== "all" || categoryFilter !== "all" || locationFilter !== "all"
+                ? "Coba sesuaikan kata kunci pencarian atau ubah filter yang aktif."
+                : undefined
+            }
           />
+
+          {!loading && !error && totalFiltered > 0 && (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground pt-1">
+              <span>
+                Menampilkan{" "}
+                <strong className="text-foreground">
+                  {(apiPage - 1) * PAGE_LIMIT + 1}–{Math.min(apiPage * PAGE_LIMIT, totalFiltered)}
+                </strong>{" "}
+                dari <strong className="text-foreground">{totalFiltered.toLocaleString("id-ID")}</strong> bisnis
+              </span>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs">
+                    Halaman {apiPage} dari {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={apiPage <= 1 || loading}
+                    onClick={() => setApiPage((p) => Math.max(1, p - 1))}
+                  >
+                    Sebelumnya
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={apiPage >= totalPages || loading}
+                    onClick={() => setApiPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Selanjutnya
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {selected && (

@@ -229,7 +229,13 @@ export interface BusinessListItem {
 
 export interface BusinessListResponse {
   data: BusinessListItem[];
-  stats: { total_business: number; active_business: number; pending_business: number };
+  stats: {
+    total_business: number;
+    active_business: number;
+    pending_business: number;
+    verified_business?: number;
+    suspended_business?: number;
+  };
   pagination: ApiPagination;
 }
 
@@ -237,7 +243,10 @@ export interface BusinessQueryParams {
   page?: number;
   limit?: number;
   search?: string;
-  status?: PlatformBusinessStatus;
+  status?: string;
+  category?: string;
+  city?: string;
+  verificationStatus?: string;
 }
 
 export interface BusinessPayload {
@@ -258,11 +267,14 @@ export async function fetchBusinesses(params: BusinessQueryParams = {}): Promise
   const qs = new URLSearchParams();
   if (params.page) qs.append("page", String(params.page));
   if (params.limit) qs.append("limit", String(params.limit));
-  if (params.search) qs.append("search", params.search);
-  if (params.status) qs.append("status", params.status);
+  if (params.search && params.search.trim()) qs.append("search", params.search.trim());
+  if (params.status && params.status !== "all") qs.append("status", params.status);
+  if (params.category && params.category !== "all") qs.append("category", params.category);
+  if (params.city && params.city !== "all") qs.append("city", params.city);
+  if (params.verificationStatus && params.verificationStatus !== "all") qs.append("verificationStatus", params.verificationStatus);
   const s = qs.toString();
 
-  const res = await fetch(`${API_BASE_URL}/businesses${s ? `?${s}` : ""}`, {
+  const res = await fetch(`${API_BASE_URL}/admin/businesses${s ? `?${s}` : ""}`, {
     method: "GET",
     headers: authHeaders(),
     cache: "no-store",
@@ -286,13 +298,21 @@ export async function fetchBusinesses(params: BusinessQueryParams = {}): Promise
     average_rating: b.average_rating ?? b.rating ?? null,
     review_count: b.review_count ?? b.reviews_count ?? 0,
     created_at: b.created_at || b.updated_at || new Date().toISOString(),
+    is_claimed: Boolean(b.is_claimed || b.owner),
+    owner_id: b.owner_id || b.owner?.id || null,
+    owner_name: b.owner_name || b.owner?.name || null,
+    owner_email: b.owner_email || b.owner?.email || null,
+    owner: b.owner || null,
   }));
 
   const total = raw?.pagination?.total ?? data.length;
-  const stats = raw?.stats || {
-    total_business: total,
-    active_business: data.filter((x) => x.status === "ACTIVE" || x.status === "CLAIMED").length || total,
-    pending_business: data.filter((x) => x.status === "PENDING").length,
+  const rawStats = raw?.stats || {};
+  const stats = {
+    total_business: Number(rawStats.total_business ?? total),
+    active_business: Number(rawStats.active_business ?? data.filter((x) => x.status === "ACTIVE" || x.status === "CLAIMED").length),
+    pending_business: Number(rawStats.pending_business ?? data.filter((x) => x.status === "PENDING").length),
+    verified_business: rawStats.verified_business !== undefined ? Number(rawStats.verified_business) : data.filter((x) => x.is_claimed).length,
+    suspended_business: rawStats.suspended_business !== undefined ? Number(rawStats.suspended_business) : data.filter((x) => x.status === "SUSPENDED").length,
   };
 
   return {
@@ -310,7 +330,7 @@ export async function fetchBusinesses(params: BusinessQueryParams = {}): Promise
 export async function createBusiness(
   payload: BusinessPayload
 ): Promise<{ message: string; data: BusinessListItem }> {
-  const res = await fetch(`${API_BASE_URL}/businesses`, {
+  const res = await fetch(`${API_BASE_URL}/admin/businesses`, {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify(payload),
@@ -327,7 +347,7 @@ export async function updateBusiness(
   id: string,
   payload: Partial<BusinessPayload>
 ): Promise<{ message: string; data: BusinessListItem }> {
-  const res = await fetch(`${API_BASE_URL}/businesses/${id}`, {
+  const res = await fetch(`${API_BASE_URL}/admin/businesses/${id}`, {
     method: "PATCH",
     headers: authHeaders(),
     body: JSON.stringify(payload),
@@ -341,7 +361,7 @@ export async function updateBusiness(
 }
 
 export async function deleteBusiness(id: string): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE_URL}/businesses/${id}`, {
+  const res = await fetch(`${API_BASE_URL}/admin/businesses/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
