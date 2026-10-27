@@ -6,7 +6,7 @@
  * the same business differently.
  */
 import { type ApiBusinessDetail, resolveMediaUrl } from "./api-client";
-import { buildReviewSchemas, type SchemaReviewInput } from "./schema-org";
+import type { SchemaReviewInput } from "./schema-org";
 
 export type BusinessCategoryGroup =
   | "RESTAURANT"
@@ -230,8 +230,12 @@ export function buildBusinessSchema(
       worstRating: "1",
     };
   }
-  const reviewNodes = buildReviewSchemas(reviews);
-  if (reviewNodes.length > 0) schema.review = reviewNodes;
 
+  // NOTE: We intentionally do NOT attach an array of individual `Review` objects
+  // (schema.review) alongside `aggregateRating`. In Google Search Console, having
+  // multiple Review nodes nested within an entity that already defines aggregateRating
+  // triggers the critical error "Review has multiple aggregate ratings", disqualifying
+  // the page from star snippet rich results. Google's review snippet specification
+  // for review platforms requires only a single, clean `aggregateRating`.
   return schema;
 }
