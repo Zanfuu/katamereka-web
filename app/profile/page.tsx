@@ -113,6 +113,7 @@ export default function ProfilePage() {
   const profileEmail = user?.email && user.email !== "-" ? user.email : "-";
   const isVerified = user?.verified ?? false;
 
+  const profileAvatar = (user as any)?.avatarUrl || (user as any)?.avatar_url || null;
   const reviewCount = summaryStats?.totalReviews ?? (typeof user?.reviewCount === "number" ? user.reviewCount : 0);
   const helpfulCount = summaryStats?.totalHelpfulVotes ?? (typeof user?.helpfulCount === "number" ? user.helpfulCount : 0);
   const savedCount = summaryStats?.totalSavedBusinesses ?? favorites.length;
@@ -211,9 +212,18 @@ export default function ProfilePage() {
             {/* User card */}
             <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs text-center space-y-4">
               <div className="relative inline-block mx-auto">
-                <div className="w-24 h-24 rounded-full bg-[#008767] text-white flex items-center justify-center font-bold text-3xl shadow-lg shadow-[#008767]/20 border-4 border-white">
-                  {profileInitials}
-                </div>
+                {profileAvatar ? (
+                  <img
+                    src={profileAvatar}
+                    alt={profileName}
+                    referrerPolicy="no-referrer"
+                    className="w-24 h-24 rounded-full object-cover shadow-lg border-4 border-white"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-[#008767] text-white flex items-center justify-center font-bold text-3xl shadow-lg shadow-[#008767]/20 border-4 border-white">
+                    {profileInitials}
+                  </div>
+                )}
                 {isVerified && (
                   <div className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-md">
                     <CheckCircle2 className="w-5 h-5 text-[#008767] fill-[#008767]/10" />
@@ -248,6 +258,17 @@ export default function ProfilePage() {
                   <p className="text-[10px] text-slate-400 font-medium">Favorit</p>
                 </div>
               </div>
+              {user?.id && (
+                <div className="pt-2 border-t border-slate-100">
+                  <Link
+                    href={`/user/${user.id}`}
+                    className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-[#ecf8f3] text-[#008767] text-xs font-semibold hover:bg-[#008767] hover:text-white transition-all shadow-2xs"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Lihat Profil Publik Saya</span>
+                  </Link>
+                </div>
+              )}
             </div>
 
             {/* Nav menu */}

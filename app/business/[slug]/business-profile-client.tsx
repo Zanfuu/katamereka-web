@@ -2273,6 +2273,7 @@ function ReviewCard({ review, businessSlug, currentUserId, isInitiallyHelpful, o
   const userAvatar = (review.user as any)?.avatar_url || (review.user as any)?.avatarUrl || null;
   const userReviewsCount = (review.user as any)?.reviews_count ?? (review.user as any)?.reviewsCount ?? 1;
   const userPhotosCount = (review.user as any)?.photos_count ?? (review.user as any)?.photosCount ?? 0;
+  const reviewerUserId = review.user?.id || (review as any).userId;
   const isOwnReview = Boolean(currentUserId && (review.user?.id === currentUserId || review.userId === currentUserId));
 
   const [isHelpful, setIsHelpful] = useState<boolean>(Boolean(isInitiallyHelpful));
@@ -2358,8 +2359,27 @@ function ReviewCard({ review, businessSlug, currentUserId, isInitiallyHelpful, o
     <div className="bg-slate-50/60 rounded-xl sm:rounded-2xl border border-slate-200/80 p-3.5 sm:p-5 space-y-3 hover:border-[#008767]/30 transition-colors">
       {/* Header row */}
       <div className="flex items-start gap-3">
-        {/* User avatar (Google profile avatar or initials fallback) */}
-        {userAvatar ? (
+        {/* User avatar (clickable to reviewer public profile) */}
+        {reviewerUserId ? (
+          <Link
+            href={`/user/${reviewerUserId}`}
+            className="flex-shrink-0 group/uav cursor-pointer"
+            title={`Lihat profil ${displayName}`}
+          >
+            {userAvatar ? (
+              <img
+                src={userAvatar}
+                alt={displayName}
+                referrerPolicy="no-referrer"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shadow-xs border border-slate-200 group-hover/uav:ring-2 group-hover/uav:ring-[#008767] transition-all"
+              />
+            ) : (
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#008767] text-white flex items-center justify-center font-bold text-xs sm:text-sm shadow-xs group-hover/uav:ring-2 group-hover/uav:ring-[#008767] transition-all">
+                {initials}
+              </div>
+            )}
+          </Link>
+        ) : userAvatar ? (
           <img
             src={userAvatar}
             alt={displayName}
@@ -2373,9 +2393,21 @@ function ReviewCard({ review, businessSlug, currentUserId, isInitiallyHelpful, o
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-bold text-slate-900 text-sm truncate" title={displayName}>
-              {displayName}
-            </p>
+            {reviewerUserId ? (
+              <Link
+                href={`/user/${reviewerUserId}`}
+                className="group/uname hover:underline max-w-[200px] truncate"
+                title={`Lihat ulasan lain dari ${displayName}`}
+              >
+                <p className="font-bold text-slate-900 text-sm truncate group-hover/uname:text-[#008767] transition-colors">
+                  {displayName}
+                </p>
+              </Link>
+            ) : (
+              <p className="font-bold text-slate-900 text-sm truncate" title={displayName}>
+                {displayName}
+              </p>
+            )}
             {/* Rating Stars (5.0 text hidden on mobile, shown on larger screens) */}
             <div className="flex items-center gap-0.5 flex-shrink-0">
               {Array.from({ length: 5 }).map((_, i) => (

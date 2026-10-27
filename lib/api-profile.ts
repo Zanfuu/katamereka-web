@@ -245,3 +245,78 @@ export async function deleteReview(
     return null;
   }
 }
+
+export interface PublicUserReviewBusiness {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  city: string;
+  province?: string;
+  logo_url: string | null;
+  average_rating: string | number | null;
+  review_count: number;
+}
+
+export interface PublicUserReviewReply {
+  id: string;
+  content: string;
+  created_at: string;
+  author: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+export interface PublicUserReview {
+  id: string;
+  rating: number;
+  title: string | null;
+  content: string;
+  photos: string[];
+  helpful_count: number;
+  created_at: string;
+  business: PublicUserReviewBusiness | null;
+  business_reply: PublicUserReviewReply | null;
+}
+
+export interface PublicUserProfileData {
+  user: {
+    id: string;
+    name: string;
+    avatar_url: string | null;
+    created_at: string;
+  };
+  stats: {
+    total_reviews: number;
+    total_photos: number;
+    total_helpful_votes: number;
+  };
+  reviews: PublicUserReview[];
+}
+
+export interface PublicUserProfileResponse {
+  success: boolean;
+  message: string;
+  data: PublicUserProfileData;
+}
+
+export async function fetchPublicUserProfile(userId: string): Promise<PublicUserProfileData | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/users/${encodeURIComponent(userId)}/public-profile`, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const fallback = await fetch(`${API_BASE_URL}/profile/public/${encodeURIComponent(userId)}`, {
+        cache: "no-store",
+      });
+      if (!fallback.ok) return null;
+      const jsonFallback = await fallback.json();
+      return jsonFallback.data || null;
+    }
+    const json = await res.json();
+    return json.data || null;
+  } catch {
+    return null;
+  }
+}

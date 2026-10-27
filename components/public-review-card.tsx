@@ -42,15 +42,41 @@ export default function PublicReviewCard({ review }: { review: ApiLatestReview }
     <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-5 sm:p-6 flex flex-col justify-between hover:shadow-lg hover:border-slate-300 transition-all space-y-4">
       <div>
         <div className="flex items-center gap-3">
-          <Avatar
-            src={review.user?.avatar_url}
-            name={review.user?.name}
-            className="w-10 h-10 rounded-full shrink-0 border border-slate-100"
-          />
+          {review.user?.id ? (
+            <Link
+              href={`/user/${review.user.id}`}
+              className="shrink-0 group/uav cursor-pointer"
+              title={`Lihat profil ${review.user.name || "Pengguna"}`}
+            >
+              <Avatar
+                src={review.user?.avatar_url}
+                name={review.user?.name}
+                className="w-10 h-10 rounded-full border border-slate-100 group-hover/uav:ring-2 group-hover/uav:ring-[#008767] transition-all"
+              />
+            </Link>
+          ) : (
+            <Avatar
+              src={review.user?.avatar_url}
+              name={review.user?.name}
+              className="w-10 h-10 rounded-full shrink-0 border border-slate-100"
+            />
+          )}
           <div className="min-w-0">
-            <h4 className="font-bold text-slate-900 text-sm sm:text-base leading-tight truncate">
-              {review.user?.name || "Pengguna Katamereka"}
-            </h4>
+            {review.user?.id ? (
+              <Link
+                href={`/user/${review.user.id}`}
+                className="group/uname hover:underline"
+                title={`Lihat profil ${review.user.name || "Pengguna"}`}
+              >
+                <h4 className="font-bold text-slate-900 text-sm sm:text-base leading-tight truncate group-hover/uname:text-[#008767] transition-colors">
+                  {review.user?.name || "Pengguna Katamereka"}
+                </h4>
+              </Link>
+            ) : (
+              <h4 className="font-bold text-slate-900 text-sm sm:text-base leading-tight truncate">
+                {review.user?.name || "Pengguna Katamereka"}
+              </h4>
+            )}
             <span className="text-xs text-slate-400 font-normal">
               {formatRelativeDate(review.created_at)}
             </span>
