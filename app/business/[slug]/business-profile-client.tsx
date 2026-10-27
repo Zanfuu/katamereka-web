@@ -2270,6 +2270,9 @@ function ReviewCard({ review, businessSlug, currentUserId, isInitiallyHelpful, o
   const safeRating = isNaN(rating) ? 0 : Math.min(5, Math.max(0, rating));
   const initials = review.user?.initials || review.user?.name?.split(" ").map((w: string) => w[0]).join("").substring(0, 2).toUpperCase() || "U";
   const displayName = review.user?.name || "Pengguna";
+  const userAvatar = (review.user as any)?.avatar_url || (review.user as any)?.avatarUrl || null;
+  const userReviewsCount = (review.user as any)?.reviews_count ?? (review.user as any)?.reviewsCount ?? 1;
+  const userPhotosCount = (review.user as any)?.photos_count ?? (review.user as any)?.photosCount ?? 0;
   const isOwnReview = Boolean(currentUserId && (review.user?.id === currentUserId || review.userId === currentUserId));
 
   const [isHelpful, setIsHelpful] = useState<boolean>(Boolean(isInitiallyHelpful));
@@ -2355,10 +2358,19 @@ function ReviewCard({ review, businessSlug, currentUserId, isInitiallyHelpful, o
     <div className="bg-slate-50/60 rounded-xl sm:rounded-2xl border border-slate-200/80 p-3.5 sm:p-5 space-y-3 hover:border-[#008767]/30 transition-colors">
       {/* Header row */}
       <div className="flex items-start gap-3">
-        {/* User avatar */}
-        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#008767] text-white flex-shrink-0 flex items-center justify-center font-bold text-xs sm:text-sm shadow-xs">
-          {initials}
-        </div>
+        {/* User avatar (Google profile avatar or initials fallback) */}
+        {userAvatar ? (
+          <img
+            src={userAvatar}
+            alt={displayName}
+            referrerPolicy="no-referrer"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0 shadow-xs border border-slate-200"
+          />
+        ) : (
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#008767] text-white flex-shrink-0 flex items-center justify-center font-bold text-xs sm:text-sm shadow-xs">
+            {initials}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-bold text-slate-900 text-sm truncate" title={displayName}>
@@ -2369,8 +2381,9 @@ function ReviewCard({ review, businessSlug, currentUserId, isInitiallyHelpful, o
               {Array.from({ length: 5 }).map((_, i) => (
                 <Star
                   key={i}
-                  className={`w-3.5 h-3.5 ${i < safeRating ? "text-amber-400 fill-amber-400" : "text-slate-200 fill-slate-200"
-                    }`}
+                  className={`w-3.5 h-3.5 ${
+                    i < safeRating ? "text-amber-400 fill-amber-400" : "text-slate-200 fill-slate-200"
+                  }`}
                 />
               ))}
               <span className="hidden sm:inline text-xs font-bold text-slate-700 ml-1">
@@ -2378,13 +2391,17 @@ function ReviewCard({ review, businessSlug, currentUserId, isInitiallyHelpful, o
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5">
-            <img
-              src="/icons/header-calendar.png"
-              alt="Tanggal ulasan"
-              className="w-3 h-3 object-contain inline-block opacity-75"
-            />
-            <span>{relativeDate(dateValue)}</span>
+          {/* Reviewer stats ala Google Maps: X ulasan · Y foto · waktu */}
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium mt-0.5 flex-wrap">
+            <span>{userReviewsCount} ulasan</span>
+            {userPhotosCount > 0 && (
+              <>
+                <span className="text-slate-300">·</span>
+                <span>{userPhotosCount} foto</span>
+              </>
+            )}
+            <span className="text-slate-300">·</span>
+            <span className="text-slate-400">{relativeDate(dateValue)}</span>
           </div>
         </div>
       </div>

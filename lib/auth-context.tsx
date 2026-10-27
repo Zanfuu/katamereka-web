@@ -22,6 +22,8 @@ export interface UserProfile {
   businessRole: BusinessMemberRole;
   status?: string;
   accessToken?: string;
+  avatarUrl?: string | null;
+  avatar_url?: string | null;
   reviewCount: number;
   helpfulCount: number;
   businessCount: number;
@@ -125,6 +127,8 @@ async function fetchFreshClaims(
   name?: string;
   role?: PlatformRole;
   businessRole?: BusinessMemberRole;
+  avatarUrl?: string | null;
+  avatar_url?: string | null;
 } | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/auth/me`, {
@@ -276,11 +280,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           rememberBusinessEmail(email);
         }
 
+        const freshAvatar =
+          freshClaims.avatarUrl ||
+          freshClaims.avatar_url ||
+          parsed.avatarUrl ||
+          parsed.avatar_url ||
+          null;
+
         const hydratedUser: UserProfile = {
           ...parsed,
           role: effectiveRole,
           platformRole,
           businessRole: effectiveBusinessRole,
+          avatarUrl: freshAvatar,
+          avatar_url: freshAvatar,
           businessCount: effectiveRole === "bisnis" ? Math.max(1, parsed.businessCount || 1) : 0,
         };
 
@@ -460,12 +473,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .substring(0, 2)
         .toUpperCase();
 
+      const avatarUrl =
+        returnedUser.avatarUrl ||
+        returnedUser.avatar_url ||
+        returnedUser.picture ||
+        null;
+
       const loadedUser: UserProfile = {
         id: returnedUser.id || "",
         name: userName,
         username: lowerEmail.split("@")[0].toLowerCase().replace(/\s+/g, ""),
         email: returnedEmail || lowerEmail,
         initials: initials || "-",
+        avatarUrl,
+        avatar_url: avatarUrl,
         joinedDate: "Okt 2026",
         verified: true,
         role: userRole,

@@ -27,7 +27,17 @@ export interface PublicReview extends SchemaReviewInput {
   status: string;
   createdAt: string;
   userId?: string;
-  user?: { id?: string; name?: string; initials?: string };
+  user?: {
+    id?: string;
+    name?: string;
+    initials?: string;
+    avatar_url?: string | null;
+    avatarUrl?: string | null;
+    reviews_count?: number;
+    reviewsCount?: number;
+    photos_count?: number;
+    photosCount?: number;
+  };
   helpfulCount?: number;
   helpful_count?: number;
 }

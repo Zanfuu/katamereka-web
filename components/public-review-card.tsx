@@ -21,7 +21,7 @@ function Avatar({
 }) {
   const url = resolveMediaUrl(src);
   if (url) {
-    return <img src={url} alt={name || ""} className={`${className} object-cover`} />;
+    return <img src={url} alt={name || ""} referrerPolicy="no-referrer" className={`${className} object-cover`} />;
   }
   return (
     <div

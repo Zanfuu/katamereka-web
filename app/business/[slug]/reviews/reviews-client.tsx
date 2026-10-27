@@ -794,6 +794,9 @@ function ReviewCardItem({
       .toUpperCase() ||
     "U";
   const displayName = review.user?.name || "Pengguna";
+  const userAvatar = (review.user as any)?.avatar_url || (review.user as any)?.avatarUrl || null;
+  const userReviewsCount = (review.user as any)?.reviews_count ?? (review.user as any)?.reviewsCount ?? 1;
+  const userPhotosCount = (review.user as any)?.photos_count ?? (review.user as any)?.photosCount ?? 0;
   const isOwnReview = Boolean(
     currentUserId &&
     (review.user?.id === currentUserId || review.userId === currentUserId)
@@ -920,10 +923,19 @@ function ReviewCardItem({
     <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-6 space-y-3.5 shadow-xs hover:border-[#008767]/30 transition-colors">
       {/* Header row */}
       <div className="flex items-start gap-3">
-        {/* User avatar */}
-        <div className="w-10 h-10 rounded-full bg-[#008767] text-white flex-shrink-0 flex items-center justify-center font-bold text-sm shadow-xs">
-          {initials}
-        </div>
+        {/* User avatar (Google profile avatar or initials fallback) */}
+        {userAvatar ? (
+          <img
+            src={userAvatar}
+            alt={displayName}
+            referrerPolicy="no-referrer"
+            className="w-10 h-10 rounded-full object-cover flex-shrink-0 shadow-xs border border-slate-200"
+          />
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-[#008767] text-white flex-shrink-0 flex items-center justify-center font-bold text-sm shadow-xs">
+            {initials}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-bold text-slate-900 text-sm truncate" title={displayName}>
@@ -945,9 +957,17 @@ function ReviewCardItem({
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-0.5">
-            <Calendar className="w-3 h-3 text-slate-400 inline-block" />
-            <span>{relativeDate(dateValue)}</span>
+          {/* Reviewer stats ala Google Maps: X ulasan · Y foto · waktu */}
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium mt-0.5 flex-wrap">
+            <span>{userReviewsCount} ulasan</span>
+            {userPhotosCount > 0 && (
+              <>
+                <span className="text-slate-300">·</span>
+                <span>{userPhotosCount} foto</span>
+              </>
+            )}
+            <span className="text-slate-300">·</span>
+            <span className="text-slate-400">{relativeDate(dateValue)}</span>
           </div>
         </div>
       </div>
