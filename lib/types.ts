@@ -3,7 +3,7 @@
 // keep this in sync with lib/mock/* which is the only place that currently
 // implements it.
 
-export type PlatformRole = "USER" | "SUPER_ADMIN"
+export type PlatformRole = "USER" | "ADMIN" | "SUPER_ADMIN"
 
 export type BusinessRole = "OWNER" | "ADMIN" | "MEMBER"
 

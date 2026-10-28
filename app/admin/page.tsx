@@ -312,8 +312,8 @@ export default function AdminOverviewPage() {
       {/* 8 Kotak Kartu Statistik di Atas */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 @5xl/main:grid-cols-4">
         <StatCard
-          label="Total Customers"
-          sublabel={cards.totalCustomers?.label || "Business Admin"}
+          label="Total Admin"
+          sublabel={cards.totalCustomers?.label || "Admin Bisnis"}
           value={cards.totalCustomers?.value?.toLocaleString("id-ID") ?? "0"}
           delta={cards.totalCustomers?.growth}
           hint="dari periode lalu"
@@ -338,6 +338,7 @@ export default function AdminOverviewPage() {
         />
         <StatCard
           label="Total Users"
+          sublabel="Customer / Reviewer"
           value={cards.totalUsers?.value?.toLocaleString("id-ID") ?? "0"}
           delta={cards.totalUsers?.growth}
           hint="dari periode lalu"

@@ -24,7 +24,9 @@ import type { AuditLogEntry, PlatformRole } from "@/lib/types"
 import { fetchAdminAuditLogs, type AdminAuditLogItem } from "@/lib/admin-api"
 
 function mapApiLogToAuditEntry(log: AdminAuditLogItem): AuditLogEntry {
-  const role = (log.user?.role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "USER") as PlatformRole;
+  const userRole = log.user?.role;
+  const role: PlatformRole =
+    userRole === "SUPER_ADMIN" ? "SUPER_ADMIN" : userRole === "ADMIN" ? "ADMIN" : "USER";
   const target = log.data?.target || log.data?.entity || log.data?.path || "System";
   const action = log.data?.action || log.actionType || log.action_type || "ACTIVITY";
   return {
@@ -42,7 +44,8 @@ function mapApiLogToAuditEntry(log: AdminAuditLogItem): AuditLogEntry {
 const ROLE_OPTIONS = [
   { value: "all", label: "Semua Role" },
   { value: "SUPER_ADMIN", label: "Super Admin" },
-  { value: "USER", label: "Business Admin" },
+  { value: "ADMIN", label: "Admin Bisnis" },
+  { value: "USER", label: "Customer" },
 ]
 
 export default function AdminAuditLogsPage() {
