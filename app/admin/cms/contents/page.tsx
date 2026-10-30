@@ -18,6 +18,7 @@ import {
   Trash2Icon,
   FilePenLineIcon,
   CheckCircle2Icon,
+  ShieldAlertIcon,
 } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -57,6 +58,7 @@ import {
   publishCmsContent,
   resolveMediaUrl,
   updateCmsContent,
+  takeDownCmsContent,
   type CmsCategory,
   type CmsContent,
   type CmsTag,
@@ -92,7 +94,7 @@ export default function CmsContentsPage() {
 
   const [confirmTarget, setConfirmTarget] = React.useState<{
     content: CmsContent
-    action: "DELETE" | "ARCHIVE" | "PUBLISH"
+    action: "DELETE" | "ARCHIVE" | "PUBLISH" | "TAKEDOWN"
   } | null>(null)
 
   React.useEffect(() => {
@@ -188,6 +190,9 @@ export default function CmsContentsPage() {
       } else if (action === "ARCHIVE") {
         await updateCmsContent(content.id, { status: "ARCHIVED" })
         toast.success(`“${content.title}” diarsipkan.`)
+      } else if (action === "TAKEDOWN") {
+        await takeDownCmsContent(content.id)
+        toast.success(`“${content.title}” berhasil di-take down dari publik.`)
       } else {
         await publishCmsContent(content.id)
         toast.success(`“${content.title}” dipublikasikan.`)
@@ -293,8 +298,20 @@ export default function CmsContentsPage() {
     },
     {
       key: "author",
-      header: "Penulis",
-      render: (c) => <span className="text-muted-foreground">{c.author?.name ?? "-"}</span>,
+      header: "Penulis / Profil",
+      render: (c) => (
+        <div className="flex flex-col text-xs">
+          {c.business ? (
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-emerald-800">{c.business.name}</span>
+              <span className="rounded bg-emerald-100 px-1 py-0.5 text-[10px] font-medium text-emerald-800">Bisnis</span>
+            </div>
+          ) : (
+            <span className="font-medium text-foreground">Tim Katamereka</span>
+          )}
+          <span className="text-muted-foreground text-[11px]">{c.author?.name ? `oleh ${c.author.name}` : ""}</span>
+        </div>
+      ),
     },
     {
       key: "publishedAt",
@@ -337,6 +354,15 @@ export default function CmsContentsPage() {
                   Publikasikan
                 </DropdownMenuItem>
               )}
+              {displayStatus(c) === "PUBLISHED" && (
+                <DropdownMenuItem
+                  className="text-amber-600 focus:text-amber-600"
+                  onClick={() => setConfirmTarget({ content: c, action: "TAKEDOWN" })}
+                >
+                  <ShieldAlertIcon />
+                  Take Down
+                </DropdownMenuItem>
+              )}
               {c.status !== "ARCHIVED" && (
                 <DropdownMenuItem onClick={() => setConfirmTarget({ content: c, action: "ARCHIVE" })}>
                   <ArchiveIcon />
@@ -368,6 +394,12 @@ export default function CmsContentsPage() {
           description: `“${confirmTarget.content.title}” akan disembunyikan dari situs publik. Anda bisa mempublikasikannya lagi kapan saja.`,
           confirmLabel: "Arsipkan",
           variant: "default" as const,
+        },
+        TAKEDOWN: {
+          title: "Take Down artikel?",
+          description: `“${confirmTarget.content.title}” akan langsung diturunkan dari publik (diarsipkan) dan tidak lagi dapat dibaca oleh publik.`,
+          confirmLabel: "Take Down Sekarang",
+          variant: "destructive" as const,
         },
         PUBLISH: {
           title: "Publikasikan konten?",

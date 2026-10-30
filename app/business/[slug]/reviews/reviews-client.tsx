@@ -27,8 +27,10 @@ import {
   API_BASE_URL,
   ApiBusinessDetail,
   ApiReviewSummary,
+  ApiBusinessReviewAiSummary,
   resolveMediaUrl,
 } from "@/lib/api-client";
+import { AiReviewSummaryCard } from "@/components/review/ai-review-summary-card";
 import { deleteReview, toggleReviewHelpful, fetchMyHelpfulVotes, getLocalHelpfulVotes, getCachedHelpfulCount, saveLocalHelpfulVote } from "@/lib/api-profile";
 import { getCleanCategory, slugify } from "@/lib/slug";
 import { getBusinessBySlug } from "@/lib/mock-data";
@@ -70,10 +72,12 @@ export default function BusinessReviewsPage({
   initialBusiness = null,
   initialReviews = [],
   initialReviewSummary = null,
+  initialAiReviewSummary = null,
 }: {
   initialBusiness?: ApiBusinessDetail | null;
   initialReviews?: ReviewItem[];
   initialReviewSummary?: ApiReviewSummary | null;
+  initialAiReviewSummary?: ApiBusinessReviewAiSummary | null;
 }) {
   const params = useParams();
   const slug = (params?.slug as string) || "";
@@ -83,6 +87,7 @@ export default function BusinessReviewsPage({
   const [business, setBusiness] = useState<ApiBusinessDetail | null>(initialBusiness);
   const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews);
   const [reviewSummary, setReviewSummary] = useState<ApiReviewSummary | null>(initialReviewSummary ?? null);
+  const [aiReviewSummary, setAiReviewSummary] = useState<ApiBusinessReviewAiSummary | null>(initialAiReviewSummary ?? null);
   const [loading, setLoading] = useState<boolean>(!initialBusiness);
   const [selectedRatingFilter, setSelectedRatingFilter] = useState<number | null>(null);
   const [sortOption, setSortOption] = useState<"newest" | "highest" | "lowest">("newest");
@@ -147,9 +152,10 @@ export default function BusinessReviewsPage({
 
         const bizId = bizData?.id || decodedSlug;
         if (bizId) {
-          const [revRes, sumRes] = await Promise.all([
+          const [revRes, sumRes, aiRes] = await Promise.all([
             fetch(`${API_BASE_URL}/businesses/${bizId}/reviews`, { cache: "no-store" }),
             fetch(`${API_BASE_URL}/businesses/${bizId}/review-summary`, { cache: "no-store" }),
+            fetch(`${API_BASE_URL}/businesses/${bizId}/ai-review-summary`, { cache: "no-store" }),
           ]);
           if (revRes.ok) {
             const revData = await revRes.json();
@@ -166,6 +172,13 @@ export default function BusinessReviewsPage({
             const sumData = await sumRes.json();
             if (isMounted && sumData && typeof sumData.review_count === "number") {
               setReviewSummary(sumData);
+            }
+          }
+          if (aiRes.ok) {
+            const aiData = await aiRes.json();
+            const realAi = aiData?.data ?? aiData;
+            if (isMounted && realAi?.summary) {
+              setAiReviewSummary(realAi);
             }
           }
         }
@@ -487,6 +500,15 @@ export default function BusinessReviewsPage({
 
             {/* RIGHT / MAIN: REVIEWS LIST */}
             <div className="col-span-1 lg:col-span-8 space-y-5">
+
+              {/* Ringkasan AI KataMereka */}
+              {aiReviewSummary && aiReviewSummary.summary && (
+                <AiReviewSummaryCard
+                  summary={aiReviewSummary}
+                  businessId={business?.id}
+                  onSummaryUpdated={setAiReviewSummary}
+                />
+              )}
 
               {/* FILTER & SORT BAR */}
               <div className="bg-white rounded-2xl border border-slate-200/80 p-3 sm:p-4 shadow-xs flex flex-row items-center justify-between gap-2.5 sm:gap-3">

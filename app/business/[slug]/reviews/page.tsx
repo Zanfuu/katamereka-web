@@ -3,6 +3,7 @@ import {
   getBusinessForSsr,
   getBusinessReviewsForSsr,
   getBusinessReviewSummaryForSsr,
+  getBusinessReviewAiSummaryForSsr,
 } from "@/lib/business-ssr";
 import BusinessReviewsClient from "./reviews-client";
 
@@ -22,9 +23,10 @@ export default async function BusinessReviewsPage({
   const business = await getBusinessForSsr(slug);
   if (!business) notFound();
 
-  const [reviews, reviewSummary] = await Promise.all([
+  const [reviews, reviewSummary, aiReviewSummary] = await Promise.all([
     getBusinessReviewsForSsr(business.id),
     getBusinessReviewSummaryForSsr(business.id),
+    getBusinessReviewAiSummaryForSsr(business.id),
   ]);
 
   return (
@@ -32,6 +34,7 @@ export default async function BusinessReviewsPage({
       initialBusiness={business}
       initialReviews={reviews}
       initialReviewSummary={reviewSummary}
+      initialAiReviewSummary={aiReviewSummary}
     />
   );
 }

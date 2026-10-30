@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight, Building2, CheckCircle2, Star, ArrowUpRight } from "lucide-react"
 import Navbar from "@/components/navbar"
 import "@/components/cms/editor.css"
 import { CONSUMER_SITE_URL } from "@/lib/site-config"
@@ -101,18 +101,72 @@ export default async function BlogPostPage({ params }: PageProps) {
                 <p className="text-base text-slate-600 leading-relaxed">{post.excerpt}</p>
               )}
 
-              <div className="flex items-center gap-3 border-y border-slate-200/80 py-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#008767] text-sm font-bold text-white">
-                  {authorInitials || "KM"}
+              {post.business ? (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-white">
+                      {post.business.logo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={post.business.logo_url}
+                          alt={post.business.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Building2 className="h-6 w-6 text-emerald-600" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link
+                          href={`/business/${post.business.slug}`}
+                          className="text-base font-bold text-slate-900 hover:text-emerald-700 transition-colors"
+                        >
+                          {post.business.name}
+                        </Link>
+                        {post.business.is_claimed && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-700" /> Profil Bisnis
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 mt-1 flex-wrap">
+                        {post.business.average_rating ? (
+                          <span className="flex items-center gap-1 font-semibold text-amber-600">
+                            <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                            {Number(post.business.average_rating).toFixed(1)}
+                            <span className="text-slate-400 font-normal">({post.business.review_count || 0} ulasan)</span>
+                          </span>
+                        ) : null}
+                        {post.published_at && (
+                          <span>· {formatBlogDate(post.published_at)}</span>
+                        )}
+                        <span>· {readingMinutes} menit baca</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Link
+                    href={`/business/${post.business.slug}`}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#008767] px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#007055] transition-colors shrink-0"
+                  >
+                    Kunjungi Profil
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Link>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-900">oleh {authorName}</p>
-                  <p className="text-xs text-slate-400">
-                    {post.published_at && <>{formatBlogDate(post.published_at)} · </>}
-                    {readingMinutes} menit baca
-                  </p>
+              ) : (
+                <div className="flex items-center gap-3 border-y border-slate-200/80 py-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#008767] text-sm font-bold text-white">
+                    {authorInitials || "KM"}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-900">oleh {authorName}</p>
+                    <p className="text-xs text-slate-400">
+                      {post.published_at && <>{formatBlogDate(post.published_at)} · </>}
+                      {readingMinutes} menit baca
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {post.featured_image?.url && (
                 <div className="overflow-hidden rounded-2xl border border-slate-200/80">

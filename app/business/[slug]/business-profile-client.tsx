@@ -11,6 +11,7 @@ import {
   fetchBusinessPlaceImage,
   ApiBusinessDetail,
   ApiReviewSummary,
+  ApiBusinessReviewAiSummary,
   API_BASE_URL,
   fetchClaimStatus,
   createBusinessClaim,
@@ -19,6 +20,7 @@ import {
   resolveMediaUrl,
   getAuthToken,
 } from "@/lib/api-client";
+import { AiReviewSummaryCard } from "@/components/review/ai-review-summary-card";
 import {
   formatRelativeDate,
   formatStarRating,
@@ -151,16 +153,19 @@ export default function BusinessProfilePage({
   initialDetail = null,
   initialReviews = [],
   initialReviewSummary = null,
+  initialAiReviewSummary = null,
 }: {
   initialDetail?: ApiBusinessDetail | null;
   initialReviews?: BusinessReview[];
   initialReviewSummary?: ApiReviewSummary | null;
+  initialAiReviewSummary?: ApiBusinessReviewAiSummary | null;
 }) {
   const params = useParams();
   const slug = (params.slug as string) || "";
   const { user, isLoggedIn } = useAuth();
 
   const [reviewSummary, setReviewSummary] = useState<ApiReviewSummary | null>(initialReviewSummary ?? null);
+  const [aiReviewSummary, setAiReviewSummary] = useState<ApiBusinessReviewAiSummary | null>(initialAiReviewSummary ?? null);
   const [isBusinessDomain, setIsBusinessDomain] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -412,6 +417,18 @@ export default function BusinessProfilePage({
       .then((summary) => {
         if (summary && typeof summary.review_count === "number") {
           setReviewSummary(summary);
+        }
+      })
+      .catch(() => { });
+
+    fetch(`${API_BASE_URL}/businesses/${apiDetail.id}/ai-review-summary`, {
+      cache: "no-store",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const aiData = data?.data ?? data;
+        if (aiData?.summary) {
+          setAiReviewSummary(aiData);
         }
       })
       .catch(() => { });
@@ -1109,6 +1126,15 @@ export default function BusinessProfilePage({
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* Ringkasan AI KataMereka (didukung MAIA Router) */}
+                {aiReviewSummary && aiReviewSummary.summary && (
+                  <AiReviewSummaryCard
+                    summary={aiReviewSummary}
+                    businessId={apiDetail?.id}
+                    onSummaryUpdated={setAiReviewSummary}
+                  />
                 )}
 
                 {/* Card 3: Ulasan Pelanggan */}

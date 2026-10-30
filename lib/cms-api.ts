@@ -96,10 +96,25 @@ export interface CmsRevision {
   createdAt: string
 }
 
+export interface CmsBusinessRef {
+  id: string
+  name: string
+  slug: string
+  logoUrl?: string | null
+  logo_url?: string | null
+  averageRating?: number | null
+  average_rating?: number | null
+  isClaimed?: boolean
+  is_claimed?: boolean
+  city?: string | null
+}
+
 export interface CmsContent {
   id: string
   authorId: string
   author?: CmsUserRef | null
+  businessId?: string | null
+  business?: CmsBusinessRef | null
   title: string
   slug: string
   excerpt: string | null
@@ -135,6 +150,7 @@ export interface CmsContentQuery {
   status?: ContentStatus
   categorySlug?: string
   tagSlug?: string
+  businessId?: string
 }
 
 export interface CmsSeoPayload {
@@ -153,6 +169,7 @@ export interface CmsContentPayload {
   slug?: string
   excerpt?: string
   body: string
+  businessId?: string | null
   /** null clears the featured image on update. */
   featuredMediaId?: string | null
   status?: ContentStatus
@@ -413,4 +430,74 @@ export function formatFileSize(bytes: number): string {
   const units = ["B", "KB", "MB", "GB"]
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
   return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`
+}
+
+export function takeDownCmsContent(id: string) {
+  return request<Envelope<CmsContent>>(`/admin/cms/contents/${id}/takedown`, {
+    method: "POST",
+  })
+}
+
+// ==================== BUSINESS ADMIN ARTICLES ====================
+
+export interface ArticleEligibilityResponse {
+  eligible: boolean
+  message: string
+  businesses: {
+    id: string
+    name: string
+    slug: string
+    role: string
+    logo_url?: string | null
+    is_claimed: boolean
+  }[]
+}
+
+export function checkArticleEligibility() {
+  return request<ArticleEligibilityResponse>("/dashboard/articles/eligibility")
+}
+
+export function fetchMyBusinessArticles(params: {
+  page?: number
+  limit?: number
+  search?: string
+  status?: ContentStatus
+  businessId?: string
+} = {}) {
+  const qs = new URLSearchParams()
+  if (params.page) qs.append("page", String(params.page))
+  if (params.limit) qs.append("limit", String(params.limit))
+  if (params.search) qs.append("search", params.search)
+  if (params.status) qs.append("status", params.status)
+  if (params.businessId) qs.append("businessId", params.businessId)
+  const qStr = qs.toString()
+  return request<{
+    hasBusiness: boolean
+    data: CmsContent[]
+    pagination: CmsPagination
+  }>(`/dashboard/articles${qStr ? `?${qStr}` : ""}`)
+}
+
+export function createBusinessArticle(payload: CmsContentPayload) {
+  return request<Envelope<CmsContent>>("/dashboard/articles", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
+export function fetchBusinessArticleById(id: string) {
+  return request<CmsContent>(`/dashboard/articles/${id}`)
+}
+
+export function updateBusinessArticle(id: string, payload: Partial<CmsContentPayload>) {
+  return request<Envelope<CmsContent>>(`/dashboard/articles/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteBusinessArticle(id: string) {
+  return request<{ success: boolean; message: string }>(`/dashboard/articles/${id}`, {
+    method: "DELETE",
+  })
 }

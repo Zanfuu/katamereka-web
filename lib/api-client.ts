@@ -747,6 +747,94 @@ export interface ApiReviewSummary {
   range?: string;
 }
 
+export interface ApiReviewAspectSentiment {
+  name: string;
+  sentiment: "positive" | "neutral" | "negative";
+  score: number;
+  mentionCount: number;
+  summary: string;
+}
+
+export interface ApiReviewQuoteItem {
+  aspect: string;
+  quote: string;
+  sentiment?: "positive" | "neutral" | "negative";
+}
+
+export interface ApiBusinessReviewAiSummary {
+  id?: string;
+  business_id: string;
+  summary: string;
+  aspects: ApiReviewAspectSentiment[];
+  pros: string[];
+  cons: string[];
+  sample_quotes?: ApiReviewQuoteItem[];
+  total_reviews_analyzed?: number;
+  model_used?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  cached?: boolean;
+}
+
+/**
+ * GET /businesses/:businessId/ai-review-summary
+ * Fetches AI-generated review summary and aspect sentiment breakdown powered by MAIA Router.
+ */
+export async function fetchBusinessReviewAiSummary(
+  businessId: string,
+  refresh = false
+): Promise<ApiBusinessReviewAiSummary | null> {
+  const query = refresh ? "?refresh=true" : "";
+  const url = `${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/ai-review-summary${query}`;
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      ...publicGetInit(["reviews", `reviews:${businessId}`, "ai-review-summary"]),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return (data?.data ?? data) as ApiBusinessReviewAiSummary;
+    }
+  } catch (e) {
+    console.warn("fetchBusinessReviewAiSummary API call failed:", e);
+  }
+
+  return null;
+}
+
+/**
+ * POST /businesses/:businessId/ai-review-summary/regenerate
+ * Manually trigger AI summary regeneration on MAIA Router.
+ */
+export async function regenerateBusinessReviewAiSummary(
+  businessId: string
+): Promise<ApiBusinessReviewAiSummary | null> {
+  const url = `${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/ai-review-summary/regenerate`;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return (data?.data ?? data) as ApiBusinessReviewAiSummary;
+    }
+  } catch (e) {
+    console.warn("regenerateBusinessReviewAiSummary API call failed:", e);
+  }
+
+  return null;
+}
+
 /**
  * GET /businesses/:businessId/review-summary
  * Fetches aggregate review metrics: average rating, total count, and 1-5 star distribution.

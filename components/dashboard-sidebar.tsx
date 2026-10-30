@@ -12,6 +12,7 @@ import {
   SettingsIcon,
   StarIcon,
   TrophyIcon,
+  NewspaperIcon,
 } from "lucide-react"
 
 import { BusinessSwitcher } from "@/components/business-switcher"
@@ -40,7 +41,10 @@ const navGroups = [
   },
   {
     label: "Bisnis",
-    items: [{ title: "Business", url: "/dashboard/business", icon: BuildingIcon }],
+    items: [
+      { title: "Business", url: "/dashboard/business", icon: BuildingIcon },
+      { title: "Artikel", url: "/dashboard/articles", icon: NewspaperIcon },
+    ],
   },
   {
     label: "System",

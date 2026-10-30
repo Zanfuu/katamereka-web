@@ -10,6 +10,17 @@ export interface BlogAuthor {
   name: string
 }
 
+export interface BlogBusinessAuthor {
+  id: string
+  name: string
+  slug: string
+  logo_url: string | null
+  average_rating: number | null
+  review_count: number
+  is_claimed: boolean
+  city?: string | null
+}
+
 export interface BlogImage {
   url: string
   alt: string | null
@@ -27,6 +38,7 @@ export interface BlogListItem {
   excerpt: string | null
   published_at: string | null
   author: BlogAuthor | null
+  business?: BlogBusinessAuthor | null
   featured_image: BlogImage | null
   categories?: BlogTaxonomy[]
   tags?: BlogTaxonomy[]

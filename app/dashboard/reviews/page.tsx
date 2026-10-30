@@ -56,6 +56,11 @@ import {
   type DashboardReviewSource,
   type DashboardReviewsQuery,
 } from "@/lib/api-business-dashboard"
+import {
+  fetchBusinessReviewAiSummary,
+  type ApiBusinessReviewAiSummary,
+} from "@/lib/api-client"
+import { AiReviewSummaryCard } from "@/components/review/ai-review-summary-card"
 import { useBusinessContext } from "@/components/business-provider"
 import type { ModerationStatus, Review } from "@/lib/types"
 
@@ -169,6 +174,7 @@ export default function DashboardReviewsPage() {
   const [detailReview, setDetailReview] = React.useState<Review | null>(null)
 
   const [apiReviews, setApiReviews] = React.useState<ApiDashboardReview[]>([])
+  const [aiSummary, setAiSummary] = React.useState<ApiBusinessReviewAiSummary | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [loadError, setLoadError] = React.useState<string | undefined>()
   const [unrepliedCount, setUnrepliedCount] = React.useState(0)
@@ -230,10 +236,12 @@ export default function DashboardReviewsPage() {
     Promise.all([
       fetchDashboardReviews(businessId, { reply_status: "UNREPLIED", limit: 1 }),
       fetchReviewReportsSummary(businessId),
-    ]).then(([unreplied, reports]) => {
+      fetchBusinessReviewAiSummary(businessId),
+    ]).then(([unreplied, reports, ai]) => {
       if (cancelled) return
       setUnrepliedCount(unreplied.pagination.total)
       setReportedCount(reports.pending)
+      if (ai) setAiSummary(ai)
     })
 
     return () => {
@@ -451,6 +459,14 @@ export default function DashboardReviewsPage() {
           onClick={() => setTab("reported")}
         />
       </div>
+
+      {/* Ringkasan AI KataMereka (didukung MAIA Router) */}
+      <AiReviewSummaryCard
+        summary={aiSummary}
+        businessId={businessId}
+        canRefresh={true}
+        onSummaryUpdated={setAiSummary}
+      />
 
       <Tabs value={tab} onValueChange={(value) => typeof value === "string" && setTab(value)}>
         <TabsList variant="line">

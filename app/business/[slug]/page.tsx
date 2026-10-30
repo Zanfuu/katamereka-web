@@ -3,6 +3,7 @@ import {
   getBusinessForSsr,
   getBusinessReviewsForSsr,
   getBusinessReviewSummaryForSsr,
+  getBusinessReviewAiSummaryForSsr,
 } from "@/lib/business-ssr";
 import BusinessProfileClient from "./business-profile-client";
 
@@ -27,9 +28,10 @@ export default async function BusinessProfilePage({
   const business = await getBusinessForSsr(slug);
   if (!business) notFound();
 
-  const [reviews, reviewSummary] = await Promise.all([
+  const [reviews, reviewSummary, aiReviewSummary] = await Promise.all([
     getBusinessReviewsForSsr(business.id),
     getBusinessReviewSummaryForSsr(business.id),
+    getBusinessReviewAiSummaryForSsr(business.id),
   ]);
 
   // The client component is still hydrated for interactivity, but it starts
@@ -40,6 +42,7 @@ export default async function BusinessProfilePage({
       initialDetail={business}
       initialReviews={reviews}
       initialReviewSummary={reviewSummary}
+      initialAiReviewSummary={aiReviewSummary}
     />
   );
 }
