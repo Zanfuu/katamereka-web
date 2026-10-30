@@ -27,7 +27,7 @@ export default async function Page() {
     fetchCategoryFacets(),
     fetchCityFacets(),
     fetchBusinesses({ limit: 50, sort: "popular" }),
-    fetchLatestReviews({ limit: 3 }),
+    fetchLatestReviews({ limit: 3, unique_user: true }),
   ]);
 
   let allBusinesses =

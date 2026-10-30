@@ -719,12 +719,13 @@ export interface ApiLatestReviewsResponse {
  * instead of an empty one.
  */
 export async function fetchLatestReviews(
-  params: { limit?: number; page?: number; rating?: number } = {}
+  params: { limit?: number; page?: number; rating?: number; unique_user?: boolean } = {}
 ): Promise<ApiLatestReviewsResponse | null> {
   const query = new URLSearchParams();
   if (params.limit) query.set("limit", String(params.limit));
   if (params.page) query.set("page", String(params.page));
   if (params.rating) query.set("rating", String(params.rating));
+  if (params.unique_user !== undefined) query.set("unique_user", String(params.unique_user));
 
   try {
     const res = await fetch(
