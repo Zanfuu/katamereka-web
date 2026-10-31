@@ -216,13 +216,12 @@ function Header() {
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        <Link href="/bisnis" className="group flex items-center gap-2.5 shrink-0">
-          <span className="w-9 h-9 rounded-xl overflow-hidden bg-[#008767] shrink-0 transition-transform duration-300 group-hover:rotate-6 group-hover:scale-105">
-            <img src="/logo.png" alt="Katamereka" className="w-full h-full object-cover" />
-          </span>
-          <span className="font-heading text-xl font-bold text-slate-900 tracking-tight leading-none">
-            Kata<span className="text-[#008767]">mereka</span>
-          </span>
+        <Link href="/bisnis" className="group flex items-center gap-2 shrink-0">
+          <img
+            src="/logo.png"
+            alt="KataMereka.id"
+            className="h-8 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+          />
           <span className="hidden sm:inline text-[10px] font-extrabold bg-[#008767] text-white px-2.5 py-1 rounded-full uppercase tracking-wider">
             Untuk Bisnis
           </span>

@@ -257,8 +257,8 @@ function ReviewSuccessContent() {
 
       {/* FOOTER */}
       <footer className="w-full pt-8 pb-6 text-center relative z-10">
-        <div className="w-7 h-7 rounded-full overflow-hidden mx-auto mb-2 opacity-90 shadow-2xs bg-[#008767]">
-          <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
+        <div className="w-7 h-7 flex items-center justify-center mx-auto mb-2 opacity-90">
+          <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-contain" />
         </div>
         <p className="text-[11px] sm:text-xs text-slate-400 max-w-sm mx-auto leading-relaxed px-4">
           © 2026 Katamereka. Terima kasih telah mendukung ekosistem review jujur Indonesia.
