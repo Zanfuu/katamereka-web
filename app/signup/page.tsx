@@ -156,7 +156,7 @@ function SignupFormContent() {
     if (res.success) {
       setIsLoading(false);
       setSuccess(true);
-      const destination = role === "bisnis" ? "/bisnis" : "/";
+      const destination = role === "bisnis" ? "/bisnis/mulai" : "/";
       setTimeout(() => {
         window.location.href = destination;
       }, 900);
@@ -430,7 +430,7 @@ function SignupFormContent() {
                   shape="rounded-full"
                   onSuccess={(loggedUser) => {
                     setSuccess(true);
-                    const destination = role === "bisnis" || loggedUser?.role === "bisnis" ? "/bisnis" : "/";
+                    const destination = role === "bisnis" || loggedUser?.role === "bisnis" ? "/bisnis/mulai" : "/";
                     setTimeout(() => {
                       window.location.href = destination;
                     }, 600);
