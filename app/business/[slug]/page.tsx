@@ -5,6 +5,10 @@ import {
   getBusinessReviewSummaryForSsr,
   getBusinessReviewAiSummaryForSsr,
 } from "@/lib/business-ssr";
+import { CONSUMER_SITE_URL } from "@/lib/site-config";
+import { buildBusinessSchema } from "@/lib/business-seo";
+import { JsonLd } from "@/lib/json-ld";
+import { buildBreadcrumbSchema } from "@/lib/schema-org";
 import BusinessProfileClient from "./business-profile-client";
 
 // ISR: served from cache, regenerated in the background at most every 5 min.
@@ -17,6 +21,10 @@ export const revalidate = 300;
 // each slug is rendered on first hit and cached from then on.
 export async function generateStaticParams() {
   return [];
+}
+
+function cleanCategory(raw: string): string {
+  return raw.replace(/^(service|building)\./, "").replace(/_/g, " ").trim();
 }
 
 export default async function BusinessProfilePage({
@@ -34,15 +42,32 @@ export default async function BusinessProfilePage({
     getBusinessReviewAiSummaryForSsr(business.id),
   ]);
 
-  // The client component is still hydrated for interactivity, but it starts
-  // from this data, so the raw HTML already holds name, rating, address,
-  // category and reviews (no "Memuat profil bisnis..." spinner in the source).
+  const categoryLabel = cleanCategory(business.category || "") || "Bisnis";
+  const categoryUrl = `${CONSUMER_SITE_URL}/businesses?category=${encodeURIComponent(categoryLabel)}`;
+  const businessUrl = `${CONSUMER_SITE_URL}/business/${business.slug}`;
+
+  // Renders LocalBusiness/Restaurant/Hotel/... (+ AggregateRating) and
+  // BreadcrumbList JSON-LD directly from this leaf page so only the canonical
+  // business profile holds the aggregate rating (avoiding duplicate schema
+  // on sub-routes like /reviews).
   return (
-    <BusinessProfileClient
-      initialDetail={business}
-      initialReviews={reviews}
-      initialReviewSummary={reviewSummary}
-      initialAiReviewSummary={aiReviewSummary}
-    />
+    <>
+      <JsonLd
+        data={[
+          buildBusinessSchema(business, businessUrl, reviews),
+          buildBreadcrumbSchema([
+            { name: "Home", url: `${CONSUMER_SITE_URL}/` },
+            { name: categoryLabel, url: categoryUrl },
+            { name: business.name, url: businessUrl },
+          ]),
+        ]}
+      />
+      <BusinessProfileClient
+        initialDetail={business}
+        initialReviews={reviews}
+        initialReviewSummary={reviewSummary}
+        initialAiReviewSummary={aiReviewSummary}
+      />
+    </>
   );
 }

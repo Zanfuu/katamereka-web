@@ -1,27 +1,19 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { resolveMediaUrl } from "@/lib/api-client";
-import { getBusinessForSsr, getBusinessReviewsForSsr } from "@/lib/business-ssr";
+import { getBusinessForSsr } from "@/lib/business-ssr";
 import { CONSUMER_SITE_URL } from "@/lib/site-config";
 import {
   buildBusinessDescription,
-  buildBusinessSchema,
   buildBusinessTitle,
 } from "@/lib/business-seo";
-import { JsonLd } from "@/lib/json-ld";
-import { buildBreadcrumbSchema } from "@/lib/schema-org";
 import { buildPageMetadata } from "@/lib/seo-metadata";
 
 interface LayoutProps {
-  params: Promise<{ slug: string }>;
   children: React.ReactNode;
 }
 
-function cleanCategory(raw: string): string {
-  return raw.replace(/^(service|building)\./, "").replace(/_/g, " ").trim();
-}
-
-// generateMetadata() and the layout body share getBusinessForSsr() (React
+// generateMetadata() and the page share getBusinessForSsr() (React
 // cache() + Next data cache), so one request = one upstream fetch.
 export async function generateMetadata({
   params,
@@ -40,32 +32,11 @@ export async function generateMetadata({
   });
 }
 
-// Renders LocalBusiness/Restaurant/Hotel/... (+ AggregateRating + Review[]) and
-// BreadcrumbList JSON-LD from the server, so the markup is in the initial HTML
-// regardless of whether the crawler runs the page's client JavaScript.
-export default async function BusinessSlugLayout({ params, children }: LayoutProps) {
-  const { slug } = await params;
-  const b = await getBusinessForSsr(slug);
-  if (!b) notFound();
-  const reviews = await getBusinessReviewsForSsr(b.id);
-
-  const categoryLabel = cleanCategory(b.category || "") || "Bisnis";
-  const categoryUrl = `${CONSUMER_SITE_URL}/businesses?category=${encodeURIComponent(categoryLabel)}`;
-  const businessUrl = `${CONSUMER_SITE_URL}/business/${b.slug}`;
-
-  return (
-    <>
-      <JsonLd
-        data={[
-          buildBusinessSchema(b, businessUrl, reviews),
-          buildBreadcrumbSchema([
-            { name: "Home", url: `${CONSUMER_SITE_URL}/` },
-            { name: categoryLabel, url: categoryUrl },
-            { name: b.name, url: businessUrl },
-          ]),
-        ]}
-      />
-      {children}
-    </>
-  );
+// NOTE: Structured data (<JsonLd>) is intentionally rendered in app/business/[slug]/page.tsx
+// rather than here. Placing schema.org LocalBusiness + AggregateRating in layout.tsx causes
+// child routes (e.g. /business/[slug]/reviews) to inherit the markup. Since /reviews has its
+// canonical pointing back to /business/[slug], Google Search Console detects duplicate aggregate
+// ratings under the same canonical URL ("Review has multiple aggregate ratings").
+export default function BusinessSlugLayout({ children }: LayoutProps) {
+  return children;
 }
