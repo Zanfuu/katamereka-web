@@ -68,6 +68,7 @@ function mapMyBusinessToDomain(item: MyBusinessItem): Business {
     verifiedReviews: reviewsVal,
     responseRate: 100,
     verificationStatus: (item.verificationStatus as any) || (item.is_claimed ? "VERIFIED" : "PENDING"),
+    verificationDeadline: item.verificationDeadline ?? null,
     status: (item.status as any) || "ACTIVE",
     facilities: item.facilities,
     latitude: item.latitude ?? undefined,

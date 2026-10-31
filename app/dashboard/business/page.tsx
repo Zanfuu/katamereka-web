@@ -6,7 +6,7 @@ import { toast } from "sonner"
 import { MyClaimsSection } from "@/components/my-claims-section"
 import {
   fetchMyBusinessClaims,
-  createBusinessClaim,
+  submitBusinessVerification,
   type ApiMyBusinessClaim,
   type VerificationMethod,
 } from "@/lib/api-client"
@@ -412,6 +412,8 @@ function formatSocialToFullUrl(platform: string, usernameOrUrl: string | undefin
  * TAB 1: INFORMASI (RINGKASAN LENGKAP SEMUA PENGATURAN)
  * ================================================== */
 function InformasiTab({ business }: { business: Business }) {
+  const { refetch } = useBusinessContext()
+  const [nowMs] = React.useState(() => Date.now())
   // Dynamic claim state
   const [claim, setClaim] = React.useState<ApiMyBusinessClaim | null>(null)
   const [loadingClaim, setLoadingClaim] = React.useState(true)
@@ -445,31 +447,43 @@ function InformasiTab({ business }: { business: Business }) {
   async function handleConfirmReclaim() {
     const targetBusinessId = claim?.business?.id || business.id
     if (!targetBusinessId) return
+    if (!reclaimProofUrl.trim()) {
+      toast.error("Link bukti kepemilikan wajib diisi.")
+      return
+    }
     setReclaimSubmitting(true)
     try {
-      const res = await createBusinessClaim(targetBusinessId, {
+      const res = await submitBusinessVerification(targetBusinessId, {
         verification_method: reclaimMethod,
-        proof_url: reclaimProofUrl.trim() || undefined,
+        proof_url: reclaimProofUrl.trim(),
         message: reclaimMessage.trim() || undefined,
       })
       if (res.success) {
-        toast.success(res.message || "Pengajuan klaim berhasil dikirim ulang, menunggu review admin.")
+        toast.success(res.message || "Bukti verifikasi terkirim, menunggu review admin.")
         setReclaimOpen(false)
         setClaim((prev) => (prev ? { ...prev, status: "PENDING" } : null))
-        loadClaims()
+        await Promise.all([loadClaims(), refetch()])
       } else {
-        toast.error(res.message || "Gagal mengajukan ulang klaim")
+        toast.error(res.message || "Gagal mengirim bukti verifikasi")
       }
     } catch {
-      toast.error("Terjadi kesalahan saat mengajukan ulang klaim")
+      toast.error("Terjadi kesalahan saat mengirim bukti verifikasi")
     } finally {
       setReclaimSubmitting(false)
     }
   }
 
   const isVerified = business.verificationStatus === "VERIFIED" || claim?.status === "APPROVED"
-  const isPending = !isVerified && claim?.status === "PENDING"
-  const isRejected = !isVerified && claim?.status === "REJECTED"
+  const isPending =
+    !isVerified && (business.verificationStatus === "PENDING" || claim?.status === "PENDING")
+  const isRejected =
+    !isVerified && !isPending && (business.verificationStatus === "REJECTED" || claim?.status === "REJECTED")
+  // Bisnis sudah tayang tapi belum kirim bukti: tampilkan hitung mundur 30 hari.
+  const isUnverified =
+    !isVerified && !isPending && !isRejected && business.verificationStatus === "UNVERIFIED"
+  const daysLeft = business.verificationDeadline
+    ? Math.ceil((new Date(business.verificationDeadline).getTime() - nowMs) / 86_400_000)
+    : null
 
   const initials = business.name
     .split(" ")
@@ -740,7 +754,36 @@ function InformasiTab({ business }: { business: Business }) {
                     onClick={() => setReclaimOpen(true)}
                     className="w-full bg-[#008767] hover:bg-[#007055] text-white text-xs cursor-pointer"
                   >
-                    Ajukan Ulang Klaim
+                    Kirim Ulang Bukti
+                  </Button>
+                </div>
+              ) : isUnverified ? (
+                <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ClockIcon className="size-4 text-amber-600 shrink-0" />
+                      <p className="text-xs font-bold text-amber-900">Belum Terverifikasi</p>
+                    </div>
+                    <Badge className="bg-amber-500 text-white text-[10px]">
+                      {daysLeft === null
+                        ? "30 hari"
+                        : daysLeft >= 0
+                          ? `${daysLeft} hari lagi`
+                          : "Lewat tenggat"}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Bisnis Anda sudah tampil di Katamereka dengan label &quot;Belum terverifikasi&quot;.
+                    {daysLeft !== null && daysLeft < 0
+                      ? " Tenggat 30 hari sudah lewat \u2014 segera kirim bukti kepemilikan."
+                      : " Kirim bukti kepemilikan sebelum tenggat agar bisnis Anda diverifikasi tim Katamereka."}
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => setReclaimOpen(true)}
+                    className="w-full bg-[#008767] hover:bg-[#007055] text-white text-xs cursor-pointer"
+                  >
+                    Lengkapi Verifikasi
                   </Button>
                 </div>
               ) : (
@@ -891,9 +934,9 @@ function InformasiTab({ business }: { business: Business }) {
       <Dialog open={reclaimOpen} onOpenChange={setReclaimOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold">Ajukan Ulang Klaim Bisnis</DialogTitle>
+            <DialogTitle className="text-base font-bold">Kirim Bukti Verifikasi Bisnis</DialogTitle>
             <CardDescription className="text-xs">
-              Perbarui berkas atau bukti kepemilikan untuk ditinjau kembali oleh tim verifikasi admin.
+              Lampirkan bukti kepemilikan agar ditinjau oleh tim verifikasi Katamereka.
             </CardDescription>
           </DialogHeader>
 
@@ -917,7 +960,7 @@ function InformasiTab({ business }: { business: Business }) {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">Link Bukti Kepemilikan (Proof URL)</Label>
+              <Label className="text-xs">Link Bukti Kepemilikan *</Label>
               <Input
                 placeholder="https://drive.google.com/... atau tautan berkas resmi"
                 value={reclaimProofUrl}
@@ -953,7 +996,7 @@ function InformasiTab({ business }: { business: Business }) {
               disabled={reclaimSubmitting}
               className="bg-[#008767] hover:bg-[#007458] text-white cursor-pointer"
             >
-              {reclaimSubmitting ? "Mengirim..." : "Kirim Pengajuan Ulang"}
+              {reclaimSubmitting ? "Mengirim..." : "Kirim Bukti"}
             </Button>
           </DialogFooter>
         </DialogContent>
