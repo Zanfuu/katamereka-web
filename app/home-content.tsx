@@ -855,13 +855,12 @@ export default function LandingPage({ initialCategoryFacets, initialCityFacets, 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-12">
             {/* Column 1: Brand Info */}
             <div className="lg:col-span-5 space-y-3.5">
-              <Link href="/" className="flex items-center gap-2.5 group">
-                <div className="w-9 h-9 rounded-full overflow-hidden shadow-xs group-hover:scale-105 transition-transform shrink-0 bg-[#008767]">
-                  <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
-                </div>
-                <span className="font-heading text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                  Kata<span className="text-[#008767]">mereka</span>
-                </span>
+              <Link href="/" className="inline-block group">
+                <img
+                  src="/logo.png"
+                  alt="KataMereka.id"
+                  className="h-8 sm:h-9 w-auto object-contain group-hover:scale-105 transition-transform"
+                />
               </Link>
               <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-sm">
                 Platform ulasan dan rekomendasi bisnis dari orang-orang seperti kamu. Temukan ulasan terpercaya dan layanan yang tepat.

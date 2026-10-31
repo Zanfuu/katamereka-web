@@ -213,13 +213,12 @@ function SignupFormContent() {
 
           {/* Top Logo */}
           <div className="flex items-center gap-2.5">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-9 h-9 rounded-full bg-[#008767] flex items-center justify-center text-white shadow-md shadow-[#008767]/30 group-hover:scale-105 transition-transform overflow-hidden">
-                <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
-              </div>
-              <span className="text-xl font-extrabold text-[#008767] tracking-tight">
-                Katamereka
-              </span>
+            <Link href="/" className="inline-block group">
+              <img
+                src="/logo.png"
+                alt="KataMereka.id"
+                className="h-8 w-auto object-contain group-hover:scale-105 transition-transform"
+              />
             </Link>
           </div>
 
@@ -251,13 +250,12 @@ function SignupFormContent() {
 
             {/* Top Brand Logo & Step Back Button */}
             <div className="flex items-center justify-between">
-              <Link href="/" className="flex items-center gap-2.5 group md:hidden">
-                <div className="w-9 h-9 rounded-full bg-[#008767] flex items-center justify-center text-white shadow-md shadow-[#008767]/30 group-hover:scale-105 transition-transform overflow-hidden">
-                  <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
-                </div>
-                <span className="text-xl font-extrabold text-[#008767] tracking-tight">
-                  Katamereka
-                </span>
+              <Link href="/" className="inline-block group md:hidden">
+                <img
+                  src="/logo.png"
+                  alt="KataMereka.id"
+                  className="h-7 w-auto object-contain group-hover:scale-105 transition-transform"
+                />
               </Link>
 
               {/* Back button when in Step 2 OTP */}
