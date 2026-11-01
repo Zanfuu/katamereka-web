@@ -1640,13 +1640,15 @@ export default function BusinessProfilePage({
               <div className="bg-slate-50 border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-2">
                 <div className="flex items-center gap-2 text-slate-800 font-bold text-sm">
                   <ShieldCheck className="w-5 h-5 text-[#008767]" />
-                  <span>Bisnis Terverifikasi</span>
+                  <span>{apiDetail?.is_verified === false ? "Belum Terverifikasi" : "Bisnis Terverifikasi"}</span>
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  {apiDetail?.owner_name
-                    ? `Bisnis ini sudah diklaim dan diverifikasi oleh ${apiDetail.owner_name}`
-                    : "Bisnis ini sudah diklaim dan dikelola oleh pemilik terverifikasi"}
-                  {claimedSinceLabel ? ` sejak ${claimedSinceLabel}.` : "."}
+                  {apiDetail?.is_verified === false
+                    ? "Bisnis ini sudah didaftarkan pemiliknya dan sedang menunggu verifikasi dari tim Katamereka."
+                    : apiDetail?.owner_name
+                      ? `Bisnis ini sudah diklaim dan diverifikasi oleh ${apiDetail.owner_name}`
+                      : "Bisnis ini sudah diklaim dan dikelola oleh pemilik terverifikasi"}
+                  {apiDetail?.is_verified === false ? "" : claimedSinceLabel ? ` sejak ${claimedSinceLabel}.` : "."}
                 </p>
               </div>
             ) : !mounted || !isLoggedIn ? (

@@ -127,21 +127,27 @@ function LoginFormContent() {
       <div className="w-full max-w-md relative z-10 space-y-6">
         {/* Top Brand Link */}
         <div className="text-center">
-          <Link href="/" className="inline-flex items-center gap-2.5 group">
-            <div
-              className="w-11 h-11 rounded-full overflow-hidden shadow-lg group-hover:scale-105 transition-transform flex-shrink-0 flex items-center justify-center"
-              style={{ backgroundColor: accent, boxShadow: `0 10px 25px -5px ${accent}40` }}
-            >
-              {isBisnis ? (
+          <Link href="/" className="inline-flex items-center gap-2 group">
+            {isBisnis ? (
+              <div
+                className="w-11 h-11 rounded-full overflow-hidden shadow-lg group-hover:scale-105 transition-transform flex-shrink-0 flex items-center justify-center"
+                style={{ backgroundColor: accent, boxShadow: `0 10px 25px -5px ${accent}40` }}
+              >
                 <Building2 className="w-5 h-5 text-white" />
-              ) : (
-                <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
-              )}
-            </div>
-            <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
-              Kata<span style={{ color: accent }}>mereka</span>
-              {isBisnis && <span className="ml-1.5 align-middle text-xs font-bold uppercase tracking-wider text-[#008767] bg-[#e8f6f2] rounded-full px-2 py-1">Business</span>}
-            </span>
+              </div>
+            ) : (
+              <img
+                src="/logo.png"
+                alt="KataMereka.id"
+                className="h-10 w-auto object-contain group-hover:scale-105 transition-transform"
+              />
+            )}
+            {isBisnis && (
+              <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                Kata<span style={{ color: accent }}>mereka</span>
+                <span className="ml-1.5 align-middle text-xs font-bold uppercase tracking-wider text-[#008767] bg-[#e8f6f2] rounded-full px-2 py-1">Business</span>
+              </span>
+            )}
           </Link>
         </div>
 

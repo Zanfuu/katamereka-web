@@ -141,20 +141,17 @@ export default function Navbar({ isBusinessPage: forceBusinessView, floating }: 
       >
         
         {/* Logo */}
-        <Link href={isBusinessView ? "/bisnis" : "/"} className="flex items-center gap-2.5 group flex-shrink-0">
-          <div className="w-10 h-10 rounded-full overflow-hidden shadow-md shadow-[#008767]/20 group-hover:scale-105 transition-transform flex-shrink-0 bg-[#008767]">
-            <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
-          </div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
-            <span className="font-heading text-2xl font-bold text-slate-900 tracking-tight leading-none">
-              Kata<span className="text-[#008767]">mereka</span>
+        <Link href={isBusinessView ? "/bisnis" : "/"} className="flex items-center gap-2 group flex-shrink-0">
+          <img
+            src="/logo.png"
+            alt="KataMereka.id"
+            className="h-8 sm:h-9 w-auto object-contain group-hover:scale-105 transition-transform"
+          />
+          {isBusinessView && (
+            <span className="text-[11px] font-extrabold bg-[#008767] text-white px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-2xs">
+              Untuk Bisnis
             </span>
-            {isBusinessView && (
-              <span className="text-[11px] font-extrabold bg-[#008767] text-white px-2.5 py-0.5 rounded-full uppercase tracking-wider self-start sm:self-auto shadow-2xs">
-                Untuk Bisnis
-              </span>
-            )}
-          </div>
+          )}
         </Link>
 
         {/* Desktop Navigation Links */}
@@ -515,12 +512,11 @@ export default function Navbar({ isBusinessPage: forceBusinessView, floating }: 
                 <div className="w-12 h-1.5 bg-slate-200 rounded-full mb-3" />
                 <div className="w-full flex items-center justify-between pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-[#008767]">
-                      <img src="/logo.png" alt="Katamereka Logo" className="w-full h-full object-cover" />
-                    </div>
-                    <span className="text-lg font-bold text-slate-900">
-                      Kata<span className="text-[#008767]">mereka</span>
-                    </span>
+                    <img
+                      src="/logo.png"
+                      alt="KataMereka.id"
+                      className="h-7 w-auto object-contain"
+                    />
                   </div>
                   <button
                     onClick={() => setMobileMenuOpen(false)}

@@ -63,6 +63,7 @@ export interface MyBusinessItem {
   totalReviews?: number
   status?: string
   verificationStatus?: string
+  verificationDeadline?: string | null
   sourceOfTruth?: string
   social_media?: Record<string, string>
   facilities?: string[] | Record<string, any>

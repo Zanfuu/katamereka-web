@@ -192,6 +192,9 @@ export interface ApiBusinessDetail {
   isClaimed?: boolean;
   is_claimed?: boolean;
   claim_available?: boolean;
+  /** false = sudah diklaim/dibuat owner tapi belum disetujui super admin. */
+  is_verified?: boolean;
+  verification_status?: "UNVERIFIED" | "PENDING" | "VERIFIED" | "REJECTED" | null;
   /** When the OWNER membership was created, i.e. when the claim was approved. */
   claimed_at?: string | null;
   /** Display name of the verified owner (never email/id; the endpoint is public). */
@@ -1093,7 +1096,7 @@ function authHeaders(): HeadersInit {
   };
 }
 
-export type BusinessClaimStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+export type BusinessClaimStatus = "UNSUBMITTED" | "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 export type VerificationMethod = "DOCUMENT" | "WEBSITE" | "EMAIL" | "PHONE" | "OTHER";
 
 export interface CreateBusinessClaimPayload {
@@ -1110,6 +1113,8 @@ export interface ApiCreateClaimResponse {
     id: string;
     business_id: string;
     status: BusinessClaimStatus;
+    verification_status?: string;
+    verification_deadline?: string | null;
     created_at: string;
   };
 }
@@ -1122,7 +1127,13 @@ export interface ApiClaimStatusResponse {
 
 export interface ApiMyBusinessClaim {
   id: string;
-  business: { id: string; name: string; slug: string } | null;
+  business: {
+    id: string;
+    name: string;
+    slug: string;
+    verification_status?: "UNVERIFIED" | "PENDING" | "VERIFIED" | "REJECTED" | null;
+    verification_deadline?: string | null;
+  } | null;
   status: BusinessClaimStatus;
   verification_method: VerificationMethod | string | null;
   proof_url: string | null;
@@ -1179,6 +1190,79 @@ export async function createBusinessClaim(
     };
   }
   return data;
+}
+
+export interface SubmitBusinessVerificationPayload {
+  verification_method: VerificationMethod;
+  proof_url: string;
+  message?: string;
+}
+
+/**
+ * POST /businesses/:businessId/verification (requires auth, OWNER only).
+ * Owner melengkapi bukti kepemilikan dalam masa tenggat 30 hari; super admin
+ * lalu approve/reject lewat /admin/verifications.
+ */
+export async function submitBusinessVerification(
+  businessId: string,
+  payload: SubmitBusinessVerificationPayload
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/verification`,
+      { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = Array.isArray(data?.message) ? data.message.join(". ") : data?.message;
+      return { success: false, message: msg || "Gagal mengirim verifikasi bisnis" };
+    }
+    return { success: true, message: data?.message || "Bukti verifikasi terkirim" };
+  } catch {
+    return { success: false, message: "Tidak dapat terhubung ke server. Coba lagi." };
+  }
+}
+
+export interface CreateOwnBusinessPayload {
+  name: string;
+  category: string;
+  address: string;
+  city: string;
+  province?: string;
+  phone: string;
+  email?: string;
+  website?: string;
+  short_description?: string;
+}
+
+export interface ApiCreateOwnBusinessResponse {
+  success: boolean;
+  message: string;
+  data?: { id: string; slug: string; name: string; verification_deadline?: string | null };
+}
+
+/**
+ * POST /businesses (requires auth). Bisnis langsung tampil publik dengan
+ * status "belum terverifikasi"; pembuatnya otomatis OWNER.
+ */
+export async function createOwnBusiness(
+  payload: CreateOwnBusinessPayload
+): Promise<ApiCreateOwnBusinessResponse> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/businesses`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = Array.isArray(data?.message) ? data.message.join(". ") : data?.message;
+      return { success: false, message: msg || "Gagal membuat bisnis" };
+    }
+    return data;
+  } catch {
+    return { success: false, message: "Tidak dapat terhubung ke server. Coba lagi." };
+  }
 }
 
 /**

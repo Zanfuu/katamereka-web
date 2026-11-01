@@ -84,6 +84,8 @@ export interface Business {
   verifiedReviews: number
   responseRate: number
   verificationStatus: VerificationStatus
+  /** Batas waktu owner melengkapi verifikasi (30 hari sejak bisnis dibuat/diklaim). */
+  verificationDeadline?: string | null
   status: BusinessStatus
   createdAt: string
 }
