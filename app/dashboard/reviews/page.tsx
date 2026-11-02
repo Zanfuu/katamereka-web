@@ -460,7 +460,7 @@ export default function DashboardReviewsPage() {
         />
       </div>
 
-      {/* Ringkasan AI KataMereka (didukung MAIA Router) */}
+      {/* Ringkasan AI KataMereka */}
       <AiReviewSummaryCard
         summary={aiSummary}
         businessId={businessId}

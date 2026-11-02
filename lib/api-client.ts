@@ -782,14 +782,13 @@ export interface ApiBusinessReviewAiSummary {
 
 /**
  * GET /businesses/:businessId/ai-review-summary
- * Fetches AI-generated review summary and aspect sentiment breakdown powered by MAIA Router.
+ * Reads the cached AI review summary. Read-only — generation happens only via
+ * the weekly cron or the dashboard's manual regenerate action, never on fetch.
  */
 export async function fetchBusinessReviewAiSummary(
-  businessId: string,
-  refresh = false
+  businessId: string
 ): Promise<ApiBusinessReviewAiSummary | null> {
-  const query = refresh ? "?refresh=true" : "";
-  const url = `${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/ai-review-summary${query}`;
+  const url = `${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/ai-review-summary`;
 
   try {
     const res = await fetch(url, {
@@ -812,20 +811,19 @@ export async function fetchBusinessReviewAiSummary(
 }
 
 /**
- * POST /businesses/:businessId/ai-review-summary/regenerate
- * Manually trigger AI summary regeneration on MAIA Router.
+ * POST /businesses/:businessId/dashboard/ai-review-summary/regenerate
+ * Manually trigger AI summary regeneration via OpenRouter. Auth-protected: requires
+ * the caller to be an OWNER/ADMIN member of the business (BusinessRoleGuard).
  */
 export async function regenerateBusinessReviewAiSummary(
   businessId: string
 ): Promise<ApiBusinessReviewAiSummary | null> {
-  const url = `${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/ai-review-summary/regenerate`;
+  const url = `${API_BASE_URL}/businesses/${encodeURIComponent(businessId)}/dashboard/ai-review-summary/regenerate`;
 
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: authHeaders(),
     });
 
     if (res.ok) {

@@ -69,7 +69,7 @@ export function AiReviewSummaryCard({
             </div>
             <div>
               <h4 className="text-sm font-bold text-slate-800">
-                Analisis Ulasan AI (MAIA Router)
+                Analisis Ulasan AI
               </h4>
               <p className="text-xs text-slate-500">
                 Ringkasan ulasan dan analisis sentimen per layanan belum dibuat untuk bisnis ini.
@@ -153,7 +153,7 @@ export function AiReviewSummaryCard({
                 Ringkasan AI KataMereka
               </h4>
               <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-[#008767]">
-                Didukung MAIA Router
+                Didukung AI
               </span>
             </div>
             <p className="text-[11px] text-slate-500">

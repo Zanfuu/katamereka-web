@@ -1128,7 +1128,7 @@ export default function BusinessProfilePage({
                   </div>
                 )}
 
-                {/* Ringkasan AI KataMereka (didukung MAIA Router) */}
+                {/* Ringkasan AI KataMereka */}
                 {aiReviewSummary && aiReviewSummary.summary && (
                   <AiReviewSummaryCard
                     summary={aiReviewSummary}
